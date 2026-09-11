@@ -34,7 +34,7 @@ namespace ModernKey
                 Console.WriteLine(report);
                 try
                 {
-                    string outPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "test_results.txt");
+                    string outPath = System.IO.Path.Combine(SettingsManager.GetAppDirectory(), "test_results.txt");
                     System.IO.File.WriteAllText(outPath, report, Encoding.UTF8);
                 }
                 catch { }

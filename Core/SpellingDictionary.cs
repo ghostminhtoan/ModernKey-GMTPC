@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using ModernKey.Config;
 
 namespace ModernKey.Core
 {
@@ -29,6 +30,20 @@ namespace ModernKey.Core
             // Tải lười theo nhu cầu (On-demand Lazy Load) để tiết kiệm ~10MB RAM và I/O khi khởi động
         }
 
+        private void LoadFromReader(TextReader reader)
+        {
+            string firstLine = reader.ReadLine(); // Bỏ qua dòng số lượng từ (59547)
+            string line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                string trimmed = line.Trim();
+                if (trimmed.Length > 0)
+                {
+                    _words.Add(trimmed);
+                }
+            }
+        }
+
         public void LoadDictionary()
         {
             lock (_lock)
@@ -37,28 +52,47 @@ namespace ModernKey.Core
 
                 try
                 {
-                    string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-                    string dicPath = Path.Combine(baseDir, "Config", "vi_VN.dic");
+                    string dicPath = null;
+                    string configDir = SettingsManager.GetConfigDirectory();
+                    string appDir = SettingsManager.GetAppDirectory();
 
-                    if (!File.Exists(dicPath))
+                    string[] candidatePaths = new[]
                     {
-                        // Thử tìm tại thư mục làm việc hoặc thư mục gốc dự án
-                        string fallbackPath = Path.Combine(Directory.GetCurrentDirectory(), "Config", "vi_VN.dic");
-                        if (File.Exists(fallbackPath)) dicPath = fallbackPath;
+                        Path.Combine(configDir, "vi_VN.dic"),
+                        Path.Combine(configDir, "Config", "vi_VN.dic"),
+                        Path.Combine(appDir, "Config", "vi_VN.dic"),
+                        Path.Combine(appDir, "vi_VN.dic"),
+                        Path.Combine(Directory.GetCurrentDirectory(), "Config", "vi_VN.dic"),
+                        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "vi_VN.dic")
+                    };
+
+                    foreach (var path in candidatePaths)
+                    {
+                        if (File.Exists(path))
+                        {
+                            dicPath = path;
+                            break;
+                        }
                     }
 
-                    if (File.Exists(dicPath))
+                    if (dicPath != null && File.Exists(dicPath))
                     {
                         using (var reader = new StreamReader(dicPath, Encoding.UTF8))
                         {
-                            string firstLine = reader.ReadLine(); // Bỏ qua dòng số lượng từ (59547)
-                            string line;
-                            while ((line = reader.ReadLine()) != null)
+                            LoadFromReader(reader);
+                        }
+                    }
+                    else
+                    {
+                        // Đọc từ EmbeddedResource nếu chạy file standalone độc lập
+                        var asm = typeof(SpellingDictionary).Assembly;
+                        using (var stream = asm.GetManifestResourceStream("ModernKey.Config.vi_VN.dic"))
+                        {
+                            if (stream != null)
                             {
-                                string trimmed = line.Trim();
-                                if (trimmed.Length > 0)
+                                using (var reader = new StreamReader(stream, Encoding.UTF8))
                                 {
-                                    _words.Add(trimmed);
+                                    LoadFromReader(reader);
                                 }
                             }
                         }

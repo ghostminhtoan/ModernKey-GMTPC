@@ -15,24 +15,41 @@ namespace ModernKey.Config
         private const string AppName = "ModernKeyGMTPC";
         private const string RunRegistryKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
-        private static string GetAppDirectory()
+        public static string GetAppDirectory()
         {
-            return Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? AppDomain.CurrentDomain.BaseDirectory;
+            string processPath = Environment.ProcessPath;
+            if (!string.IsNullOrEmpty(processPath))
+            {
+                string dir = Path.GetDirectoryName(processPath);
+                if (!string.IsNullOrEmpty(dir)) return dir;
+            }
+            return AppContext.BaseDirectory;
         }
 
         public static bool IsPortableMode()
         {
             string portableMarker = Path.Combine(GetAppDirectory(), ".portable");
-            return File.Exists(portableMarker) || Directory.Exists(portableMarker);
+            return Directory.Exists(portableMarker) || File.Exists(portableMarker);
         }
 
         public static string GetConfigDirectory()
         {
-            if (IsPortableMode())
+            string appDir = GetAppDirectory();
+            string portableFolder = Path.Combine(appDir, ".portable");
+
+            // 1. Chế độ Portable lưu trong folder .portable (ưu tiên cao nhất)
+            if (Directory.Exists(portableFolder))
             {
-                return GetAppDirectory();
+                return portableFolder;
             }
 
+            // 2. Chế độ Portable lưu ngang cấp với exe nếu có file marker .portable
+            if (File.Exists(portableFolder))
+            {
+                return appDir;
+            }
+
+            // 3. Chế độ thông thường (AppData\Roaming\ModernKeyGMTPC)
             string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             string folder = Path.Combine(appData, AppName);
             if (!Directory.Exists(folder))
@@ -49,28 +66,28 @@ namespace ModernKey.Config
 
         public static string GetMacroFilePath()
         {
-            string appDir = GetAppDirectory();
+            string configDir = GetConfigDirectory();
 
-            // 1. Ưu tiên openkeymacro wpf.txt cạnh exe nếu tồn tại
+            // 1. Ưu tiên trong configDir (thư mục .portable hoặc AppData)
+            string pConfigWpf = Path.Combine(configDir, "openkeymacro wpf.txt");
+            if (File.Exists(pConfigWpf)) return pConfigWpf;
+
+            string pConfig = Path.Combine(configDir, "openkeymacro.txt");
+            if (File.Exists(pConfig)) return pConfig;
+
+            // 2. Tìm trong thư mục ứng dụng (cạnh exe)
+            string appDir = GetAppDirectory();
             string pWpf = Path.Combine(appDir, "openkeymacro wpf.txt");
             if (File.Exists(pWpf)) return pWpf;
 
-            // 2. Ưu tiên openkeymacro.txt cạnh exe nếu tồn tại
             string pOpenKey = Path.Combine(appDir, "openkeymacro.txt");
             if (File.Exists(pOpenKey)) return pOpenKey;
 
-            // 3. Trong thư mục Config (AppData)
-            string pConfigWpf = Path.Combine(GetConfigDirectory(), "openkeymacro wpf.txt");
-            if (File.Exists(pConfigWpf)) return pConfigWpf;
-
-            string pConfig = Path.Combine(GetConfigDirectory(), "openkeymacro.txt");
-            if (File.Exists(pConfig)) return pConfig;
-
-            string pLegacy = Path.Combine(GetConfigDirectory(), "macro.txt");
+            string pLegacy = Path.Combine(configDir, "macro.txt");
             if (File.Exists(pLegacy)) return pLegacy;
 
-            // Mặc định lưu vào openkeymacro wpf.txt cạnh exe
-            return pWpf;
+            // Mặc định lưu vào openkeymacro wpf.txt bên trong configDir (trong .portable nếu ở chế độ portable)
+            return pConfigWpf;
         }
 
         public static AppSettings LoadSettings()
@@ -384,7 +401,7 @@ namespace ModernKey.Config
 
         public static void ApplyStartupConfig(bool enable, bool asAdmin)
         {
-            string exePath = Assembly.GetExecutingAssembly().Location;
+            string exePath = Environment.ProcessPath ?? Path.Combine(GetAppDirectory(), "ModernKey.exe");
             try
             {
                 if (enable)

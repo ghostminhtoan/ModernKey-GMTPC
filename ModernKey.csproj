@@ -2,20 +2,25 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net472</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
-    <LangVersion>7.3</LangVersion>
+    <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>ModernKey</AssemblyName>
     <RootNamespace>ModernKey</RootNamespace>
     <ApplicationIcon>Resources\AppIcon.ico</ApplicationIcon>
     <StartupObject>ModernKey.App</StartupObject>
     <Deterministic>true</Deterministic>
+    <!-- Cấu hình Standalone Single-File hiện đại -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile Condition="'$(SelfContained)' == 'true'">true</EnableCompressionInSingleFile>
   </PropertyGroup>
 
   <ItemGroup>
     <Resource Include="Resources\AppIcon.ico" />
     <Resource Include="Resources\StatusViet.ico" />
     <Resource Include="Resources\StatusEng.ico" />
+    <EmbeddedResource Include="Config\vi_VN.dic" />
     <None Update="Resources\AppIcon.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -29,10 +34,4 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="System.Drawing" />
-    <Reference Include="System.Windows.Forms" />
-  </ItemGroup>
-
 </Project>

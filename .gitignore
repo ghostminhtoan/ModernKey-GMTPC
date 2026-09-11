@@ -1,6 +1,7 @@
 ## Visual Studio & .NET Build Artifacts
 bin/
 obj/
+publish/
 .vs/
 *.user
 *.suo
