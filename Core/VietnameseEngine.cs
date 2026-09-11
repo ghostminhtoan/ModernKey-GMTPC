@@ -65,6 +65,49 @@ namespace ModernKey.Core
             return _codeKeywords.Contains(text);
         }
 
+        private static bool HasMainVowel(string word)
+        {
+            if (string.IsNullOrEmpty(word)) return false;
+            if (word.Length == 2 && (word.Equals("gi", StringComparison.OrdinalIgnoreCase) || word.Equals("qu", StringComparison.OrdinalIgnoreCase)))
+                return false;
+            return HasAnyVowel(word);
+        }
+
+        private bool IsTuBinhTranPunctuation(char ch)
+        {
+            if (ch != '[' && ch != ']' && ch != '{' && ch != '}' && ch != '(' && ch != '^' && ch != '&' && ch != '*')
+                return false;
+
+            if (_charBuffer.Count == 0)
+                return false;
+
+            string currentDisplay = GetDisplayWord(_charBuffer);
+            if (string.IsNullOrEmpty(currentDisplay))
+                return false;
+
+            char lastChar = currentDisplay[currentDisplay.Length - 1];
+            char lastLower = char.ToLower(lastChar);
+
+            // Nếu từ đã có nguyên âm chính và kết thúc bằng phụ âm (như "Tốt", "cân", "trên", "ôm", "uống")
+            if (HasMainVowel(currentDisplay) && IsConsonant(lastChar))
+            {
+                return true;
+            }
+
+            // Nếu từ đã có nguyên âm chính nhưng ký tự cuối không thể kết hợp với ký hiệu này để tạo nguyên âm đôi hợp lệ
+            if (HasMainVowel(currentDisplay))
+            {
+                if (ch == '^' && !(lastLower == 'a' || lastLower == 'u')) return true;
+                if (ch == '&' && !(lastLower == 'e' || lastLower == 'i' || lastLower == 'y')) return true;
+                if (ch == '*' && !(lastLower == 'o' || lastLower == 'u')) return true;
+                if (ch == '(' && !(lastLower == 'a' || lastLower == 'o' || lastLower == 'u')) return true;
+                if ((ch == '[' || ch == '{') && !(lastLower == 'u' || lastLower == 'ơ')) return true;
+                if ((ch == ']' || ch == '}') && !(lastLower == 'u' || lastLower == 'o' || lastLower == 'ư')) return true;
+            }
+
+            return false;
+        }
+
         public bool HandleEscUndo(out int backspaceCount, out string newString)
         {
             backspaceCount = 0;
@@ -197,6 +240,11 @@ namespace ModernKey.Core
             else if (_settings.CurrentInputMethod != InputMethod.TuBinhTran)
             {
                 if (ch == '[' || ch == ']' || ch == '{' || ch == '}' || ch == '(' || ch == '^' || ch == '&' || ch == '*')
+                    isPunctuation = true;
+            }
+            else
+            {
+                if (IsTuBinhTranPunctuation(ch))
                     isPunctuation = true;
             }
 
@@ -336,6 +384,18 @@ namespace ModernKey.Core
                         _inNumberSequence = true;
                         _charBuffer.Clear();
                         return false;
+                    }
+                    else if (_charBuffer.Count > 0 && (ch == '6' || ch == '7' || ch == '8' || ch == '9'))
+                    {
+                        // Nếu từ hiện tại đã có nguyên âm và kết thúc bằng phụ âm (như "Tốt", "cân", "trên", "ôm")
+                        // thì các phím 6, 7, 8, 9 không thể là nguyên âm hay dấu thanh, mà là người dùng gõ số sau từ!
+                        string currentDisplay = GetDisplayWord(_charBuffer);
+                        if (!string.IsNullOrEmpty(currentDisplay) && HasMainVowel(currentDisplay) && IsConsonant(currentDisplay[currentDisplay.Length - 1]))
+                        {
+                            _inNumberSequence = true;
+                            _charBuffer.Clear();
+                            return false;
+                        }
                     }
                 }
                 else if (_settings.CurrentInputMethod == InputMethod.Custom)
@@ -719,7 +779,9 @@ namespace ModernKey.Core
                 bool prevIsConsonant = sb.Length > 0 && IsConsonant(sb[sb.Length - 1]);
                 bool prevIsGi = sb.Length >= 2 && char.ToLower(sb[sb.Length - 1]) == 'i' && char.ToLower(sb[sb.Length - 2]) == 'g';
                 bool prevIsQu = sb.Length >= 2 && char.ToLower(sb[sb.Length - 1]) == 'u' && char.ToLower(sb[sb.Length - 2]) == 'q';
-                bool isConsonantContext = prevIsConsonant || prevIsGi || prevIsQu;
+                bool isInitialGi = prevIsGi && sb.Length == 2;
+                bool isInitialQu = prevIsQu && sb.Length == 2;
+                bool isConsonantContext = (!hasVowelSoFar && prevIsConsonant) || isInitialGi || isInitialQu;
 
                 // Chỉ tính là số thuần nếu phím trước là chữ số NHƯNG KHÔNG PHẢI phím dấu thanh (1..5)
                 bool prevWasToneKey = i > 0 && (keys[i - 1] >= '1' && keys[i - 1] <= '5');
