@@ -170,6 +170,7 @@
                             <CheckBox x:Name="ChkClipboard" Content="Gửi phím qua Clipboard (Hỗ trợ game &amp; đồ họa)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
                             <CheckBox x:Name="ChkSmartCodePassthrough" Content="Tạm dừng tiếng Việt khi gặp từ khóa lập trình / URL" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
                             <CheckBox x:Name="ChkEscKeyUndo" Content="Nhấn phím Esc để hoàn tác dấu về chuỗi gốc (Esc Undo)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                            <CheckBox x:Name="ChkAutoExclude" Content="Loại trừ ứng dụng thông minh" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Tự động chuyển [EN] khi vào ứng dụng loại trừ / game (Chuẩn OpenKey C++)" />
                             <CheckBox x:Name="ChkEnableStatusOsd" Content="Hiện huy hiệu OSD [VI]/[EN] tại vị trí con trỏ chuột" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
                         </WrapPanel>
 
@@ -209,25 +210,6 @@
                                 <Button Content="NHẬP JSON" Click="BtnImportProfileJson_Click" Padding="10,4" ToolTip="Nhập cấu hình từ file JSON" />
                             </StackPanel>
                         </WrapPanel>
-
-                        <Separator Background="{StaticResource CyberBorderDim}" Margin="0,4,0,14" />
-
-                        <TextBlock Text="[DANH SÁCH LOẠI TRỪ ỨNG DỤNG (EXCLUDE APPS)]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,8" />
-                        <CheckBox x:Name="ChkAutoExclude" Content="Tự động tắt gõ tiếng Việt (chuyển sang [EN]) khi mở ứng dụng trong danh sách" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" Margin="0,0,0,10" />
-
-                        <Grid Margin="0,0,0,8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="TxtNewExcludedApp" Grid.Column="0" Margin="0,0,8,0" VerticalAlignment="Center" ToolTip="Nhập tên tiến trình (VD: cs2.exe, valorant.exe, code.exe)" />
-                            <Button Grid.Column="1" Content="THÊM TIẾN TRÌNH" Click="BtnAddExcludedApp_Click" Padding="10,4" Margin="0,0,6,0" />
-                            <Button Grid.Column="2" Content="XÓA TIẾN TRÌNH" Click="BtnRemoveExcludedApp_Click" Background="#2B0914" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}" Padding="10,4" />
-                        </Grid>
-
-                        <ListBox x:Name="LstExcludedApps" Height="100" Background="{StaticResource CyberInput}" Foreground="{StaticResource CyberTextPrimary}"
-                                 BorderBrush="{StaticResource CyberBorderDim}" FontFamily="Consolas" FontSize="12" />
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

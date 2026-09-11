@@ -143,13 +143,6 @@ namespace ModernKey
                 if (ChkStartAsAdmin != null) ChkStartAsAdmin.IsChecked = _settings.StartAsAdmin;
                 if (ChkOpenDialogOnStartup != null) ChkOpenDialogOnStartup.IsChecked = _settings.OpenDialogOnStartup;
 
-                // Đồng bộ danh sách ExcludedApps
-                if (LstExcludedApps != null)
-                {
-                    LstExcludedApps.ItemsSource = null;
-                    LstExcludedApps.ItemsSource = _settings.ExcludedApps;
-                }
-
                 // Trạng thái từ điển chính tả vi_VN.dic
                 if (TxtDictionaryStatus != null)
                 {
@@ -693,42 +686,6 @@ namespace ModernKey
                     MessageBox.Show("Không thể đọc cấu hình từ file JSON đã chọn!", "Lỗi",
                                     MessageBoxButton.OK, MessageBoxImage.Error);
                 }
-            }
-        }
-
-        private void BtnAddExcludedApp_Click(object sender, RoutedEventArgs e)
-        {
-            string app = TxtNewExcludedApp?.Text?.Trim().ToLowerInvariant();
-            if (string.IsNullOrEmpty(app)) return;
-
-            if (!app.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-            {
-                app += ".exe";
-            }
-
-            if (_settings.ExcludedApps == null)
-            {
-                _settings.ExcludedApps = new List<string>();
-            }
-
-            if (!_settings.ExcludedApps.Contains(app))
-            {
-                _settings.ExcludedApps.Add(app);
-                SettingsManager.SaveSettings(_settings);
-                LstExcludedApps.ItemsSource = null;
-                LstExcludedApps.ItemsSource = _settings.ExcludedApps;
-                TxtNewExcludedApp.Text = "";
-            }
-        }
-
-        private void BtnRemoveExcludedApp_Click(object sender, RoutedEventArgs e)
-        {
-            if (LstExcludedApps?.SelectedItem is string selectedApp)
-            {
-                _settings.ExcludedApps?.Remove(selectedApp);
-                SettingsManager.SaveSettings(_settings);
-                LstExcludedApps.ItemsSource = null;
-                LstExcludedApps.ItemsSource = _settings.ExcludedApps;
             }
         }
 
