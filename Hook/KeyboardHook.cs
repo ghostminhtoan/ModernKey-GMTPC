@@ -179,6 +179,48 @@ namespace ModernKey.Hook
         }
 
         private IntPtr _lastForegroundWindow = IntPtr.Zero;
+        private bool _isCurrentAppExcluded = false;
+
+        private void CheckForegroundAppExcluded(IntPtr hWnd)
+        {
+            if (!_settings.AutoExcludeEnabled || _settings.ExcludedApps == null || _settings.ExcludedApps.Count == 0 || hWnd == IntPtr.Zero)
+            {
+                _isCurrentAppExcluded = false;
+                return;
+            }
+
+            try
+            {
+                GetWindowThreadProcessId(hWnd, out uint pid);
+                if (pid == 0)
+                {
+                    _isCurrentAppExcluded = false;
+                    return;
+                }
+
+                using (var proc = Process.GetProcessById((int)pid))
+                {
+                    string pName = proc.ProcessName.ToLowerInvariant();
+                    string pExe = pName + ".exe";
+
+                    foreach (var app in _settings.ExcludedApps)
+                    {
+                        if (string.IsNullOrWhiteSpace(app)) continue;
+                        string clean = app.Trim().ToLowerInvariant();
+                        if (clean == pName || clean == pExe)
+                        {
+                            _isCurrentAppExcluded = true;
+                            return;
+                        }
+                    }
+                }
+                _isCurrentAppExcluded = false;
+            }
+            catch
+            {
+                _isCurrentAppExcluded = false;
+            }
+        }
 
         private IntPtr KeyboardHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
@@ -198,6 +240,7 @@ namespace ModernKey.Hook
                 {
                     _lastForegroundWindow = currentForeground;
                     _engine.Reset();
+                    CheckForegroundAppExcluded(currentForeground);
                 }
 
                 int msg = wParam.ToInt32();
@@ -350,6 +393,12 @@ namespace ModernKey.Hook
                                         return (IntPtr)1;
 
                                     case 11: // F11: Chuyển đổi thông minh / Loại trừ app
+                                        _settings.AutoExcludeEnabled = !_settings.AutoExcludeEnabled;
+                                        CheckForegroundAppExcluded(_lastForegroundWindow);
+                                        if (_settings.SwitchBeep)
+                                        {
+                                            try { Console.Beep(_settings.AutoExcludeEnabled ? 900 : 500, 70); } catch { }
+                                        }
                                         return (IntPtr)1;
 
                                     case 12: // F12: Reset ModernKey / Hook
@@ -364,8 +413,40 @@ namespace ModernKey.Hook
                         }
                     }
 
+                    // 7.5. Bỏ qua gõ tiếng Việt nếu ứng dụng hiện tại nằm trong danh sách loại trừ (ExcludedApps)
+                    if (_isCurrentAppExcluded)
+                    {
+                        _engine.Reset();
+                        return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
+                    }
+
                     // 8. Phím điều hướng và chức năng (Arrows, Home, End, PgUp, PgDn, Esc, Del, Tab, F1..F12)
-                    if ((vkCode >= 0x21 && vkCode <= 0x28) || vkCode == 0x1B || vkCode == 0x2E || vkCode == 0x09 ||
+                    if (vkCode == 0x1B) // ESC: Hoàn tác dấu tiếng Việt hoặc reset engine
+                    {
+                        if (_settings.EscKeyUndo && _engine.HandleEscUndo(out int bc, out string rep))
+                        {
+                            if (bc > 0 || !string.IsNullOrEmpty(rep))
+                            {
+                                _isInjecting = true;
+                                try
+                                {
+                                    KeySender.SendReplaceText(bc, rep, _settings.FixRecommendBrowser, _settings.SendViaClipboard, 0);
+                                }
+                                finally
+                                {
+                                    _isInjecting = false;
+                                }
+                                return (IntPtr)1; // Nuốt phím Esc khi đã hoàn tác dấu để tránh hủy form/cửa sổ
+                            }
+                        }
+
+                        _engine.Reset();
+                        _lastDoubleShiftKey = 0;
+                        _lastDoubleShiftTime = 0;
+                        return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
+                    }
+
+                    if ((vkCode >= 0x21 && vkCode <= 0x28) || vkCode == 0x2E || vkCode == 0x09 ||
                         (vkCode >= 0x70 && vkCode <= 0x7B))
                     {
                         _engine.Reset();

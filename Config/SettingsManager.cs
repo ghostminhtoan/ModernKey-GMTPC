@@ -162,6 +162,39 @@ namespace ModernKey.Config
                         case "AllowNumberInWordBreak":
                             if (bool.TryParse(val, out var anw)) settings.AllowNumberInWordBreak = anw;
                             break;
+                        case "ShortcutModifier":
+                            if (int.TryParse(val, out var scm)) settings.ShortcutModifier = scm;
+                            break;
+                        case "ShortcutEnableMask":
+                            if (int.TryParse(val, out var scem)) settings.ShortcutEnableMask = scem;
+                            break;
+                        case "ShortcutF4Charset":
+                            if (Enum.TryParse<Charset>(val, out var scfc)) settings.ShortcutF4Charset = scfc;
+                            break;
+                        case "AutoExcludeEnabled":
+                            if (bool.TryParse(val, out var aee)) settings.AutoExcludeEnabled = aee;
+                            break;
+                        case "ExcludedApps":
+                            if (!string.IsNullOrEmpty(val))
+                            {
+                                settings.ExcludedApps = new List<string>(val.Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries));
+                            }
+                            break;
+                        case "EnableStatusOsd":
+                            if (bool.TryParse(val, out var eso)) settings.EnableStatusOsd = eso;
+                            break;
+                        case "SmartCodePassthrough":
+                            if (bool.TryParse(val, out var scp)) settings.SmartCodePassthrough = scp;
+                            break;
+                        case "EscKeyUndo":
+                            if (bool.TryParse(val, out var eku)) settings.EscKeyUndo = eku;
+                            break;
+                        case "IsCompactMode":
+                            if (bool.TryParse(val, out var icm)) settings.IsCompactMode = icm;
+                            break;
+                        case "ActiveProfile":
+                            if (!string.IsNullOrEmpty(val)) settings.ActiveProfile = val;
+                            break;
                         case "CustomRules":
                             if (!string.IsNullOrEmpty(val))
                             {
@@ -221,6 +254,16 @@ namespace ModernKey.Config
                 sb.AppendLine("FixRecommendBrowser=" + settings.FixRecommendBrowser);
                 sb.AppendLine("UpperCaseFirstChar=" + settings.UpperCaseFirstChar);
                 sb.AppendLine("AllowNumberInWordBreak=" + settings.AllowNumberInWordBreak);
+                sb.AppendLine("ShortcutModifier=" + settings.ShortcutModifier);
+                sb.AppendLine("ShortcutEnableMask=" + settings.ShortcutEnableMask);
+                sb.AppendLine("ShortcutF4Charset=" + settings.ShortcutF4Charset);
+                sb.AppendLine("AutoExcludeEnabled=" + settings.AutoExcludeEnabled);
+                sb.AppendLine("ExcludedApps=" + (settings.ExcludedApps != null ? string.Join(";", settings.ExcludedApps) : ""));
+                sb.AppendLine("EnableStatusOsd=" + settings.EnableStatusOsd);
+                sb.AppendLine("SmartCodePassthrough=" + settings.SmartCodePassthrough);
+                sb.AppendLine("EscKeyUndo=" + settings.EscKeyUndo);
+                sb.AppendLine("IsCompactMode=" + settings.IsCompactMode);
+                sb.AppendLine("ActiveProfile=" + (settings.ActiveProfile ?? "Office"));
 
                 if (settings.CustomRules != null && settings.CustomRules.Count > 0)
                 {
@@ -237,6 +280,85 @@ namespace ModernKey.Config
             catch (Exception ex)
             {
                 Debug.WriteLine("Error saving settings: " + ex.Message);
+            }
+        }
+
+        public static bool ExportProfileJson(AppSettings settings, string filePath)
+        {
+            try
+            {
+                var sb = new StringBuilder();
+                sb.AppendLine("{");
+                sb.AppendLine($"  \"ActiveProfile\": \"{settings.ActiveProfile}\",");
+                sb.AppendLine($"  \"InputMethod\": \"{settings.CurrentInputMethod}\",");
+                sb.AppendLine($"  \"Charset\": \"{settings.CurrentCharset}\",");
+                sb.AppendLine($"  \"SwitchMode\": \"{settings.SwitchMode}\",");
+                sb.AppendLine($"  \"IsVietnamese\": {settings.IsVietnamese.ToString().ToLower()},");
+                sb.AppendLine($"  \"CheckSpelling\": {settings.CheckSpelling.ToString().ToLower()},");
+                sb.AppendLine($"  \"RestoreIfWrongSpelling\": {settings.RestoreIfWrongSpelling.ToString().ToLower()},");
+                sb.AppendLine($"  \"ModernToneRules\": {settings.ModernToneRules.ToString().ToLower()},");
+                sb.AppendLine($"  \"UseMacro\": {settings.UseMacro.ToString().ToLower()},");
+                sb.AppendLine($"  \"AutoCapsMacro\": {settings.AutoCapsMacro.ToString().ToLower()},");
+                sb.AppendLine($"  \"SmartCodePassthrough\": {settings.SmartCodePassthrough.ToString().ToLower()},");
+                sb.AppendLine($"  \"EscKeyUndo\": {settings.EscKeyUndo.ToString().ToLower()},");
+                sb.AppendLine($"  \"EnableStatusOsd\": {settings.EnableStatusOsd.ToString().ToLower()},");
+                sb.AppendLine($"  \"AutoExcludeEnabled\": {settings.AutoExcludeEnabled.ToString().ToLower()},");
+                sb.AppendLine($"  \"ExcludedApps\": \"{string.Join(";", settings.ExcludedApps ?? new List<string>())}\"");
+                sb.AppendLine("}");
+
+                File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Error exporting JSON: " + ex.Message);
+                return false;
+            }
+        }
+
+        public static bool ImportProfileJson(string filePath, AppSettings targetSettings)
+        {
+            try
+            {
+                if (!File.Exists(filePath) || targetSettings == null) return false;
+                string text = File.ReadAllText(filePath, Encoding.UTF8);
+
+                foreach (var line in text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    string trimmed = line.Trim().TrimEnd(',');
+                    int colonIdx = trimmed.IndexOf(':');
+                    if (colonIdx <= 0) continue;
+
+                    string k = trimmed.Substring(0, colonIdx).Trim().Trim('"');
+                    string v = trimmed.Substring(colonIdx + 1).Trim().Trim('"');
+
+                    switch (k)
+                    {
+                        case "ActiveProfile": targetSettings.ActiveProfile = v; break;
+                        case "InputMethod": if (Enum.TryParse<InputMethod>(v, out var im)) targetSettings.CurrentInputMethod = im; break;
+                        case "Charset": if (Enum.TryParse<Charset>(v, out var cs)) targetSettings.CurrentCharset = cs; break;
+                        case "SwitchMode": if (Enum.TryParse<SwitchKeyMode>(v, out var sm)) targetSettings.SwitchMode = sm; break;
+                        case "IsVietnamese": if (bool.TryParse(v, out var iv)) targetSettings.IsVietnamese = iv; break;
+                        case "CheckSpelling": if (bool.TryParse(v, out var csb)) targetSettings.CheckSpelling = csb; break;
+                        case "RestoreIfWrongSpelling": if (bool.TryParse(v, out var rws)) targetSettings.RestoreIfWrongSpelling = rws; break;
+                        case "ModernToneRules": if (bool.TryParse(v, out var mtr)) targetSettings.ModernToneRules = mtr; break;
+                        case "UseMacro": if (bool.TryParse(v, out var um)) targetSettings.UseMacro = um; break;
+                        case "AutoCapsMacro": if (bool.TryParse(v, out var acm)) targetSettings.AutoCapsMacro = acm; break;
+                        case "SmartCodePassthrough": if (bool.TryParse(v, out var scp)) targetSettings.SmartCodePassthrough = scp; break;
+                        case "EscKeyUndo": if (bool.TryParse(v, out var eku)) targetSettings.EscKeyUndo = eku; break;
+                        case "EnableStatusOsd": if (bool.TryParse(v, out var eso)) targetSettings.EnableStatusOsd = eso; break;
+                        case "AutoExcludeEnabled": if (bool.TryParse(v, out var aee)) targetSettings.AutoExcludeEnabled = aee; break;
+                        case "ExcludedApps":
+                            targetSettings.ExcludedApps = new List<string>(v.Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries));
+                            break;
+                    }
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Error importing JSON: " + ex.Message);
+                return false;
             }
         }
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
@@ -64,6 +65,16 @@ namespace ModernKey
                 CmbShortcutF4Charset.ItemsSource = Enum.GetValues(typeof(Charset));
             }
 
+            // Compact Mode ComboBoxes
+            if (CmbCompactCharset != null)
+            {
+                CmbCompactCharset.ItemsSource = Enum.GetValues(typeof(Charset));
+            }
+            if (CmbCompactInputMethod != null)
+            {
+                CmbCompactInputMethod.ItemsSource = Enum.GetValues(typeof(InputMethod));
+            }
+
             // Đồng bộ dữ liệu cài đặt từ _settings ra UI
             SyncSettingsToUi();
         }
@@ -124,9 +135,55 @@ namespace ModernKey
                 if (ChkUpperCaseFirstChar != null) ChkUpperCaseFirstChar.IsChecked = _settings.UpperCaseFirstChar;
                 if (ChkFixRecommendBrowser != null) ChkFixRecommendBrowser.IsChecked = _settings.FixRecommendBrowser;
                 if (ChkClipboard != null) ChkClipboard.IsChecked = _settings.SendViaClipboard;
+                if (ChkSmartCodePassthrough != null) ChkSmartCodePassthrough.IsChecked = _settings.SmartCodePassthrough;
+                if (ChkEscKeyUndo != null) ChkEscKeyUndo.IsChecked = _settings.EscKeyUndo;
+                if (ChkEnableStatusOsd != null) ChkEnableStatusOsd.IsChecked = _settings.EnableStatusOsd;
+                if (ChkAutoExclude != null) ChkAutoExclude.IsChecked = _settings.AutoExcludeEnabled;
                 if (ChkStartWithWindows != null) ChkStartWithWindows.IsChecked = _settings.StartWithWindows;
                 if (ChkStartAsAdmin != null) ChkStartAsAdmin.IsChecked = _settings.StartAsAdmin;
                 if (ChkOpenDialogOnStartup != null) ChkOpenDialogOnStartup.IsChecked = _settings.OpenDialogOnStartup;
+
+                // Đồng bộ danh sách ExcludedApps
+                if (LstExcludedApps != null)
+                {
+                    LstExcludedApps.ItemsSource = null;
+                    LstExcludedApps.ItemsSource = _settings.ExcludedApps;
+                }
+
+                // Trạng thái từ điển chính tả vi_VN.dic
+                if (TxtDictionaryStatus != null)
+                {
+                    int wc = SpellingDictionary.Instance.WordCount;
+                    TxtDictionaryStatus.Text = $"TỪ ĐIỂN CHÍNH TẢ: vi_VN.dic ({(wc > 0 ? wc : 59547):N0} từ) đang hoạt động";
+                }
+
+                // Đồng bộ ComboBox Compact Mode
+                if (CmbCompactCharset != null)
+                {
+                    if (!(CmbCompactCharset.SelectedItem is Charset ccs) || ccs != _settings.CurrentCharset)
+                        CmbCompactCharset.SelectedItem = _settings.CurrentCharset;
+                }
+                if (CmbCompactInputMethod != null)
+                {
+                    if (!(CmbCompactInputMethod.SelectedItem is InputMethod cim) || cim != _settings.CurrentInputMethod)
+                        CmbCompactInputMethod.SelectedItem = _settings.CurrentInputMethod;
+                }
+
+                // Profile ComboBox
+                if (CmbProfile != null)
+                {
+                    string p = _settings.ActiveProfile ?? "Office";
+                    foreach (ComboBoxItem it in CmbProfile.Items)
+                    {
+                        if (string.Equals(it.Tag as string, p, StringComparison.OrdinalIgnoreCase))
+                        {
+                            it.IsSelected = true;
+                            break;
+                        }
+                    }
+                }
+
+                ApplyCompactModeUi(_settings.IsCompactMode);
 
                 // Tab Gõ tắt
                 if (ChkUseMacro != null) ChkUseMacro.IsChecked = _settings.UseMacro;
@@ -184,6 +241,10 @@ namespace ModernKey
             if (ChkUpperCaseFirstChar != null) _settings.UpperCaseFirstChar = ChkUpperCaseFirstChar.IsChecked == true;
             if (ChkFixRecommendBrowser != null) _settings.FixRecommendBrowser = ChkFixRecommendBrowser.IsChecked == true;
             if (ChkClipboard != null) _settings.SendViaClipboard = ChkClipboard.IsChecked == true;
+            if (ChkSmartCodePassthrough != null) _settings.SmartCodePassthrough = ChkSmartCodePassthrough.IsChecked == true;
+            if (ChkEscKeyUndo != null) _settings.EscKeyUndo = ChkEscKeyUndo.IsChecked == true;
+            if (ChkEnableStatusOsd != null) _settings.EnableStatusOsd = ChkEnableStatusOsd.IsChecked == true;
+            if (ChkAutoExclude != null) _settings.AutoExcludeEnabled = ChkAutoExclude.IsChecked == true;
             if (ChkStartWithWindows != null) _settings.StartWithWindows = ChkStartWithWindows.IsChecked == true;
             if (ChkStartAsAdmin != null) _settings.StartAsAdmin = ChkStartAsAdmin.IsChecked == true;
             if (ChkOpenDialogOnStartup != null) _settings.OpenDialogOnStartup = ChkOpenDialogOnStartup.IsChecked == true;
@@ -239,6 +300,7 @@ namespace ModernKey
             _trayManager.UpdateTrayIcon();
             _trayManager.BuildContextMenu();
             RefreshState();
+            (Application.Current as App)?.ShowStatusOsd(_settings.IsVietnamese);
         }
 
         private void CmbCharset_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -538,6 +600,134 @@ namespace ModernKey
         {
             _isRealExit = true;
             (Application.Current as App)?.ExitApplication();
+        }
+
+        public void ApplyCompactModeUi(bool isCompact)
+        {
+            if (isCompact)
+            {
+                if (MainTabControl != null) MainTabControl.Visibility = Visibility.Collapsed;
+                if (MainFooter != null) MainFooter.Visibility = Visibility.Collapsed;
+                if (CompactPanel != null) CompactPanel.Visibility = Visibility.Visible;
+                if (BtnToggleCompact != null) BtnToggleCompact.Content = "[MỞ RỘNG]";
+                Height = 190;
+                Width = 580;
+                ResizeMode = ResizeMode.NoResize;
+            }
+            else
+            {
+                if (CompactPanel != null) CompactPanel.Visibility = Visibility.Collapsed;
+                if (MainTabControl != null) MainTabControl.Visibility = Visibility.Visible;
+                if (MainFooter != null) MainFooter.Visibility = Visibility.Visible;
+                if (BtnToggleCompact != null) BtnToggleCompact.Content = "[HUD COMPACT]";
+                Height = 720;
+                Width = 820;
+                ResizeMode = ResizeMode.CanMinimize;
+            }
+        }
+
+        private void BtnToggleCompact_Click(object sender, RoutedEventArgs e)
+        {
+            _settings.IsCompactMode = !_settings.IsCompactMode;
+            ApplyCompactModeUi(_settings.IsCompactMode);
+            SettingsManager.SaveSettings(_settings);
+        }
+
+        private void BtnApplyProfile_Click(object sender, RoutedEventArgs e)
+        {
+            if (CmbProfile?.SelectedItem is ComboBoxItem item && item.Tag is string profName)
+            {
+                _settings.ApplyProfile(profName);
+                SettingsManager.SaveSettings(_settings);
+                RefreshState();
+                MessageBox.Show($"Đã áp dụng thành công profile: [{profName}]!", "ModernKey Profile",
+                                MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
+        private void BtnExportProfileJson_Click(object sender, RoutedEventArgs e)
+        {
+            var sfd = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "JSON Profile (*.json)|*.json|All Files (*.*)|*.*",
+                FileName = $"ModernKey_Profile_{_settings.ActiveProfile}.json",
+                Title = "Xuất cấu hình ModernKey ra file JSON"
+            };
+
+            if (sfd.ShowDialog() == true)
+            {
+                if (SettingsManager.ExportProfileJson(_settings, sfd.FileName))
+                {
+                    MessageBox.Show("Xuất file JSON cấu hình thành công!", "Thông báo",
+                                    MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else
+                {
+                    MessageBox.Show("Có lỗi xảy ra khi xuất file JSON!", "Lỗi",
+                                    MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private void BtnImportProfileJson_Click(object sender, RoutedEventArgs e)
+        {
+            var ofd = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "JSON Profile (*.json)|*.json|All Files (*.*)|*.*",
+                Title = "Nhập cấu hình ModernKey từ file JSON"
+            };
+
+            if (ofd.ShowDialog() == true)
+            {
+                if (SettingsManager.ImportProfileJson(ofd.FileName, _settings))
+                {
+                    SettingsManager.SaveSettings(_settings);
+                    RefreshState();
+                    MessageBox.Show("Nhập cấu hình JSON thành công!", "Thông báo",
+                                    MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else
+                {
+                    MessageBox.Show("Không thể đọc cấu hình từ file JSON đã chọn!", "Lỗi",
+                                    MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private void BtnAddExcludedApp_Click(object sender, RoutedEventArgs e)
+        {
+            string app = TxtNewExcludedApp?.Text?.Trim().ToLowerInvariant();
+            if (string.IsNullOrEmpty(app)) return;
+
+            if (!app.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            {
+                app += ".exe";
+            }
+
+            if (_settings.ExcludedApps == null)
+            {
+                _settings.ExcludedApps = new List<string>();
+            }
+
+            if (!_settings.ExcludedApps.Contains(app))
+            {
+                _settings.ExcludedApps.Add(app);
+                SettingsManager.SaveSettings(_settings);
+                LstExcludedApps.ItemsSource = null;
+                LstExcludedApps.ItemsSource = _settings.ExcludedApps;
+                TxtNewExcludedApp.Text = "";
+            }
+        }
+
+        private void BtnRemoveExcludedApp_Click(object sender, RoutedEventArgs e)
+        {
+            if (LstExcludedApps?.SelectedItem is string selectedApp)
+            {
+                _settings.ExcludedApps?.Remove(selectedApp);
+                SettingsManager.SaveSettings(_settings);
+                LstExcludedApps.ItemsSource = null;
+                LstExcludedApps.ItemsSource = _settings.ExcludedApps;
+            }
         }
 
         protected override void OnClosing(CancelEventArgs e)

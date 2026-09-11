@@ -844,6 +844,89 @@ namespace ModernKey.Core
                 {
                     SettingsManager.SaveSettings(originalSettings);
                 }
+                // 15. Kiểm tra từ điển chính tả vi_VN.dic
+                SpellingDictionary.Instance.LoadDictionary();
+                bool dicValid1 = SpellingDictionary.Instance.IsValidWord("tiếng");
+                bool dicValid2 = SpellingDictionary.Instance.IsValidWord("việt");
+                bool dicValid3 = SpellingDictionary.Instance.IsValidWord("trên");
+                bool dicInvalid = SpellingDictionary.Instance.IsValidWord("asdfzxcv");
+                if (dicValid1 && dicValid2 && dicValid3 && !dicInvalid)
+                {
+                    sb.AppendLine($"  PASS: Từ điển vi_VN.dic nạp thành công {SpellingDictionary.Instance.WordCount:N0} từ và tra cứu O(1) chính xác!");
+                }
+                else
+                {
+                    allPassed = false;
+                    sb.AppendLine($"  FAIL: Từ điển vi_VN.dic tra cứu sai ('tiếng'={dicValid1}, 'asdfzxcv'={dicInvalid})");
+                }
+
+                // 16. Kiểm tra EscKeyUndo
+                var escSettings = new AppSettings { IsVietnamese = true, CurrentInputMethod = InputMethod.Telex, EscKeyUndo = true };
+                var escEngine = new VietnameseEngine(escSettings, new MacroManager());
+                SimulateTypingWord(escEngine, "tieets");
+                if (escEngine.HandleEscUndo(out int undoBc, out string undoStr) && undoBc == 4 && undoStr == "tieets")
+                {
+                    sb.AppendLine("  PASS: EscKeyUndo hoàn tác từ tiếng Việt 'tiết' về chuỗi thô 'tieets' thành công!");
+                }
+                else
+                {
+                    allPassed = false;
+                    sb.AppendLine($"  FAIL: EscKeyUndo thất bại (undoBc={undoBc}, undoStr='{undoStr}')");
+                }
+
+                // 17. Kiểm tra SmartCodePassthrough
+                var codeSettings = new AppSettings { IsVietnamese = true, CurrentInputMethod = InputMethod.Telex, SmartCodePassthrough = true };
+                var codeEngine = new VietnameseEngine(codeSettings, new MacroManager());
+                string codeRes1 = SimulateTypingWord(codeEngine, "const ");
+                string codeRes2 = SimulateTypingWord(codeEngine, "https://");
+                if (codeRes1 == "const " && codeRes2 == "https://")
+                {
+                    sb.AppendLine("  PASS: SmartCodePassthrough giữ nguyên từ khóa code 'const' và 'https://' không bị ép dấu!");
+                }
+                else
+                {
+                    allPassed = false;
+                    sb.AppendLine($"  FAIL: SmartCodePassthrough thất bại ('{codeRes1}', '{codeRes2}')");
+                }
+
+                // 18. Kiểm tra Profile Application
+                var profSettings = new AppSettings();
+                profSettings.ApplyProfile("Gaming");
+                bool gOk = (!profSettings.UseMacro && !profSettings.CheckSpelling && profSettings.AutoExcludeEnabled);
+                profSettings.ApplyProfile("Coding");
+                bool cOk = (profSettings.SmartCodePassthrough && profSettings.EscKeyUndo && profSettings.AllowConsonantZFWJ);
+                if (gOk && cOk)
+                {
+                    sb.AppendLine("  PASS: Quản lý Profile (Gaming, Coding, Office) áp dụng cấu hình chính xác!");
+                }
+                else
+                {
+                    allPassed = false;
+                    sb.AppendLine($"  FAIL: Profile application thất bại (gOk={gOk}, cOk={cOk})");
+                }
+
+                // 19. Kiểm tra JSON Profile Export / Import
+                string tempJsonPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "modernkey_test_profile.json");
+                try
+                {
+                    var expSettings = new AppSettings { ActiveProfile = "Coding", SmartCodePassthrough = true, EscKeyUndo = true };
+                    bool expOk = SettingsManager.ExportProfileJson(expSettings, tempJsonPath);
+                    var impSettings = new AppSettings();
+                    bool impOk = SettingsManager.ImportProfileJson(tempJsonPath, impSettings);
+                    if (expOk && impOk && impSettings.ActiveProfile == "Coding" && impSettings.SmartCodePassthrough && impSettings.EscKeyUndo)
+                    {
+                        sb.AppendLine("  PASS: Xuất và nhập cấu hình Profile JSON độc lập thành công 100%!");
+                    }
+                    else
+                    {
+                        allPassed = false;
+                        sb.AppendLine($"  FAIL: JSON Export/Import thất bại (exp={expOk}, imp={impOk})");
+                    }
+                }
+                finally
+                {
+                    if (System.IO.File.Exists(tempJsonPath)) System.IO.File.Delete(tempJsonPath);
+                }
             }
             catch (Exception ex)
             {

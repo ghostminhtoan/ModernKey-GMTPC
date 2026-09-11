@@ -19,6 +19,7 @@ namespace ModernKey
         private MacroManager _macroManager;
         private AppSettings _settings;
         private MainWindow _mainWindow;
+        private StatusOsdWindow _statusOsdWindow;
 
         [System.Runtime.InteropServices.DllImport("kernel32.dll")]
         private static extern bool AttachConsole(int dwProcessId);
@@ -86,8 +87,9 @@ namespace ModernKey
             _keyboardHook = new KeyboardHook(_engine, _settings);
             _keyboardHook.Start();
 
-            // 3. Khởi tạo Tray Icon
+            // 3. Khởi tạo Tray Icon & OSD
             _trayManager = new SystemTrayManager(_settings, ShowMainWindow, ExitApplication);
+            _statusOsdWindow = new StatusOsdWindow();
 
             // Đồng bộ trạng thái khi phím tắt chuyển đổi chế độ V/E
             _keyboardHook.LanguageChanged += () =>
@@ -97,6 +99,7 @@ namespace ModernKey
                     _trayManager.UpdateTrayIcon();
                     _trayManager.BuildContextMenu();
                     _mainWindow?.RefreshState();
+                    ShowStatusOsd(_settings.IsVietnamese);
                 });
             };
 
@@ -184,10 +187,19 @@ namespace ModernKey
             _mainWindow.Activate();
         }
 
+        public void ShowStatusOsd(bool isVietnamese)
+        {
+            if (_settings != null && _settings.EnableStatusOsd)
+            {
+                _statusOsdWindow?.ShowStatus(isVietnamese);
+            }
+        }
+
         public void ExitApplication()
         {
             _keyboardHook?.Dispose();
             _trayManager?.Dispose();
+            _statusOsdWindow?.Close();
             _appMutex?.ReleaseMutex();
             Shutdown();
         }

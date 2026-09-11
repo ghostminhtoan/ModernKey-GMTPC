@@ -40,6 +40,51 @@ namespace ModernKey.Core
             _inNumberSequence = false;
         }
 
+        public bool HasPendingWord => _charBuffer.Count > 0;
+
+        private static readonly HashSet<string> _codeKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "const", "return", "class", "public", "private", "protected", "function", "static",
+            "import", "export", "var", "let", "while", "yield", "async", "await", "struct",
+            "interface", "namespace", "using", "case", "default", "false", "true", "null",
+            "undefined", "string", "double", "float", "boolean", "package", "switch", "typeof"
+        };
+
+        private static bool IsCodeOrUrlPattern(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            string lower = text.ToLowerInvariant();
+            if (lower.StartsWith("http:") || lower.StartsWith("https:") || lower.StartsWith("git ") || lower.StartsWith("www.") || lower.StartsWith("//"))
+                return true;
+            return false;
+        }
+
+        private static bool IsCodeKeyword(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            return _codeKeywords.Contains(text);
+        }
+
+        public bool HandleEscUndo(out int backspaceCount, out string newString)
+        {
+            backspaceCount = 0;
+            newString = null;
+            if (_settings.EscKeyUndo && _charBuffer.Count > 0)
+            {
+                string displayWord = GetDisplayWord(_charBuffer);
+                string rawWord = new string(_charBuffer.ToArray());
+                if (!string.IsNullOrEmpty(displayWord) && displayWord != rawWord)
+                {
+                    backspaceCount = displayWord.Length;
+                    newString = rawWord;
+                    Reset();
+                    return true;
+                }
+            }
+            Reset();
+            return false;
+        }
+
         public bool ProcessKey(char ch, int vkCode, bool isShift, bool isCaps, bool isCtrl, bool isAlt,
                                out int backspaceCount, out string newString)
         {
@@ -54,10 +99,13 @@ namespace ModernKey.Core
             newString = null;
             trailingVkCode = 0;
 
-            // 0. Phím ESC: dừng ngay gõ tắt và reset engine
+            // 0. Phím ESC: hoàn tác từ tiếng Việt về ký tự gốc nếu bật EscKeyUndo, hoặc reset engine
             if (vkCode == 0x1B)
             {
-                Reset();
+                if (HandleEscUndo(out backspaceCount, out newString))
+                {
+                    return true;
+                }
                 return false;
             }
 
@@ -196,6 +244,62 @@ namespace ModernKey.Core
                     }
                 }
 
+                // Smart Code Passthrough: khôi phục từ khóa code khi ngắt từ
+                if (_settings.SmartCodePassthrough && _charBuffer.Count > 0)
+                {
+                    string displayWord = GetDisplayWord(_charBuffer);
+                    string rawWord = new string(_charBuffer.ToArray());
+
+                    if (!string.IsNullOrEmpty(displayWord) && displayWord != rawWord && IsCodeKeyword(rawWord))
+                    {
+                        backspaceCount = displayWord.Length;
+                        newString = rawWord;
+                        if (isSpace)
+                        {
+                            trailingVkCode = 0x20;
+                        }
+                        else if (isReturn)
+                        {
+                            trailingVkCode = 0x0D;
+                        }
+                        else if (isPunctuation && ch != '\0')
+                        {
+                            newString = rawWord + ch;
+                            trailingVkCode = 0;
+                        }
+                        Reset();
+                        return true;
+                    }
+                }
+
+                // Kiểm tra từ điển chính tả vi_VN.dic và tự động khôi phục nếu từ sai chính tả
+                if (_settings.CheckSpelling && _settings.RestoreIfWrongSpelling && _charBuffer.Count > 0)
+                {
+                    string displayWord = GetDisplayWord(_charBuffer);
+                    string rawWord = new string(_charBuffer.ToArray());
+
+                    if (!string.IsNullOrEmpty(displayWord) && displayWord != rawWord && !SpellingDictionary.Instance.IsValidWord(displayWord))
+                    {
+                        backspaceCount = displayWord.Length;
+                        newString = rawWord;
+                        if (isSpace)
+                        {
+                            trailingVkCode = 0x20;
+                        }
+                        else if (isReturn)
+                        {
+                            trailingVkCode = 0x0D;
+                        }
+                        else if (isPunctuation && ch != '\0')
+                        {
+                            newString = rawWord + ch;
+                            trailingVkCode = 0;
+                        }
+                        Reset();
+                        return true;
+                    }
+                }
+
                 Reset();
                 return false;
             }
@@ -256,6 +360,17 @@ namespace ModernKey.Core
                 if (char.IsLetter(ch))
                 {
                     _inNumberSequence = false;
+                }
+            }
+
+            // 5.5. Smart Code Passthrough: nếu chuỗi đang gõ là URL hoặc từ khóa code, không biến đổi tiếng Việt
+            if (_settings.SmartCodePassthrough && _charBuffer.Count > 0)
+            {
+                string rawWord = new string(_charBuffer.ToArray()) + ch;
+                if (IsCodeOrUrlPattern(rawWord))
+                {
+                    _charBuffer.Add(ch);
+                    return false;
                 }
             }
 

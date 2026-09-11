@@ -41,5 +41,58 @@ namespace ModernKey.Models
 
         // Danh sách quy tắc kiểu gõ tự định nghĩa (Custom Input Method)
         public System.Collections.Generic.List<CustomInputRule> CustomRules { get; set; } = CustomInputRule.GetPreset(0);
+
+        // Danh sách ứng dụng loại trừ (Exclude Apps / App Blacklist)
+        public System.Collections.Generic.List<string> ExcludedApps { get; set; } = new System.Collections.Generic.List<string>
+        {
+            "cs2.exe", "valorant.exe", "dota2.exe", "league of legends.exe"
+        };
+        public bool AutoExcludeEnabled { get; set; } = true;
+
+        // OSD hiển thị trạng thái VI/EN
+        public bool EnableStatusOsd { get; set; } = true;
+
+        // Tạm dừng thông minh cho lập trình viên (Smart Passthrough & Esc Undo)
+        public bool SmartCodePassthrough { get; set; } = true;
+        public bool EscKeyUndo { get; set; } = true;
+
+        // Chế độ thu nhỏ Compact HUD
+        public bool IsCompactMode { get; set; } = false;
+
+        // Quản lý Profile (Office, Coding, Gaming)
+        public string ActiveProfile { get; set; } = "Office";
+
+        public void ApplyProfile(string profileName)
+        {
+            ActiveProfile = profileName;
+            if (string.Equals(profileName, "Gaming", StringComparison.OrdinalIgnoreCase))
+            {
+                UseMacro = false;
+                CheckSpelling = false;
+                AutoExcludeEnabled = true;
+                SendViaClipboard = false;
+                SmartCodePassthrough = false;
+            }
+            else if (string.Equals(profileName, "Coding", StringComparison.OrdinalIgnoreCase))
+            {
+                SmartCodePassthrough = true;
+                EscKeyUndo = true;
+                AllowConsonantZFWJ = true;
+                FixRecommendBrowser = true;
+                UseMacroInEnglish = false;
+                CheckSpelling = true;
+                RestoreIfWrongSpelling = true;
+            }
+            else // "Office" or Default
+            {
+                CheckSpelling = true;
+                RestoreIfWrongSpelling = true;
+                UseMacro = true;
+                AutoCapsMacro = true;
+                ModernToneRules = true;
+                SmartCodePassthrough = true;
+                EscKeyUndo = true;
+            }
+        }
     }
 }
