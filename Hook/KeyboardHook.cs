@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -102,10 +103,67 @@ namespace ModernKey.Hook
         public event Action ToggleMacroRequested;
         public event Action ResetHookRequested;
 
+        [DllImport("user32.dll")]
+        private static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventDelegate lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
+
+        [DllImport("user32.dll")]
+        private static extern bool UnhookWinEvent(IntPtr hWinEventHook);
+
+        private delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
+
+        private const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
+        private const uint WINEVENT_OUTOFCONTEXT = 0x0000;
+        private const uint WINEVENT_SKIPOWNPROCESS = 0x0002;
+
+        private WinEventDelegate _winEventProc;
+        private IntPtr _winEventHookId = IntPtr.Zero;
+
+        // Lưu vết trạng thái ngôn ngữ gõ [VI/EN] theo từng tiến trình (chuẩn OpenKey C++ Smart Switch Key)
+        private static readonly Dictionary<string, bool> _appLanguageMap = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        private static string _currentAppExeName = string.Empty;
+
+        private static readonly HashSet<string> _defaultExcludedApps = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "cmd.exe", "powershell.exe", "pwsh.exe", "windowsterminal.exe", "wt.exe",
+            "mintty.exe", "bash.exe", "git-bash.exe", "conhost.exe", "alacritty.exe", "wezterm-gui.exe",
+            "code.exe", "devenv.exe", "clion64.exe", "idea64.exe", "pycharm64.exe",
+            "webstorm64.exe", "rider64.exe", "sublime_text.exe", "notepad++.exe",
+            "steam.exe", "epicgameslauncher.exe", "league of legends.exe", "valorant.exe",
+            "csgo.exe", "cs2.exe", "dota2.exe", "gta5.exe", "overwatch.exe"
+        };
+
+        private string GetExeNameFromWindow(IntPtr hWnd)
+        {
+            if (hWnd == IntPtr.Zero) return string.Empty;
+            try
+            {
+                GetWindowThreadProcessId(hWnd, out uint pid);
+                if (pid == 0) return string.Empty;
+
+                using (var proc = Process.GetProcessById((int)pid))
+                {
+                    string pName = proc.ProcessName.ToLowerInvariant();
+                    if (!pName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                        pName += ".exe";
+                    return pName;
+                }
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
         private void TriggerLanguageSwitch()
         {
             _settings.IsVietnamese = !_settings.IsVietnamese;
             _engine.Reset();
+
+            if (_settings.AutoExcludeEnabled && !string.IsNullOrEmpty(_currentAppExeName))
+            {
+                _appLanguageMap[_currentAppExeName] = _settings.IsVietnamese;
+            }
+
             if (_settings.SwitchBeep)
             {
                 try
@@ -115,6 +173,51 @@ namespace ModernKey.Hook
                 catch { }
             }
             LanguageChanged?.Invoke();
+        }
+
+        private void OnForegroundWindowChanged(IntPtr hWnd)
+        {
+            if (hWnd == IntPtr.Zero) return;
+            string exe = GetExeNameFromWindow(hWnd);
+            if (string.IsNullOrEmpty(exe) || exe.Equals("explorer.exe", StringComparison.OrdinalIgnoreCase))
+                return;
+
+            _currentAppExeName = exe;
+
+            if (_settings.AutoExcludeEnabled)
+            {
+                if (_appLanguageMap.TryGetValue(exe, out bool savedLangState))
+                {
+                    if (_settings.IsVietnamese != savedLangState)
+                    {
+                        _settings.IsVietnamese = savedLangState;
+                        _engine.Reset();
+                        LanguageChanged?.Invoke();
+                    }
+                }
+                else
+                {
+                    // Lần đầu mở app: kiểm tra nếu app thuộc danh sách loại trừ mặc định -> chọn EN (false), ngược lại chọn trạng thái hiện tại
+                    bool isDefaultExclude = _defaultExcludedApps.Contains(exe);
+                    bool initialLang = isDefaultExclude ? false : _settings.IsVietnamese;
+                    _appLanguageMap[exe] = initialLang;
+
+                    if (_settings.IsVietnamese != initialLang)
+                    {
+                        _settings.IsVietnamese = initialLang;
+                        _engine.Reset();
+                        LanguageChanged?.Invoke();
+                    }
+                }
+            }
+        }
+
+        private void WinEventCallback(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
+        {
+            if (eventType == EVENT_SYSTEM_FOREGROUND)
+            {
+                OnForegroundWindowChanged(hwnd);
+            }
         }
 
         public KeyboardHook(VietnameseEngine engine, AppSettings settings)
@@ -144,6 +247,12 @@ namespace ModernKey.Hook
                     _mouseHookId = SetWindowsHookEx(WH_MOUSE_LL, _mouseProc, GetModuleHandle(curModule.ModuleName), 0);
                 }
             }
+
+            if (_winEventHookId == IntPtr.Zero)
+            {
+                _winEventProc = WinEventCallback;
+                _winEventHookId = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, IntPtr.Zero, _winEventProc, 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+            }
         }
 
         public void Stop()
@@ -158,6 +267,12 @@ namespace ModernKey.Hook
             {
                 UnhookWindowsHookEx(_mouseHookId);
                 _mouseHookId = IntPtr.Zero;
+            }
+
+            if (_winEventHookId != IntPtr.Zero)
+            {
+                UnhookWinEvent(_winEventHookId);
+                _winEventHookId = IntPtr.Zero;
             }
         }
 
@@ -180,77 +295,7 @@ namespace ModernKey.Hook
 
         private IntPtr _lastForegroundWindow = IntPtr.Zero;
 
-        private void CheckForegroundAppExcluded(IntPtr hWnd)
-        {
-            if (!_settings.AutoExcludeEnabled || _settings.ExcludedApps == null || _settings.ExcludedApps.Count == 0)
-            {
-                return;
-            }
 
-            if (hWnd == IntPtr.Zero)
-            {
-                hWnd = GetForegroundWindow();
-                if (hWnd == IntPtr.Zero) return;
-            }
-
-            try
-            {
-                GetWindowThreadProcessId(hWnd, out uint pid);
-                if (pid == 0) return;
-
-                using (var proc = Process.GetProcessById((int)pid))
-                {
-                    string pName = proc.ProcessName.ToLowerInvariant();
-                    string exeFileName = "";
-                    try
-                    {
-                        if (proc.MainModule != null && !string.IsNullOrEmpty(proc.MainModule.ModuleName))
-                        {
-                            exeFileName = proc.MainModule.ModuleName.ToLowerInvariant();
-                        }
-                    }
-                    catch { }
-
-                    foreach (var app in _settings.ExcludedApps)
-                    {
-                        if (string.IsNullOrWhiteSpace(app)) continue;
-                        string clean = app.Trim().ToLowerInvariant();
-                        bool isMatch = false;
-
-                        if (clean.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                        {
-                            string rawName = clean.Substring(0, clean.Length - 4);
-                            if (clean == pName || clean == exeFileName || rawName == pName)
-                            {
-                                isMatch = true;
-                            }
-                        }
-                        else
-                        {
-                            if (clean == pName || (clean + ".exe") == pName || (clean + ".exe") == exeFileName)
-                            {
-                                isMatch = true;
-                            }
-                        }
-
-                        if (isMatch)
-                        {
-                            // Tự động chuyển sang Tiếng Anh [EN] khi active cửa sổ ứng dụng loại trừ lần đầu
-                            if (_settings.IsVietnamese)
-                            {
-                                _settings.IsVietnamese = false;
-                                _engine?.Reset();
-                                LanguageChanged?.Invoke();
-                            }
-                            return;
-                        }
-                    }
-                }
-            }
-            catch
-            {
-            }
-        }
 
         private IntPtr KeyboardHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
@@ -264,13 +309,13 @@ namespace ModernKey.Hook
                     return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
                 }
 
-                // 2. Tự động kiểm tra loại trừ ứng dụng và reset buffer khi đổi cửa sổ đang thao tác
+                // 2. Tự động chuyển đổi ngôn ngữ gõ thông minh (Smart Switch Key) theo từng cửa sổ ứng dụng
                 IntPtr currentForeground = GetForegroundWindow();
                 if (currentForeground != _lastForegroundWindow)
                 {
                     _lastForegroundWindow = currentForeground;
                     _engine.Reset();
-                    CheckForegroundAppExcluded(currentForeground);
+                    OnForegroundWindowChanged(currentForeground);
                 }
 
                 int msg = wParam.ToInt32();
@@ -443,7 +488,8 @@ namespace ModernKey.Hook
 
                                     case 11: // F11: Chuyển đổi thông minh / Loại trừ app
                                         _settings.AutoExcludeEnabled = !_settings.AutoExcludeEnabled;
-                                        CheckForegroundAppExcluded(_lastForegroundWindow);
+                                        IntPtr fgHwnd = GetForegroundWindow();
+                                        if (fgHwnd != IntPtr.Zero) OnForegroundWindowChanged(fgHwnd);
                                         if (_settings.SwitchBeep)
                                         {
                                             try { Console.Beep(_settings.AutoExcludeEnabled ? 900 : 500, 70); } catch { }
