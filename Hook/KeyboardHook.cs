@@ -267,35 +267,54 @@ namespace ModernKey.Hook
                     }
                     if (vkCode == 0x5B || vkCode == 0x5C) _winDown = true;
 
-                    // 4. Phím chuyển chế độ gõ tức thì (Key + Modifier)
-                    if (_settings.SwitchMode == SwitchKeyMode.AltZ)
+                    // 4. Phím chuyển chế độ gõ tự do (Ctrl/Alt/Win/Shift + KeyChar / Space / CapsLock) chuẩn OpenKey C++
+                    bool matchCtrl = !_settings.SwitchCtrl || isCtrl || _ctrlDown;
+                    bool matchAlt = !_settings.SwitchAlt || isAlt || _altDown;
+                    bool matchWin = !_settings.SwitchWin || isWin || _winDown;
+                    bool matchShift = !_settings.SwitchShift || isShift || _shiftDown;
+                    bool hasRequiredModifier = (!_settings.SwitchCtrl || isCtrl || _ctrlDown) &&
+                                                (!_settings.SwitchAlt || isAlt || _altDown) &&
+                                                (!_settings.SwitchWin || isWin || _winDown) &&
+                                                (!_settings.SwitchShift || isShift || _shiftDown);
+
+                    bool isModifierOnlyRequired = !_settings.SwitchCtrl && !_settings.SwitchAlt && !_settings.SwitchWin && !_settings.SwitchShift;
+
+                    if (!isModifierOnlyRequired && hasRequiredModifier)
                     {
-                        if ((_altDown || isAlt) && (vkCode == 0x5A)) // Alt + Z
+                        string targetKeyStr = (_settings.SwitchKeyChar ?? "").Trim().ToUpperInvariant();
+                        bool isMatchKey = false;
+
+                        if (string.IsNullOrEmpty(targetKeyStr) || targetKeyStr == "SPACE")
                         {
-                            _hasOtherKeyPressed = true;
-                            TriggerLanguageSwitch();
-                            // Triệt tiêu trạng thái menu bar / file menu khi dùng Alt-Z
-                            KeySender.SuppressAltMenuActivation();
-                            _swallowNextAltUp = true;
-                            return (IntPtr)1; // Nuốt phím Z
+                            isMatchKey = (vkCode == 0x20); // Space
                         }
-                    }
-                    else if (_settings.SwitchMode == SwitchKeyMode.WinSpace)
-                    {
-                        if ((_winDown || isWin) && (vkCode == 0x20)) // Win + Space
+                        else if (targetKeyStr == "CAPSLOCK" || targetKeyStr == "CAPS")
                         {
-                            _hasOtherKeyPressed = true;
-                            TriggerLanguageSwitch();
-                            return (IntPtr)1; // Nuốt phím Space
+                            isMatchKey = (vkCode == 0x14); // CapsLock
                         }
-                    }
-                    else if (_settings.SwitchMode == SwitchKeyMode.CtrlSpace)
-                    {
-                        if ((_ctrlDown || isCtrl) && (vkCode == 0x20)) // Ctrl + Space
+                        else if (targetKeyStr.Length == 1)
+                        {
+                            char targetChar = targetKeyStr[0];
+                            if (targetChar >= 'A' && targetChar <= 'Z')
+                            {
+                                isMatchKey = (vkCode == (uint)targetChar);
+                            }
+                            else if (targetChar >= '0' && targetChar <= '9')
+                            {
+                                isMatchKey = (vkCode == (uint)targetChar);
+                            }
+                        }
+
+                        if (isMatchKey)
                         {
                             _hasOtherKeyPressed = true;
                             TriggerLanguageSwitch();
-                            return (IntPtr)1; // Nuốt phím Space
+                            if (_altDown || isAlt)
+                            {
+                                KeySender.SuppressAltMenuActivation();
+                                _swallowNextAltUp = true;
+                            }
+                            return (IntPtr)1; // Nuốt phím chuyển
                         }
                     }
 

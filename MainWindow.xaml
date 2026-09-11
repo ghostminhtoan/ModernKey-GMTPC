@@ -108,69 +108,64 @@
 
         <!-- Cyberpunk Main Tabs -->
         <TabControl x:Name="MainTabControl" Grid.Row="1" Background="{StaticResource CyberDark}" BorderBrush="{StaticResource CyberBorderDim}">
-            <!-- Tab 1: Điều khiển -->
+            <!-- Tab 1: Điều khiển (Đã nhập từ tab Tùy chọn) -->
             <TabItem Header="  ĐIỀU KHIỂN  ">
-                <Grid Margin="20">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="160" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <!-- Bảng mã -->
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="BẢNG MÃ:" VerticalAlignment="Center" Margin="0,12"
-                               FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" />
-                    <ComboBox x:Name="CmbCharset" Grid.Row="0" Grid.Column="1" Margin="0,8" SelectionChanged="CmbCharset_SelectionChanged" />
-
-                    <!-- Kiểu gõ -->
-                    <TextBlock Grid.Row="1" Grid.Column="0" Text="KIỂU GÕ:" VerticalAlignment="Center" Margin="0,12"
-                               FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" />
-                    <Grid Grid.Row="1" Grid.Column="1" Margin="0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <ComboBox x:Name="CmbInputMethod" Grid.Column="0" SelectionChanged="CmbInputMethod_SelectionChanged" />
-                        <Button x:Name="BtnCustomInputMethod" Grid.Column="1" Content="TÙY CHỈNH..." Margin="10,0,0,0"
-                                Padding="12,4" Click="BtnCustomInputMethod_Click" ToolTip="Tùy chỉnh kiểu gõ tự định nghĩa (OpenKey Custom Input Method)" />
-                    </Grid>
-
-                    <!-- Phím chuyển -->
-                    <TextBlock Grid.Row="2" Grid.Column="0" Text="PHÍM CHUYỂN VI/EN:" VerticalAlignment="Center" Margin="0,12"
-                               FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" />
-                    <Grid Grid.Row="2" Grid.Column="1" Margin="0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <ComboBox x:Name="CmbSwitchMode" Grid.Column="0" SelectionChanged="CmbSwitchMode_SelectionChanged" />
-                        <CheckBox x:Name="ChkSwitchBeep" Grid.Column="1" Margin="14,0,0,0" Content="Kêu Beep khi chuyển (OpenKey C++)"
-                                  Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" VerticalAlignment="Center" />
-                    </Grid>
-
-                    <!-- Ghi chú nhanh -->
-                    <Border Grid.Row="3" Grid.ColumnSpan="2" Background="{StaticResource CyberPanel}" CornerRadius="2"
-                            Padding="12" Margin="0,18,0,0" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1">
-                        <StackPanel>
-                            <TextBlock Text="[SYSTEM TIP]:" FontWeight="Bold" Foreground="{StaticResource CyberNeonYellow}" FontFamily="Consolas" />
-                            <TextBlock Text="• Click chuột trái vào icon khay hệ thống (Tray) để chuyển đổi nhanh giữa [VI] Tiếng Việt và [EN] Tiếng Anh."
-                                       FontSize="12" Foreground="{StaticResource CyberTextSecondary}" Margin="0,4,0,2" />
-                            <TextBlock Text="• Kiểu gõ Tư Bình Trần đã được tối ưu hóa đầy đủ: phím 1..5 (dấu thanh), 6 (â), 7 (ê - gõ tr7n ➔ trên), 8 (ô), 9 (ă), [ (ư), ] (ơ), dd (đ)."
-                                       FontSize="12" Foreground="{StaticResource CyberNeonCyan}" FontFamily="Consolas" Margin="0,2" />
-                        </StackPanel>
-                    </Border>
-                </Grid>
-            </TabItem>
-
-            <!-- Tab 2: Tùy chọn -->
-            <TabItem Header="  TÙY CHỌN  ">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="20">
+                        <!-- Phần Cấu hình chính: Bảng mã, Kiểu gõ, Phím chuyển -->
+                        <Grid Margin="0,0,0,14">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Bảng mã -->
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="BẢNG MÃ:" VerticalAlignment="Center" Margin="0,8"
+                                       FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" />
+                            <ComboBox x:Name="CmbCharset" Grid.Row="0" Grid.Column="1" Margin="0,4" SelectionChanged="CmbCharset_SelectionChanged" />
+
+                            <!-- Kiểu gõ -->
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="KIỂU GÕ:" VerticalAlignment="Center" Margin="0,8"
+                                       FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" />
+                            <Grid Grid.Row="1" Grid.Column="1" Margin="0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <ComboBox x:Name="CmbInputMethod" Grid.Column="0" SelectionChanged="CmbInputMethod_SelectionChanged" />
+                                <Button x:Name="BtnCustomInputMethod" Grid.Column="1" Content="TÙY CHỈNH..." Margin="10,0,0,0"
+                                        Padding="12,4" Click="BtnCustomInputMethod_Click" ToolTip="Tùy chỉnh kiểu gõ tự định nghĩa (OpenKey Custom Input Method)" />
+                            </Grid>
+
+                            <!-- Phím chuyển tự do (Chuẩn OpenKey C++) -->
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="PHÍM CHUYỂN VI/EN:" VerticalAlignment="Center" Margin="0,8"
+                                       FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" />
+                            <Grid Grid.Row="2" Grid.Column="1" Margin="0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <CheckBox x:Name="ChkSwitchCtrl" Content="Ctrl" Margin="0,0,8,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                                    <CheckBox x:Name="ChkSwitchAlt" Content="Alt" Margin="0,0,8,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                                    <CheckBox x:Name="ChkSwitchWin" Content="Win" Margin="0,0,8,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                                    <CheckBox x:Name="ChkSwitchShift" Content="Shift" Margin="0,0,10,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                                </StackPanel>
+                                <TextBox x:Name="TxtSwitchKeyChar" Grid.Column="1" Width="70" HorizontalAlignment="Left" TextAlignment="Center"
+                                         FontFamily="Consolas" FontWeight="Bold" MaxLength="10" TextChanged="TxtSwitchKeyChar_TextChanged" ToolTip="Nhập phím (VD: Z, Space, CapsLock)" />
+                                <CheckBox x:Name="ChkSwitchBeep" Grid.Column="2" Margin="14,0,0,0" Content="Kêu Beep khi chuyển"
+                                          Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" VerticalAlignment="Center" />
+                            </Grid>
+                        </Grid>
+
+                        <Separator Background="{StaticResource CyberBorderDim}" Margin="0,10,0,14" />
+
                         <TextBlock Text="[CẤU HÌNH GÕ TIẾNG VIỆT]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,10" />
                         <CheckBox x:Name="ChkCheckSpelling" Content="Bật kiểm tra chính tả khi gõ" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
                         <CheckBox x:Name="ChkRestoreIfWrongSpelling" Content="Tự động khôi phục phím nếu từ sai chính tả" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />

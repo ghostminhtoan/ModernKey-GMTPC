@@ -108,6 +108,21 @@ namespace ModernKey.Config
                         case "SwitchMode":
                             if (Enum.TryParse<SwitchKeyMode>(val, out var sm)) settings.SwitchMode = sm;
                             break;
+                        case "SwitchCtrl":
+                            if (bool.TryParse(val, out var sctrl)) settings.SwitchCtrl = sctrl;
+                            break;
+                        case "SwitchAlt":
+                            if (bool.TryParse(val, out var salt)) settings.SwitchAlt = salt;
+                            break;
+                        case "SwitchWin":
+                            if (bool.TryParse(val, out var swin)) settings.SwitchWin = swin;
+                            break;
+                        case "SwitchShift":
+                            if (bool.TryParse(val, out var sshift)) settings.SwitchShift = sshift;
+                            break;
+                        case "SwitchKeyChar":
+                            settings.SwitchKeyChar = val;
+                            break;
                         case "IsVietnamese":
                             if (bool.TryParse(val, out var iv)) settings.IsVietnamese = iv;
                             break;
@@ -236,6 +251,11 @@ namespace ModernKey.Config
                 sb.AppendLine("InputMethod=" + settings.CurrentInputMethod);
                 sb.AppendLine("Charset=" + settings.CurrentCharset);
                 sb.AppendLine("SwitchMode=" + settings.SwitchMode);
+                sb.AppendLine("SwitchCtrl=" + settings.SwitchCtrl);
+                sb.AppendLine("SwitchAlt=" + settings.SwitchAlt);
+                sb.AppendLine("SwitchWin=" + settings.SwitchWin);
+                sb.AppendLine("SwitchShift=" + settings.SwitchShift);
+                sb.AppendLine("SwitchKeyChar=" + (settings.SwitchKeyChar ?? ""));
                 sb.AppendLine("IsVietnamese=" + settings.IsVietnamese);
                 sb.AppendLine("CheckSpelling=" + settings.CheckSpelling);
                 sb.AppendLine("UseMacro=" + settings.UseMacro);

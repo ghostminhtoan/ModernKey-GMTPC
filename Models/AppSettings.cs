@@ -7,7 +7,14 @@ namespace ModernKey.Models
     {
         public InputMethod CurrentInputMethod { get; set; } = InputMethod.Telex;
         public Charset CurrentCharset { get; set; } = Charset.Unicode;
-        public SwitchKeyMode SwitchMode { get; set; } = SwitchKeyMode.CtrlShift;
+        public SwitchKeyMode SwitchMode { get; set; } = SwitchKeyMode.AltZ;
+
+        // Tùy chọn phím chuyển VI/EN tự do chuẩn OpenKey C++
+        public bool SwitchCtrl { get; set; } = false;
+        public bool SwitchAlt { get; set; } = true;
+        public bool SwitchWin { get; set; } = false;
+        public bool SwitchShift { get; set; } = false;
+        public string SwitchKeyChar { get; set; } = "Z";
         public bool IsVietnamese { get; set; } = true;
         public bool CheckSpelling { get; set; } = true;
         public bool UseMacro { get; set; } = true;

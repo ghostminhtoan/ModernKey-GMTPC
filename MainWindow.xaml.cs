@@ -44,8 +44,6 @@ namespace ModernKey
             CmbCharset.ItemsSource = Enum.GetValues(typeof(Charset));
             // Kiểu gõ
             CmbInputMethod.ItemsSource = Enum.GetValues(typeof(InputMethod));
-            // Phím chuyển
-            CmbSwitchMode.ItemsSource = Enum.GetValues(typeof(SwitchKeyMode));
 
             // Macro DataGrid
             if (_macroManager != null)
@@ -119,12 +117,14 @@ namespace ModernKey
                         CmbInputMethod.SelectedItem = _settings.CurrentInputMethod;
                 }
 
-                if (CmbSwitchMode != null)
+                if (ChkSwitchCtrl != null) ChkSwitchCtrl.IsChecked = _settings.SwitchCtrl;
+                if (ChkSwitchAlt != null) ChkSwitchAlt.IsChecked = _settings.SwitchAlt;
+                if (ChkSwitchWin != null) ChkSwitchWin.IsChecked = _settings.SwitchWin;
+                if (ChkSwitchShift != null) ChkSwitchShift.IsChecked = _settings.SwitchShift;
+                if (TxtSwitchKeyChar != null && TxtSwitchKeyChar.Text != _settings.SwitchKeyChar)
                 {
-                    if (!(CmbSwitchMode.SelectedItem is SwitchKeyMode sm) || sm != _settings.SwitchMode)
-                        CmbSwitchMode.SelectedItem = _settings.SwitchMode;
+                    TxtSwitchKeyChar.Text = _settings.SwitchKeyChar ?? "Z";
                 }
-
                 if (ChkSwitchBeep != null) ChkSwitchBeep.IsChecked = _settings.SwitchBeep;
 
                 // Tab Tùy chọn
@@ -228,9 +228,11 @@ namespace ModernKey
         {
             if (_isUpdatingUi) return;
 
-            if (CmbCharset?.SelectedItem is Charset cs) _settings.CurrentCharset = cs;
-            if (CmbInputMethod?.SelectedItem is InputMethod im) _settings.CurrentInputMethod = im;
-            if (CmbSwitchMode?.SelectedItem is SwitchKeyMode sm) _settings.SwitchMode = sm;
+            if (ChkSwitchCtrl != null) _settings.SwitchCtrl = ChkSwitchCtrl.IsChecked == true;
+            if (ChkSwitchAlt != null) _settings.SwitchAlt = ChkSwitchAlt.IsChecked == true;
+            if (ChkSwitchWin != null) _settings.SwitchWin = ChkSwitchWin.IsChecked == true;
+            if (ChkSwitchShift != null) _settings.SwitchShift = ChkSwitchShift.IsChecked == true;
+            if (TxtSwitchKeyChar != null) _settings.SwitchKeyChar = TxtSwitchKeyChar.Text.Trim();
             if (ChkSwitchBeep != null) _settings.SwitchBeep = ChkSwitchBeep.IsChecked == true;
 
             // Tab Tùy chọn
@@ -345,12 +347,12 @@ namespace ModernKey
             }
         }
 
-        private void CmbSwitchMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void TxtSwitchKeyChar_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (_isUpdatingUi) return;
-            if (CmbSwitchMode.SelectedItem is SwitchKeyMode sm)
+            if (TxtSwitchKeyChar != null)
             {
-                _settings.SwitchMode = sm;
+                _settings.SwitchKeyChar = TxtSwitchKeyChar.Text.Trim();
                 SettingsManager.SaveSettings(_settings);
             }
         }
