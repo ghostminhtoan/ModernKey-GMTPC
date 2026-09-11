@@ -34,7 +34,7 @@ namespace ModernKey
                 Console.WriteLine(report);
                 try
                 {
-                    string outPath = System.IO.Path.Combine(SettingsManager.GetAppDirectory(), "test_results.txt");
+                    string outPath = System.IO.Path.Combine(SettingsManager.GetConfigDirectory(), "test_results.txt");
                     System.IO.File.WriteAllText(outPath, report, Encoding.UTF8);
                 }
                 catch { }
@@ -48,7 +48,7 @@ namespace ModernKey
                 try
                 {
                     string err = ev.ExceptionObject?.ToString();
-                    string logPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "crash_log.txt");
+                    string logPath = System.IO.Path.Combine(SettingsManager.GetConfigDirectory(), "crash_log.txt");
                     System.IO.File.WriteAllText(logPath, err ?? "Unknown unhandled exception", Encoding.UTF8);
                 }
                 catch { }
@@ -59,7 +59,7 @@ namespace ModernKey
                 try
                 {
                     string err = ev.Exception?.ToString();
-                    string logPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "crash_log.txt");
+                    string logPath = System.IO.Path.Combine(SettingsManager.GetConfigDirectory(), "crash_log.txt");
                     System.IO.File.WriteAllText(logPath, err ?? "Unknown dispatcher exception", Encoding.UTF8);
                 }
                 catch { }

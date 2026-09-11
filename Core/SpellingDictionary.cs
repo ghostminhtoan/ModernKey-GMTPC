@@ -30,20 +30,6 @@ namespace ModernKey.Core
             // Tải lười theo nhu cầu (On-demand Lazy Load) để tiết kiệm ~10MB RAM và I/O khi khởi động
         }
 
-        private void LoadFromReader(TextReader reader)
-        {
-            string firstLine = reader.ReadLine(); // Bỏ qua dòng số lượng từ (59547)
-            string line;
-            while ((line = reader.ReadLine()) != null)
-            {
-                string trimmed = line.Trim();
-                if (trimmed.Length > 0)
-                {
-                    _words.Add(trimmed);
-                }
-            }
-        }
-
         public void LoadDictionary()
         {
             lock (_lock)
@@ -52,47 +38,50 @@ namespace ModernKey.Core
 
                 try
                 {
-                    string dicPath = null;
-                    string configDir = SettingsManager.GetConfigDirectory();
-                    string appDir = SettingsManager.GetAppDirectory();
+                    string cfgDir = SettingsManager.GetConfigDirectory();
+                    string baseDir = AppDomain.CurrentDomain.BaseDirectory;
 
+                    string dicPath = null;
                     string[] candidatePaths = new[]
                     {
-                        Path.Combine(configDir, "vi_VN.dic"),
-                        Path.Combine(configDir, "Config", "vi_VN.dic"),
-                        Path.Combine(appDir, "Config", "vi_VN.dic"),
-                        Path.Combine(appDir, "vi_VN.dic"),
-                        Path.Combine(Directory.GetCurrentDirectory(), "Config", "vi_VN.dic"),
-                        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "vi_VN.dic")
+                        Path.Combine(cfgDir, "vi_VN.dic"),
+                        Path.Combine(cfgDir, "Config", "vi_VN.dic"),
+                        Path.Combine(baseDir, "Config", "vi_VN.dic"),
+                        Path.Combine(Directory.GetCurrentDirectory(), "Config", "vi_VN.dic")
                     };
 
-                    foreach (var path in candidatePaths)
+                    foreach (var p in candidatePaths)
                     {
-                        if (File.Exists(path))
+                        if (File.Exists(p))
                         {
-                            dicPath = path;
+                            dicPath = p;
                             break;
                         }
                     }
 
-                    if (dicPath != null && File.Exists(dicPath))
+                    Stream stream = null;
+                    if (dicPath != null)
                     {
-                        using (var reader = new StreamReader(dicPath, Encoding.UTF8))
-                        {
-                            LoadFromReader(reader);
-                        }
+                        stream = new FileStream(dicPath, FileMode.Open, FileAccess.Read, FileShare.Read);
                     }
                     else
                     {
-                        // Đọc từ EmbeddedResource nếu chạy file standalone độc lập
-                        var asm = typeof(SpellingDictionary).Assembly;
-                        using (var stream = asm.GetManifestResourceStream("ModernKey.Config.vi_VN.dic"))
+                        // File exe Standalone hoàn toàn: nạp trực tiếp từ Embedded Resource trong assembly
+                        stream = typeof(SpellingDictionary).Assembly.GetManifestResourceStream("ModernKey.Config.vi_VN.dic");
+                    }
+
+                    if (stream != null)
+                    {
+                        using (var reader = new StreamReader(stream, Encoding.UTF8))
                         {
-                            if (stream != null)
+                            string firstLine = reader.ReadLine(); // Bỏ qua dòng số lượng từ (59547)
+                            string line;
+                            while ((line = reader.ReadLine()) != null)
                             {
-                                using (var reader = new StreamReader(stream, Encoding.UTF8))
+                                string trimmed = line.Trim();
+                                if (trimmed.Length > 0)
                                 {
-                                    LoadFromReader(reader);
+                                    _words.Add(trimmed);
                                 }
                             }
                         }

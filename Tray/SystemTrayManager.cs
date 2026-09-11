@@ -149,7 +149,8 @@ namespace ModernKey.Tray
             _notifyIcon.Icon = _settings.IsVietnamese ? _iconViet : _iconEng;
             string langStr = _settings.IsVietnamese ? "Tiếng Việt [VI]" : "English [EN]";
             string modeStr = _settings.CurrentInputMethod.ToString();
-            _notifyIcon.Text = $"ModernKey GMTPC [{langStr} - {modeStr}]";
+            string portTag = SettingsManager.IsPortableMode() ? " (Portable)" : "";
+            _notifyIcon.Text = $"ModernKey GMTPC [{langStr} - {modeStr}]{portTag}";
         }
 
         public void BuildContextMenu()

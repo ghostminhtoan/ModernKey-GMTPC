@@ -32,6 +32,10 @@ namespace ModernKey
             _isUpdatingUi = true; // Khóa toàn bộ event handlers trong suốt quá trình dựng UI ban đầu
 
             InitializeComponent();
+            if (SettingsManager.IsPortableMode())
+            {
+                Title = "ModernKey GMTPC [Portable]";
+            }
             InitializeControls();
             RefreshState();
 
