@@ -624,7 +624,7 @@ namespace ModernKey
                 if (BtnToggleCompact != null) BtnToggleCompact.Content = "[HUD COMPACT]";
                 Height = 720;
                 Width = 820;
-                ResizeMode = ResizeMode.CanMinimize;
+                ResizeMode = ResizeMode.CanResize;
             }
         }
 

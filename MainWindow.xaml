@@ -2,11 +2,11 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="MODERNKEY GMTPC // CYBER_EDITION"
-        Height="710" Width="820"
+        Height="710" Width="820" MinWidth="600" MinHeight="500"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource CyberBlack}"
         Foreground="{StaticResource CyberTextPrimary}"
-        ResizeMode="CanMinimize"
+        ResizeMode="CanResize"
         Icon="Resources/AppIcon.ico">
 
     <Grid Margin="14">
@@ -108,11 +108,11 @@
 
         <!-- Cyberpunk Main Tabs -->
         <TabControl x:Name="MainTabControl" Grid.Row="1" Background="{StaticResource CyberDark}" BorderBrush="{StaticResource CyberBorderDim}">
-            <!-- Tab 1: Điều khiển (Đã nhập từ tab Tùy chọn) -->
-            <TabItem Header="  ĐIỀU KHIỂN  ">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="20">
-                        <!-- Phần Cấu hình chính: Bảng mã, Kiểu gõ, Phím chuyển -->
+            <!-- Tab 1: Bộ Gõ -->
+            <TabItem Header="  BỘ GÕ  ">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="18">
+                        <!-- Phần Bảng mã, Kiểu gõ, Phím chuyển -->
                         <Grid Margin="0,0,0,14">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -145,77 +145,75 @@
                             <!-- Phím chuyển tự do (Chuẩn OpenKey C++) -->
                             <TextBlock Grid.Row="2" Grid.Column="0" Text="PHÍM CHUYỂN VI/EN:" VerticalAlignment="Center" Margin="0,8"
                                        FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" />
-                            <Grid Grid.Row="2" Grid.Column="1" Margin="0,4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <CheckBox x:Name="ChkSwitchCtrl" Content="Ctrl" Margin="0,0,8,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
-                                    <CheckBox x:Name="ChkSwitchAlt" Content="Alt" Margin="0,0,8,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
-                                    <CheckBox x:Name="ChkSwitchWin" Content="Win" Margin="0,0,8,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
-                                    <CheckBox x:Name="ChkSwitchShift" Content="Shift" Margin="0,0,10,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
-                                </StackPanel>
-                                <TextBox x:Name="TxtSwitchKeyChar" Grid.Column="1" Width="70" HorizontalAlignment="Left" TextAlignment="Center"
-                                         FontFamily="Consolas" FontWeight="Bold" MaxLength="10" TextChanged="TxtSwitchKeyChar_TextChanged" ToolTip="Nhập phím (VD: Z, Space, CapsLock)" />
-                                <CheckBox x:Name="ChkSwitchBeep" Grid.Column="2" Margin="14,0,0,0" Content="Kêu Beep khi chuyển"
+                            <WrapPanel Grid.Row="2" Grid.Column="1" Margin="0,4" VerticalAlignment="Center">
+                                <CheckBox x:Name="ChkSwitchCtrl" Content="Ctrl" Margin="0,4,12,4" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                                <CheckBox x:Name="ChkSwitchAlt" Content="Alt" Margin="0,4,12,4" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                                <CheckBox x:Name="ChkSwitchWin" Content="Win" Margin="0,4,12,4" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                                <CheckBox x:Name="ChkSwitchShift" Content="Shift" Margin="0,4,12,4" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                                <TextBox x:Name="TxtSwitchKeyChar" Width="60" Height="26" HorizontalAlignment="Left" TextAlignment="Center" VerticalContentAlignment="Center"
+                                         FontFamily="Consolas" FontWeight="Bold" MaxLength="10" TextChanged="TxtSwitchKeyChar_TextChanged" ToolTip="Nhập phím (VD: Z, Space, CapsLock)" Margin="0,4,12,4" />
+                                <CheckBox x:Name="ChkSwitchBeep" Content="Kêu Beep khi chuyển" Margin="0,4,0,4"
                                           Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" VerticalAlignment="Center" />
-                            </Grid>
+                            </WrapPanel>
                         </Grid>
 
-                        <Separator Background="{StaticResource CyberBorderDim}" Margin="0,10,0,14" />
+                        <Separator Background="{StaticResource CyberBorderDim}" Margin="0,6,0,12" />
 
                         <TextBlock Text="[CẤU HÌNH GÕ TIẾNG VIỆT]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,10" />
-                        <CheckBox x:Name="ChkCheckSpelling" Content="Bật kiểm tra chính tả khi gõ" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
-                        <CheckBox x:Name="ChkRestoreIfWrongSpelling" Content="Tự động khôi phục phím nếu từ sai chính tả" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
-                        <CheckBox x:Name="ChkModernTone" Content="Bỏ dấu thanh kiểu mới (oà, uý thay vì òa, úy)" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
-                        <CheckBox x:Name="ChkAllowConsonantZFWJ" Content="Cho phép các phụ âm Z, F, W, J trong từ tiếng Việt" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
-                        <CheckBox x:Name="ChkUpperCaseFirstChar" Content="Tự động viết hoa chữ cái đầu câu" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
-                        <CheckBox x:Name="ChkFixRecommendBrowser" Content="Khắc phục gợi ý / autocomplete trên trình duyệt (Chrome, Edge...)" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
-                        <CheckBox x:Name="ChkClipboard" Content="Gửi phím qua Clipboard (Hỗ trợ game &amp; ứng dụng đồ họa)" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
-                        <CheckBox x:Name="ChkSmartCodePassthrough" Content="Tạm dừng tiếng Việt khi gặp từ khóa lập trình / URL (Smart Passthrough)" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
-                        <CheckBox x:Name="ChkEscKeyUndo" Content="Nhấn phím Esc để hoàn tác dấu về chuỗi ký tự tiếng Anh gốc (Esc Undo)" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
-                        <CheckBox x:Name="ChkEnableStatusOsd" Content="Hiện huy hiệu OSD [VI]/[EN] tại vị trí con trỏ chuột khi chuyển ngôn ngữ" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                        <WrapPanel Orientation="Horizontal">
+                            <CheckBox x:Name="ChkCheckSpelling" Content="Bật kiểm tra chính tả khi gõ" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                            <CheckBox x:Name="ChkRestoreIfWrongSpelling" Content="Tự động khôi phục phím nếu từ sai chính tả" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                            <CheckBox x:Name="ChkModernTone" Content="Bỏ dấu thanh kiểu mới (oà, uý thay vì òa, úy)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                            <CheckBox x:Name="ChkAllowConsonantZFWJ" Content="Cho phép các phụ âm Z, F, W, J trong từ tiếng Việt" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                            <CheckBox x:Name="ChkUpperCaseFirstChar" Content="Tự động viết hoa chữ cái đầu câu" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                            <CheckBox x:Name="ChkFixRecommendBrowser" Content="Khắc phục gợi ý / autocomplete trên trình duyệt" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                            <CheckBox x:Name="ChkClipboard" Content="Gửi phím qua Clipboard (Hỗ trợ game &amp; đồ họa)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                            <CheckBox x:Name="ChkSmartCodePassthrough" Content="Tạm dừng tiếng Việt khi gặp từ khóa lập trình / URL" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                            <CheckBox x:Name="ChkEscKeyUndo" Content="Nhấn phím Esc để hoàn tác dấu về chuỗi gốc (Esc Undo)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                            <CheckBox x:Name="ChkEnableStatusOsd" Content="Hiện huy hiệu OSD [VI]/[EN] tại vị trí con trỏ chuột" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                        </WrapPanel>
 
-                        <Border Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="10,6" Margin="0,6,0,6">
+                        <Border Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="10,6" Margin="0,4,0,4">
                             <TextBlock x:Name="TxtDictionaryStatus" Text="TỪ ĐIỂN CHÍNH TẢ: vi_VN.dic (59.547 từ) đang hoạt động" FontSize="11" FontFamily="Consolas" Foreground="{StaticResource CyberNeonYellow}" />
                         </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
 
-                        <Separator Background="{StaticResource CyberBorderDim}" Margin="0,16" />
+            <!-- Tab 2: Hệ Thống -->
+            <TabItem Header="  HỆ THỐNG  ">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="18">
+                        <TextBlock Text="[CẤU HÌNH HỆ THỐNG &amp; KHỞI ĐỘNG]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,10" />
+                        <WrapPanel Orientation="Horizontal">
+                            <CheckBox x:Name="ChkStartWithWindows" Content="Khởi động cùng Windows" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                            <CheckBox x:Name="ChkStartAsAdmin" Content="Khởi động cùng Windows với quyền Admin (Bypass UAC)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                            <CheckBox x:Name="ChkOpenDialogOnStartup" Content="Mở bảng điều khiển này khi khởi động" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                        </WrapPanel>
 
-                        <TextBlock Text="[CẤU HÌNH HỆ THỐNG]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,10" />
-                        <CheckBox x:Name="ChkStartWithWindows" Content="Khởi động cùng Windows" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
-                        <CheckBox x:Name="ChkStartAsAdmin" Content="Khởi động cùng Windows với quyền Administrator (Bypass UAC ngầm)" Margin="20,0,0,6" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
-                        <CheckBox x:Name="ChkOpenDialogOnStartup" Content="Mở bảng điều khiển này khi khởi động" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
-
-                        <Separator Background="{StaticResource CyberBorderDim}" Margin="0,16" />
+                        <Separator Background="{StaticResource CyberBorderDim}" Margin="0,8,0,14" />
 
                         <TextBlock Text="[QUẢN LÝ PROFILE &amp; SAO LƯU CẤU HÌNH]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,10" />
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="120" />
-                                <ColumnDefinition Width="160" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="CHỌN PROFILE:" VerticalAlignment="Center" FontFamily="Consolas" Foreground="{StaticResource CyberNeonYellow}" />
-                            <ComboBox x:Name="CmbProfile" Grid.Column="1" Margin="0,0,8,0">
-                                <ComboBoxItem Content="Office (Văn phòng)" Tag="Office" IsSelected="True" />
-                                <ComboBoxItem Content="Coding (Lập trình)" Tag="Coding" />
-                                <ComboBoxItem Content="Gaming (Chơi game)" Tag="Gaming" />
-                            </ComboBox>
-                            <Button Grid.Column="2" Content="ÁP DỤNG" Click="BtnApplyProfile_Click" Padding="12,4" Margin="0,0,14,0" Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" />
-                            <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right">
-                                <Button Content="XUẤT JSON" Click="BtnExportProfileJson_Click" Margin="0,0,6,0" Padding="10,4" ToolTip="Xuất toàn bộ cấu hình ra file JSON" />
+                        <WrapPanel Margin="0,0,0,10" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,16,10">
+                                <TextBlock Text="CHỌN PROFILE: " VerticalAlignment="Center" FontFamily="Consolas" Foreground="{StaticResource CyberNeonYellow}" Margin="0,0,8,0" />
+                                <ComboBox x:Name="CmbProfile" Width="160" Margin="0,0,8,0">
+                                    <ComboBoxItem Content="Office (Văn phòng)" Tag="Office" IsSelected="True" />
+                                    <ComboBoxItem Content="Coding (Lập trình)" Tag="Coding" />
+                                    <ComboBoxItem Content="Gaming (Chơi game)" Tag="Gaming" />
+                                </ComboBox>
+                                <Button Content="ÁP DỤNG" Click="BtnApplyProfile_Click" Padding="12,4" Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                <Button Content="XUẤT JSON" Click="BtnExportProfileJson_Click" Margin="0,0,8,0" Padding="10,4" ToolTip="Xuất toàn bộ cấu hình ra file JSON" />
                                 <Button Content="NHẬP JSON" Click="BtnImportProfileJson_Click" Padding="10,4" ToolTip="Nhập cấu hình từ file JSON" />
                             </StackPanel>
-                        </Grid>
+                        </WrapPanel>
 
-                        <Separator Background="{StaticResource CyberBorderDim}" Margin="0,12" />
+                        <Separator Background="{StaticResource CyberBorderDim}" Margin="0,4,0,14" />
 
                         <TextBlock Text="[DANH SÁCH LOẠI TRỪ ỨNG DỤNG (EXCLUDE APPS)]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,8" />
-                        <CheckBox x:Name="ChkAutoExclude" Content="Tự động tắt gõ tiếng Việt (chuyển sang [EN]) khi mở ứng dụng trong danh sách" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" Margin="0,0,0,8" />
+                        <CheckBox x:Name="ChkAutoExclude" Content="Tự động tắt gõ tiếng Việt (chuyển sang [EN]) khi mở ứng dụng trong danh sách" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" Margin="0,0,0,10" />
 
                         <Grid Margin="0,0,0,8">
                             <Grid.ColumnDefinitions>
@@ -228,7 +226,7 @@
                             <Button Grid.Column="2" Content="XÓA TIẾN TRÌNH" Click="BtnRemoveExcludedApp_Click" Background="#2B0914" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}" Padding="10,4" />
                         </Grid>
 
-                        <ListBox x:Name="LstExcludedApps" Height="90" Background="{StaticResource CyberInput}" Foreground="{StaticResource CyberTextPrimary}"
+                        <ListBox x:Name="LstExcludedApps" Height="100" Background="{StaticResource CyberInput}" Foreground="{StaticResource CyberTextPrimary}"
                                  BorderBrush="{StaticResource CyberBorderDim}" FontFamily="Consolas" FontSize="12" />
                     </StackPanel>
                 </ScrollViewer>
