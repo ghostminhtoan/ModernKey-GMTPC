@@ -1,0 +1,240 @@
+<Application x:Class="ModernKey.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ShutdownMode="OnExplicitShutdown">
+    <Application.Resources>
+        <!-- Cyberpunk Color Palette -->
+        <SolidColorBrush x:Key="CyberBlack" Color="#0B0C10" />
+        <SolidColorBrush x:Key="CyberDark" Color="#12131C" />
+        <SolidColorBrush x:Key="CyberPanel" Color="#181926" />
+        <SolidColorBrush x:Key="CyberInput" Color="#0D0E15" />
+        <SolidColorBrush x:Key="CyberBorder" Color="#00F0FF" />
+        <SolidColorBrush x:Key="CyberBorderDim" Color="#1F4068" />
+        <SolidColorBrush x:Key="CyberNeonCyan" Color="#00F0FF" />
+        <SolidColorBrush x:Key="CyberNeonPink" Color="#FF0055" />
+        <SolidColorBrush x:Key="CyberNeonYellow" Color="#FFE600" />
+        <SolidColorBrush x:Key="CyberTextPrimary" Color="#E0F7FA" />
+        <SolidColorBrush x:Key="CyberTextSecondary" Color="#80DEEA" />
+        <SolidColorBrush x:Key="CyberTextDim" Color="#4A6572" />
+
+        <!-- Base TextBlock -->
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource CyberTextPrimary}" />
+            <Setter Property="FontFamily" Value="Segoe UI, Consolas, Tahoma" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+
+        <!-- Cyberpunk Button -->
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#102030" />
+            <Setter Property="Foreground" Value="{StaticResource CyberNeonCyan}" />
+            <Setter Property="BorderBrush" Value="{StaticResource CyberNeonCyan}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="14,6" />
+            <Setter Property="FontFamily" Value="Segoe UI, Consolas" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="2">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource CyberNeonCyan}" />
+                                <Setter Property="Foreground" Value="#0A0B10" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource CyberNeonPink}" />
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource CyberNeonPink}" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Cyberpunk CheckBox -->
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{StaticResource CyberTextPrimary}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Margin" Value="0,6" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+
+        <!-- Cyberpunk TextBox -->
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="{StaticResource CyberInput}" />
+            <Setter Property="Foreground" Value="{StaticResource CyberNeonCyan}" />
+            <Setter Property="CaretBrush" Value="{StaticResource CyberNeonPink}" />
+            <Setter Property="BorderBrush" Value="{StaticResource CyberBorderDim}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="FontFamily" Value="Consolas, Segoe UI" />
+            <Setter Property="FontSize" Value="13" />
+            <Style.Triggers>
+                <Trigger Property="IsFocused" Value="True">
+                    <Setter Property="BorderBrush" Value="{StaticResource CyberNeonCyan}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Cyberpunk ComboBox Item -->
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="{StaticResource CyberDark}" />
+            <Setter Property="Foreground" Value="{StaticResource CyberTextPrimary}" />
+            <Setter Property="FontFamily" Value="Segoe UI, Consolas" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="ItemBorder" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#1A3B5C" />
+                                <Setter Property="Foreground" Value="{StaticResource CyberNeonCyan}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{StaticResource CyberNeonPink}" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Cyberpunk ComboBox Full Template (Fixed White Dropdown Bug) -->
+        <ControlTemplate x:Key="CyberComboBoxTemplate" TargetType="ComboBox">
+            <Grid>
+                <ToggleButton x:Name="ToggleButton"
+                              ClickMode="Press"
+                              Focusable="False"
+                              IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                              Cursor="Hand">
+                    <ToggleButton.Template>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border x:Name="Border"
+                                    Background="{StaticResource CyberInput}"
+                                    BorderBrush="{StaticResource CyberNeonCyan}"
+                                    BorderThickness="1"
+                                    CornerRadius="2">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="28" />
+                                    </Grid.ColumnDefinitions>
+                                    <!-- Arrow Icon -->
+                                    <Path Grid.Column="1"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          Fill="{StaticResource CyberNeonCyan}"
+                                          Data="M 0 0 L 4 4 L 8 0 Z" />
+                                </Grid>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Border" Property="BorderBrush" Value="{StaticResource CyberNeonPink}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </ToggleButton.Template>
+                </ToggleButton>
+
+                <ContentPresenter Name="ContentSite"
+                                  IsHitTestVisible="False"
+                                  Content="{TemplateBinding SelectionBoxItem}"
+                                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                  ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                  Margin="10,6,30,6"
+                                  VerticalAlignment="Center"
+                                  HorizontalAlignment="Left" />
+
+                <Popup Name="Popup"
+                       Placement="Bottom"
+                       IsOpen="{TemplateBinding IsDropDownOpen}"
+                       AllowsTransparency="True"
+                       Focusable="False"
+                       PopupAnimation="Slide">
+                    <Grid Name="DropDown"
+                          SnapsToDevicePixels="True"
+                          MinWidth="{TemplateBinding ActualWidth}"
+                          MaxHeight="260">
+                        <Border x:Name="DropDownBorder"
+                                Background="{StaticResource CyberDark}"
+                                BorderThickness="1"
+                                BorderBrush="{StaticResource CyberNeonCyan}"
+                                CornerRadius="2">
+                            <ScrollViewer Margin="2" SnapsToDevicePixels="True">
+                                <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+                </Popup>
+            </Grid>
+            <ControlTemplate.Triggers>
+                <Trigger Property="HasItems" Value="False">
+                    <Setter TargetName="DropDownBorder" Property="MinHeight" Value="60" />
+                </Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate>
+
+        <Style TargetType="ComboBox">
+            <Setter Property="Template" Value="{StaticResource CyberComboBoxTemplate}" />
+            <Setter Property="Foreground" Value="{StaticResource CyberNeonCyan}" />
+            <Setter Property="FontFamily" Value="Segoe UI, Consolas" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Height" Value="32" />
+        </Style>
+
+        <!-- Cyberpunk TabControl & TabItem -->
+        <Style TargetType="TabItem">
+            <Setter Property="FontFamily" Value="Consolas, Segoe UI" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="TabBorder"
+                                Background="Transparent"
+                                BorderThickness="0,0,0,2"
+                                BorderBrush="Transparent"
+                                Padding="12,7"
+                                Margin="0,0,4,0"
+                                Cursor="Hand">
+                            <ContentPresenter x:Name="TabContent"
+                                              ContentSource="Header"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="{StaticResource CyberNeonPink}" />
+                                <Setter Property="Foreground" Value="{StaticResource CyberNeonPink}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="{StaticResource CyberNeonCyan}" />
+                                <Setter TargetName="TabBorder" Property="Background" Value="#14202B" />
+                                <Setter Property="Foreground" Value="{StaticResource CyberNeonCyan}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="False">
+                                <Setter Property="Foreground" Value="{StaticResource CyberTextDim}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Application.Resources>
+</Application>
