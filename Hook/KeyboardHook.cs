@@ -64,6 +64,17 @@ namespace ModernKey.Hook
         [DllImport("user32.dll")]
         private static extern short GetAsyncKeyState(int vKey);
 
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr OpenProcess(uint processAccess, bool bInheritHandle, uint processId);
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern bool QueryFullProcessImageName(IntPtr hProcess, int dwFlags, [Out] StringBuilder lpExeName, ref int lpdwSize);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool CloseHandle(IntPtr hObject);
+
+        private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+
         [StructLayout(LayoutKind.Sequential)]
         private struct KBDLLHOOKSTRUCT
         {
@@ -132,6 +143,8 @@ namespace ModernKey.Hook
             "csgo.exe", "cs2.exe", "dota2.exe", "gta5.exe", "overwatch.exe"
         };
 
+        private static readonly Dictionary<uint, string> _pidExeNameCache = new Dictionary<uint, string>();
+
         private string GetExeNameFromWindow(IntPtr hWnd)
         {
             if (hWnd == IntPtr.Zero) return string.Empty;
@@ -140,11 +153,44 @@ namespace ModernKey.Hook
                 GetWindowThreadProcessId(hWnd, out uint pid);
                 if (pid == 0) return string.Empty;
 
+                if (_pidExeNameCache.TryGetValue(pid, out string cachedName))
+                {
+                    return cachedName;
+                }
+
+                IntPtr hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+                if (hProcess != IntPtr.Zero)
+                {
+                    try
+                    {
+                        var sb = new StringBuilder(1024);
+                        int size = sb.Capacity;
+                        if (QueryFullProcessImageName(hProcess, 0, sb, ref size))
+                        {
+                            string fullPath = sb.ToString();
+                            string fileName = System.IO.Path.GetFileName(fullPath)?.ToLowerInvariant() ?? string.Empty;
+                            if (!string.IsNullOrEmpty(fileName))
+                            {
+                                if (_pidExeNameCache.Count > 100) _pidExeNameCache.Clear();
+                                _pidExeNameCache[pid] = fileName;
+                                return fileName;
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        CloseHandle(hProcess);
+                    }
+                }
+
+                // Fallback an toàn nếu không mở được process bằng Native API
                 using (var proc = Process.GetProcessById((int)pid))
                 {
                     string pName = proc.ProcessName.ToLowerInvariant();
                     if (!pName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                         pName += ".exe";
+                    if (_pidExeNameCache.Count > 100) _pidExeNameCache.Clear();
+                    _pidExeNameCache[pid] = pName;
                     return pName;
                 }
             }
@@ -703,20 +749,22 @@ namespace ModernKey.Hook
             return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
         }
 
+        private static readonly byte[] _cachedKeyStates = new byte[256];
+        private static readonly StringBuilder _cachedCharBuffer = new StringBuilder(16);
+
         private char ConvertVkToChar(uint vkCode, uint scanCode)
         {
-            byte[] keyStates = new byte[256];
-            GetKeyboardState(keyStates);
+            GetKeyboardState(_cachedKeyStates);
 
             IntPtr hWnd = GetForegroundWindow();
             uint threadId = GetWindowThreadProcessId(hWnd, out _);
             IntPtr layout = GetKeyboardLayout(threadId);
 
-            var sb = new StringBuilder(10);
-            int rc = ToUnicodeEx(vkCode, scanCode, keyStates, sb, sb.Capacity, 0, layout);
-            if (rc > 0 && sb.Length > 0)
+            _cachedCharBuffer.Clear();
+            int rc = ToUnicodeEx(vkCode, scanCode, _cachedKeyStates, _cachedCharBuffer, _cachedCharBuffer.Capacity, 0, layout);
+            if (rc > 0 && _cachedCharBuffer.Length > 0)
             {
-                return sb[0];
+                return _cachedCharBuffer[0];
             }
             return (char)0;
         }

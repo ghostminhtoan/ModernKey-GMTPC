@@ -91,85 +91,115 @@ namespace ModernKey
             _trayManager = new SystemTrayManager(_settings, ShowMainWindow, ExitApplication);
             _statusOsdWindow = new StatusOsdWindow();
 
-            // Đồng bộ trạng thái khi phím tắt chuyển đổi chế độ V/E
+            // Đồng bộ trạng thái khi phím tắt chuyển đổi chế độ V/E bất đồng bộ (Non-blocking Hook Thread)
             _keyboardHook.LanguageChanged += () =>
             {
-                Dispatcher.Invoke(() =>
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
                 {
                     _trayManager.UpdateTrayIcon();
                     _trayManager.BuildContextMenu();
-                    _mainWindow?.RefreshState();
+                    if (_mainWindow != null && _mainWindow.IsLoaded && _mainWindow.IsVisible)
+                    {
+                        _mainWindow.RefreshState();
+                    }
                     ShowStatusOsd(_settings.IsVietnamese);
-                });
+                }));
             };
 
             // Phím tắt đổi Bảng mã (F3: Unicode, F4: Tùy chọn)
             _keyboardHook.CharsetChanged += (cs) =>
             {
-                Dispatcher.Invoke(() =>
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
                 {
                     SettingsManager.SaveSettings(_settings);
                     _trayManager.BuildContextMenu();
-                    _mainWindow?.RefreshState();
-                });
+                    if (_mainWindow != null && _mainWindow.IsLoaded && _mainWindow.IsVisible)
+                    {
+                        _mainWindow.RefreshState();
+                    }
+                }));
             };
 
             // Phím tắt mở Bảng cài đặt (F5)
             _keyboardHook.OpenSettingsRequested += () =>
             {
-                Dispatcher.Invoke(() =>
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
                 {
                     ShowMainWindow();
-                });
+                }));
             };
 
             // Phím tắt mở Bảng gõ tắt (F8)
             _keyboardHook.OpenMacroTableRequested += () =>
             {
-                Dispatcher.Invoke(() =>
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
                 {
                     ShowMainWindow();
                     _mainWindow?.SelectMacroTab();
-                });
+                }));
             };
 
             // Phím tắt Bật/Tắt gõ tắt (F9)
             _keyboardHook.ToggleMacroRequested += () =>
             {
-                Dispatcher.Invoke(() =>
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
                 {
                     SettingsManager.SaveSettings(_settings);
-                    _mainWindow?.RefreshState();
-                });
+                    if (_mainWindow != null && _mainWindow.IsLoaded && _mainWindow.IsVisible)
+                    {
+                        _mainWindow.RefreshState();
+                    }
+                }));
             };
 
             // Phím tắt Reset engine / hook (F12)
             _keyboardHook.ResetHookRequested += () =>
             {
-                Dispatcher.Invoke(() =>
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
                 {
                     _engine.Reset();
                     _keyboardHook.Stop();
                     _keyboardHook.Start();
                     _trayManager.UpdateTrayIcon();
-                });
+                }));
             };
 
             _trayManager.StateChanged += () =>
             {
-                Dispatcher.Invoke(() =>
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
                 {
-                    _mainWindow?.RefreshState();
-                });
+                    if (_mainWindow != null && _mainWindow.IsLoaded && _mainWindow.IsVisible)
+                    {
+                        _mainWindow.RefreshState();
+                    }
+                }));
             };
 
-            // 4. Khởi tạo MainWindow
-            _mainWindow = new MainWindow(_settings, _macroManager, _trayManager);
-
+            // 4. Khởi tạo MainWindow theo nhu cầu (Lazy loading giúp app siêu nhẹ ~8MB khi khởi động khay hệ thống)
             if (_settings.OpenDialogOnStartup)
             {
-                _mainWindow.Show();
+                ShowMainWindow();
             }
+            else
+            {
+                TrimWorkingSet();
+            }
+        }
+
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool SetProcessWorkingSetSize(IntPtr hProcess, IntPtr dwMinimumWorkingSetSize, IntPtr dwMaximumWorkingSetSize);
+
+        public static void TrimWorkingSet()
+        {
+            try
+            {
+                GC.Collect(1, GCCollectionMode.Optimized);
+                using (var currentProcess = System.Diagnostics.Process.GetCurrentProcess())
+                {
+                    SetProcessWorkingSetSize(currentProcess.Handle, (IntPtr)(-1), (IntPtr)(-1));
+                }
+            }
+            catch { }
         }
 
         public void ShowMainWindow()
@@ -178,6 +208,8 @@ namespace ModernKey
             {
                 _mainWindow = new MainWindow(_settings, _macroManager, _trayManager);
             }
+
+            _mainWindow.RefreshState();
 
             if (_mainWindow.WindowState == WindowState.Minimized)
             {

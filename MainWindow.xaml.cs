@@ -695,6 +695,7 @@ namespace ModernKey
             {
                 e.Cancel = true;
                 Hide();
+                App.TrimWorkingSet();
             }
             else
             {

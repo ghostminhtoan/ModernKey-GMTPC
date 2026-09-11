@@ -514,18 +514,17 @@ namespace ModernKey.Core
             // 2. Kỳ vọng chuỗi nếu là gõ phím thông thường (không biến đổi dấu)
             string expectedNormal = prevDisplayWord + ch;
 
-            // 3. Thử thêm ký tự ch vào buffer và phân tích
-            List<char> testBuffer = new List<char>(_charBuffer) { ch };
-            string transformed = TransformWord(testBuffer, _settings.CurrentInputMethod, _settings.ModernToneRules, _settings.CustomRules);
-            string actualDisplayWord = transformed ?? new string(testBuffer.ToArray());
+            // 3. Thêm trực tiếp ký tự ch vào buffer để phân tích, tránh cấp phát List<char> mới trên Heap
+            _charBuffer.Add(ch);
+            string transformed = TransformWord(_charBuffer, _settings.CurrentInputMethod, _settings.ModernToneRules, _settings.CustomRules);
+            string actualDisplayWord = transformed ?? new string(_charBuffer.ToArray());
 
             // 4. SO SÁNH DELTA-CHANGE:
             // Nếu actualDisplayWord GIỐNG HỆT expectedNormal:
             // Phím ch KHÔNG làm biến đổi dấu hay mũ nào! Để Windows in ký tự tự nhiên!
             if (string.Equals(actualDisplayWord, expectedNormal, StringComparison.Ordinal))
             {
-                _charBuffer.Add(ch);
-                return false; // KHÔNG GỬI BACKSPACE, KHÔNG NUỐT PHÍM!
+                return false; // KHÔNG GỬI BACKSPACE, KHÔNG NUỐT PHÍM! (ch đã nằm trong _charBuffer)
             }
 
             // 5. NẾU KHÁC NHAU: THỰC SỰ CÓ BIẾN ĐỔI DẤU HOẶC MŨ TIẾNG VIỆT!
@@ -535,7 +534,6 @@ namespace ModernKey.Core
             // Chuyển sang bảng mã đích
             newString = CharsetConverter.FromUnicode(actualDisplayWord, _settings.CurrentCharset);
 
-            _charBuffer.Add(ch);
             return true;
         }
 
@@ -688,7 +686,7 @@ namespace ModernKey.Core
                 }
 
                 // 2. Dấu thanh: 1..5 (chỉ khi sb đã có nguyên âm)
-                bool hasVowelSoFar = HasAnyVowel(sb.ToString());
+                bool hasVowelSoFar = HasAnyVowel(sb);
 
                 if (hasVowelSoFar && (c == '1' || c == '2' || c == '3' || c == '4' || c == '5'))
                 {
@@ -1165,7 +1163,7 @@ namespace ModernKey.Core
                     }
                 }
 
-                bool hasVowelSoFar = HasAnyVowel(sb.ToString());
+                bool hasVowelSoFar = HasAnyVowel(sb);
                 bool isCaps = IsCapsLockActive() || char.IsUpper(c) || (sb.Length > 1 && IsAllLettersUpper(sb));
 
                 if (action == 0)
@@ -1655,7 +1653,7 @@ namespace ModernKey.Core
             {
                 char c = keys[i];
                 char lower = char.ToLower(c);
-                bool hasVowelSoFar = HasAnyVowel(sb.ToString());
+                bool hasVowelSoFar = HasAnyVowel(sb);
 
                 if (method == InputMethod.Telex || method == InputMethod.SimpleTelex)
                 {
@@ -1896,6 +1894,16 @@ namespace ModernKey.Core
             }
 
             return modified ? sb.ToString() : null;
+        }
+
+        private static bool HasAnyVowel(StringBuilder sb)
+        {
+            if (sb == null || sb.Length == 0) return false;
+            for (int i = 0; i < sb.Length; i++)
+            {
+                if (IsVowel(sb[i])) return true;
+            }
+            return false;
         }
 
         private static bool HasAnyVowel(string str)

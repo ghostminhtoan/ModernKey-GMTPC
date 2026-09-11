@@ -510,8 +510,9 @@ namespace ModernKey.Hook
             int emptyCharCount = (fixBrowser && backspaceCount > 0) ? 1 : 0;
             int totalBs = backspaceCount + emptyCharCount;
             int textLen = string.IsNullOrEmpty(newString) ? 0 : newString.Length;
+            int trailingInputs = (trailingVkCode != 0) ? 2 : 0;
 
-            int totalInputs = (emptyCharCount * 2) + (totalBs * 2) + (textLen * 2);
+            int totalInputs = (emptyCharCount * 2) + (totalBs * 2) + (textLen * 2) + trailingInputs;
             INPUT[] inputs = new INPUT[totalInputs];
             int idx = 0;
 
@@ -540,29 +541,15 @@ namespace ModernKey.Hook
                 }
             }
 
-            // Đẩy vào Message Queue của Windows trong 1 lần gọi SendInput nguyên tử
-            SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT)));
-
-            // Gửi phím vật lý thực sự (Space / Return) sau khi gõ trực tiếp hoàn tất chuẩn OpenKey C++
+            // 4. Gửi phím vật lý thực sự (Space / Return) NGUYÊN TỬ trong cùng 1 đợt SendInput chuẩn OpenKey C++
             if (trailingVkCode != 0)
             {
-                ReleaseAllModifiers();
-                if (trailingVkCode == 0x0D) // VK_RETURN
-                {
-                    Thread.Sleep(25);
-                    SendKeyCode(0x0D);
-                }
-                else if (trailingVkCode == 0x20) // VK_SPACE
-                {
-                    Thread.Sleep(10);
-                    SendKeyCode(0x20);
-                }
-                else
-                {
-                    Thread.Sleep(5);
-                    SendKeyCode((ushort)trailingVkCode);
-                }
+                inputs[idx++] = CreateKeyInput((ushort)trailingVkCode, 0);
+                inputs[idx++] = CreateKeyInput((ushort)trailingVkCode, KEYEVENTF_KEYUP);
             }
+
+            // Đẩy vào Message Queue của Windows trong 1 lần gọi SendInput nguyên tử duy nhất (Zero-Latency, không Sleep)
+            SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT)));
         }
 
         public static bool ShouldUseClipboard(string text, bool forceClipboard)

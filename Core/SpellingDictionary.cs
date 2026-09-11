@@ -26,8 +26,7 @@ namespace ModernKey.Core
 
         private SpellingDictionary()
         {
-            // Tự động nạp nền khi khởi tạo
-            Task.Run(() => LoadDictionary());
+            // Tải lười theo nhu cầu (On-demand Lazy Load) để tiết kiệm ~10MB RAM và I/O khi khởi động
         }
 
         public void LoadDictionary()
@@ -81,7 +80,9 @@ namespace ModernKey.Core
         public bool IsValidWord(string word)
         {
             if (string.IsNullOrEmpty(word)) return true;
-            if (!_isLoaded || _words.Count == 0) return true; // Chưa load xong thì tạm coi là hợp lệ
+
+            // Từ 1 ký tự luôn hợp lệ
+            if (word.Length == 1) return true;
 
             // Bỏ qua kiểm tra nếu từ chứa số hoặc ký tự không phải chữ
             foreach (char c in word)
@@ -89,8 +90,12 @@ namespace ModernKey.Core
                 if (!char.IsLetter(c)) return true;
             }
 
-            // Từ 1 ký tự luôn hợp lệ
-            if (word.Length == 1) return true;
+            if (!_isLoaded)
+            {
+                LoadDictionary();
+            }
+
+            if (_words.Count == 0) return true;
 
             return _words.Contains(word);
         }
