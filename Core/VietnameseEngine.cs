@@ -304,13 +304,15 @@ namespace ModernKey.Core
                 return false;
             }
 
-            // 5. Kiểm tra bảo vệ số thuần
+            // 5. Kiểm tra bảo vệ số thuần và từ chứa số (như hardcode, hentai2read)
             bool isDigit = char.IsDigit(ch);
 
             if (isDigit)
             {
                 if (_settings.CurrentInputMethod == InputMethod.Telex || _settings.CurrentInputMethod == InputMethod.SimpleTelex)
                 {
+                    // Khi đang gõ Telex/SimpleTelex mà xuất hiện chữ số (VD: 2 trong hentai2read),
+                    // đánh dấu _inNumberSequence = true và reset buffer để không ép rule tiếng Việt sau chữ số
                     _inNumberSequence = true;
                     _charBuffer.Clear();
                     return false;
@@ -359,7 +361,13 @@ namespace ModernKey.Core
             {
                 if (char.IsLetter(ch))
                 {
-                    _inNumberSequence = false;
+                    // Nếu trước đó vừa có chữ số (_inNumberSequence = true) như hentai2read ➔ read
+                    // Xóa buffer phím trước để không biến đổi tiếng Việt ghép vào từ đằng trước có số
+                    if (_inNumberSequence)
+                    {
+                        _charBuffer.Clear();
+                        _inNumberSequence = false;
+                    }
                 }
             }
 

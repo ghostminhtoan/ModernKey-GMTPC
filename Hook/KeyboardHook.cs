@@ -179,34 +179,24 @@ namespace ModernKey.Hook
         }
 
         private IntPtr _lastForegroundWindow = IntPtr.Zero;
-        private bool _isCurrentAppExcluded = false;
 
         private void CheckForegroundAppExcluded(IntPtr hWnd)
         {
             if (!_settings.AutoExcludeEnabled || _settings.ExcludedApps == null || _settings.ExcludedApps.Count == 0)
             {
-                _isCurrentAppExcluded = false;
                 return;
             }
 
             if (hWnd == IntPtr.Zero)
             {
                 hWnd = GetForegroundWindow();
-                if (hWnd == IntPtr.Zero)
-                {
-                    _isCurrentAppExcluded = false;
-                    return;
-                }
+                if (hWnd == IntPtr.Zero) return;
             }
 
             try
             {
                 GetWindowThreadProcessId(hWnd, out uint pid);
-                if (pid == 0)
-                {
-                    _isCurrentAppExcluded = false;
-                    return;
-                }
+                if (pid == 0) return;
 
                 using (var proc = Process.GetProcessById((int)pid))
                 {
@@ -225,30 +215,40 @@ namespace ModernKey.Hook
                     {
                         if (string.IsNullOrWhiteSpace(app)) continue;
                         string clean = app.Trim().ToLowerInvariant();
+                        bool isMatch = false;
+
                         if (clean.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                         {
                             string rawName = clean.Substring(0, clean.Length - 4);
                             if (clean == pName || clean == exeFileName || rawName == pName)
                             {
-                                _isCurrentAppExcluded = true;
-                                return;
+                                isMatch = true;
                             }
                         }
                         else
                         {
                             if (clean == pName || (clean + ".exe") == pName || (clean + ".exe") == exeFileName)
                             {
-                                _isCurrentAppExcluded = true;
-                                return;
+                                isMatch = true;
                             }
+                        }
+
+                        if (isMatch)
+                        {
+                            // Tự động chuyển sang Tiếng Anh [EN] khi active cửa sổ ứng dụng loại trừ lần đầu
+                            if (_settings.IsVietnamese)
+                            {
+                                _settings.IsVietnamese = false;
+                                _engine?.Reset();
+                                LanguageChanged?.Invoke();
+                            }
+                            return;
                         }
                     }
                 }
-                _isCurrentAppExcluded = false;
             }
             catch
             {
-                _isCurrentAppExcluded = false;
             }
         }
 
@@ -270,11 +270,6 @@ namespace ModernKey.Hook
                 {
                     _lastForegroundWindow = currentForeground;
                     _engine.Reset();
-                    CheckForegroundAppExcluded(currentForeground);
-                }
-                else
-                {
-                    // Luôn đảm bảo kiểm tra lại trạng thái loại trừ trước mỗi thao tác
                     CheckForegroundAppExcluded(currentForeground);
                 }
 
@@ -467,12 +462,7 @@ namespace ModernKey.Hook
                         }
                     }
 
-                    // 7.5. Bỏ qua gõ tiếng Việt nếu ứng dụng hiện tại nằm trong danh sách loại trừ (ExcludedApps)
-                    if (_isCurrentAppExcluded)
-                    {
-                        _engine.Reset();
-                        return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
-                    }
+
 
                     // 8. Phím điều hướng và chức năng (Arrows, Home, End, PgUp, PgDn, Esc, Del, Tab, F1..F12)
                     if (vkCode == 0x1B) // ESC: Hoàn tác dấu tiếng Việt hoặc reset engine

@@ -62,7 +62,9 @@ namespace ModernKey.Core
                 ("hocj", "học"),
                 ("leex", "lễ"),
                 ("duowngfd", "đường"),
-                ("dood", "đô")
+                ("dood", "đô"),
+                ("hentai2read", "hentai2read"),
+                ("hardcode", "hardcode")
             };
 
             sb.AppendLine("[TEST TELEX - TUNG TU]");
