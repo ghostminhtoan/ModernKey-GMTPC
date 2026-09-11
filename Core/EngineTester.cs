@@ -235,7 +235,7 @@ namespace ModernKey.Core
                 }
             }
 
-            // Test toggle số lặp lại trong TBT (66->6, 77->7, 88->8, 99->9)
+            // Test toggle số lặp lại trong TBT (66->6, 77->7, 88->8, 99->9, Shift+66->^, Shift+77->&, Shift+88->*, Shift+99->()
             (string numInput, string numExpected)[] toggleCases = new[]
             {
                 ("66", "6"),
@@ -246,7 +246,16 @@ namespace ModernKey.Core
                 ("27", "27"),
                 ("18", "18"),
                 ("09", "09"),
-                ("667", "67")
+                ("667", "67"),
+                ("^^", "^"),
+                ("&&", "&"),
+                ("**", "*"),
+                ("((", "("),
+                ("((*", "(*"),
+                ("[[", "["),
+                ("]]", "]"),
+                ("{{", "{"),
+                ("}}", "}")
             };
 
             foreach (var numCase in toggleCases)

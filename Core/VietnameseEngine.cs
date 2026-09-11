@@ -81,6 +81,11 @@ namespace ModernKey.Core
             if (_charBuffer.Count == 0)
                 return false;
 
+            // Nếu gõ lặp lại cùng phím ký hiệu (Shift+66 -> ^^, Shift+77 -> &&, Shift+88 -> **, Shift+99 -> ((, [[, ]], {{, }}):
+            // Đây là phím toggle phục hồi ký tự gốc chuẩn OpenKey, không phải dấu câu ngắt từ
+            if (_charBuffer[_charBuffer.Count - 1] == ch)
+                return false;
+
             string currentDisplay = GetDisplayWord(_charBuffer);
             if (string.IsNullOrEmpty(currentDisplay))
                 return false;
