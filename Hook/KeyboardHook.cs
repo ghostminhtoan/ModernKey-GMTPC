@@ -183,10 +183,20 @@ namespace ModernKey.Hook
 
         private void CheckForegroundAppExcluded(IntPtr hWnd)
         {
-            if (!_settings.AutoExcludeEnabled || _settings.ExcludedApps == null || _settings.ExcludedApps.Count == 0 || hWnd == IntPtr.Zero)
+            if (!_settings.AutoExcludeEnabled || _settings.ExcludedApps == null || _settings.ExcludedApps.Count == 0)
             {
                 _isCurrentAppExcluded = false;
                 return;
+            }
+
+            if (hWnd == IntPtr.Zero)
+            {
+                hWnd = GetForegroundWindow();
+                if (hWnd == IntPtr.Zero)
+                {
+                    _isCurrentAppExcluded = false;
+                    return;
+                }
             }
 
             try
@@ -201,16 +211,36 @@ namespace ModernKey.Hook
                 using (var proc = Process.GetProcessById((int)pid))
                 {
                     string pName = proc.ProcessName.ToLowerInvariant();
-                    string pExe = pName + ".exe";
+                    string exeFileName = "";
+                    try
+                    {
+                        if (proc.MainModule != null && !string.IsNullOrEmpty(proc.MainModule.ModuleName))
+                        {
+                            exeFileName = proc.MainModule.ModuleName.ToLowerInvariant();
+                        }
+                    }
+                    catch { }
 
                     foreach (var app in _settings.ExcludedApps)
                     {
                         if (string.IsNullOrWhiteSpace(app)) continue;
                         string clean = app.Trim().ToLowerInvariant();
-                        if (clean == pName || clean == pExe)
+                        if (clean.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                         {
-                            _isCurrentAppExcluded = true;
-                            return;
+                            string rawName = clean.Substring(0, clean.Length - 4);
+                            if (clean == pName || clean == exeFileName || rawName == pName)
+                            {
+                                _isCurrentAppExcluded = true;
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            if (clean == pName || (clean + ".exe") == pName || (clean + ".exe") == exeFileName)
+                            {
+                                _isCurrentAppExcluded = true;
+                                return;
+                            }
                         }
                     }
                 }
@@ -234,12 +264,17 @@ namespace ModernKey.Hook
                     return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
                 }
 
-                // 2. Tự động reset buffer khi đổi cửa sổ đang thao tác
+                // 2. Tự động kiểm tra loại trừ ứng dụng và reset buffer khi đổi cửa sổ đang thao tác
                 IntPtr currentForeground = GetForegroundWindow();
                 if (currentForeground != _lastForegroundWindow)
                 {
                     _lastForegroundWindow = currentForeground;
                     _engine.Reset();
+                    CheckForegroundAppExcluded(currentForeground);
+                }
+                else
+                {
+                    // Luôn đảm bảo kiểm tra lại trạng thái loại trừ trước mỗi thao tác
                     CheckForegroundAppExcluded(currentForeground);
                 }
 
