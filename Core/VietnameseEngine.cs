@@ -355,6 +355,7 @@ namespace ModernKey.Core
                     string rawWord = new string(_charBuffer.ToArray());
 
                     if (!string.IsNullOrEmpty(displayWord) && displayWord != rawWord &&
+                        OpenKeySpelling.HasToneMarkOnVowel(displayWord) &&
                         !OpenKeySpelling.IsValidWord(displayWord, forceCheckVowel: true, _settings))
                     {
                         backspaceCount = displayWord.Length;
@@ -910,6 +911,19 @@ namespace ModernKey.Core
                         bool isUpper = char.IsUpper(sb[sb.Length - 1]) || char.IsUpper(c) || IsCapsLockActive();
                         sb.Remove(sb.Length - 1, 1);
                         sb.Append(isUpper ? 'Đ' : 'đ');
+                        lastRawKey = c;
+                        wasStandaloneAtStart = false;
+                        modified = true;
+                        continue;
+                    }
+
+                    if (sb[sb.Length - 1] == 'đ' || sb[sb.Length - 1] == 'Đ')
+                    {
+                        bool isUpperPrev = sb[sb.Length - 1] == 'Đ' || IsCapsLockActive();
+                        bool isUpperCurr = char.IsUpper(c) || IsCapsLockActive();
+                        sb.Remove(sb.Length - 1, 1);
+                        sb.Append(isUpperPrev ? 'D' : 'd');
+                        sb.Append(isUpperCurr ? 'D' : 'd');
                         lastRawKey = c;
                         wasStandaloneAtStart = false;
                         modified = true;
@@ -1574,6 +1588,18 @@ namespace ModernKey.Core
                             continue;
                         }
 
+                        if (sb[sb.Length - 1] == 'đ' || sb[sb.Length - 1] == 'Đ')
+                        {
+                            bool isUpPrev = sb[sb.Length - 1] == 'Đ' || isCaps;
+                            bool isUpCurr = char.IsUpper(c) || isCaps;
+                            sb.Remove(sb.Length - 1, 1);
+                            sb.Append(isUpPrev ? 'D' : 'd');
+                            sb.Append(isUpCurr ? 'D' : 'd');
+                            lastRawKey = c;
+                            modified = true;
+                            continue;
+                        }
+
                         int dIdx = -1;
                         for (int j = 0; j < sb.Length; j++)
                         {
@@ -1765,6 +1791,17 @@ namespace ModernKey.Core
                         modified = true;
                         continue;
                     }
+                    else if (sb.Length > 0 && (sb[sb.Length - 1] == 'đ' || sb[sb.Length - 1] == 'Đ') && (charToAdd == 'đ' || charToAdd == 'Đ'))
+                    {
+                        bool isUpperPrev = sb[sb.Length - 1] == 'Đ' || isCaps;
+                        bool isUpperCurr = char.IsUpper(charToAdd) || isCaps;
+                        sb.Remove(sb.Length - 1, 1);
+                        sb.Append(isUpperPrev ? 'D' : 'd');
+                        sb.Append(isUpperCurr ? 'D' : 'd');
+                        lastRawKey = c;
+                        modified = true;
+                        continue;
+                    }
                     else if (sb.Length > 0 && char.ToLower(sb[sb.Length - 1]) == 'd' && (charToAdd == 'đ' || charToAdd == 'Đ'))
                     {
                         bool wasUp = char.IsUpper(sb[sb.Length - 1]) || char.IsUpper(charToAdd) || isCaps;
@@ -1854,6 +1891,17 @@ namespace ModernKey.Core
                             bool isUpper = char.IsUpper(sb[sb.Length - 1]) || char.IsUpper(c) || IsCapsLockActive();
                             sb.Remove(sb.Length - 1, 1);
                             sb.Append(isUpper ? 'Đ' : 'đ');
+                            modified = true;
+                            continue;
+                        }
+
+                        if (sb[sb.Length - 1] == 'đ' || sb[sb.Length - 1] == 'Đ')
+                        {
+                            bool isUpperPrev = sb[sb.Length - 1] == 'Đ' || IsCapsLockActive();
+                            bool isUpperCurr = char.IsUpper(c) || IsCapsLockActive();
+                            sb.Remove(sb.Length - 1, 1);
+                            sb.Append(isUpperPrev ? 'D' : 'd');
+                            sb.Append(isUpperCurr ? 'D' : 'd');
                             modified = true;
                             continue;
                         }

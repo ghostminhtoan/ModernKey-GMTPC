@@ -590,6 +590,30 @@ namespace ModernKey.Core
         }
 
         /// <summary>
+        /// Kiểm tra xem từ chuỗi Unicode có chứa nguyên âm mang dấu thanh/mũ tiếng Việt hay không (chuẩn OpenKey C++).
+        /// Từ thuần phụ âm (như ddr, ctrl, html) sẽ trả về false và không bao giờ bị khôi phục sai chính tả khi kết thúc từ.
+        /// </summary>
+        public static bool HasToneMarkOnVowel(string word)
+        {
+            if (string.IsNullOrEmpty(word)) return false;
+            string norm = word.Normalize(NormalizationForm.FormC);
+            for (int i = 0; i < norm.Length; i++)
+            {
+                char ch = norm[i];
+                if (_charToTypingWord.TryGetValue(ch, out uint val))
+                {
+                    ushort key = (ushort)(val & CHAR_MASK);
+                    if (!IsConsonant(key) &&
+                        ((val & MARK_MASK) != 0 || (val & TONE_MASK) != 0 || (val & TONEW_MASK) != 0))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
         /// Kiểm tra một từ chuỗi (Unicode UTF-16) có đúng quy tắc chính tả OpenKey C++ hay không.
         /// </summary>
         public static bool IsValidWord(string word, bool forceCheckVowel = true, AppSettings settings = null)

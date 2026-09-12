@@ -66,7 +66,11 @@ namespace ModernKey.Core
                 ("hentai2read", "hentai2read"),
                 ("dictated", "dictated"),
                 ("deadline", "deadline"),
-                ("dad", "dad")
+                ("dad", "dad"),
+                ("ddd", "dd"),
+                ("dddr", "ddr"),
+                ("DDDr", "DDr"),
+                ("ddr", "đr")
             };
 
             sb.AppendLine("[TEST TELEX - TUNG TU]");
@@ -136,6 +140,19 @@ namespace ModernKey.Core
             {
                 allPassed = false;
                 sb.AppendLine($"  FAIL Doan 4 (Tieng Anh Telex):\n    Ket qua : '{out4}'\n    Mong doi: '{expected4}'");
+            }
+
+            string sample5 = "dddr3 dddr4 dddr5.";
+            string expected5 = "ddr3 ddr4 ddr5.";
+            string out5 = SimulateTypingSentence(telexEngine, sample5);
+            if (out5 == expected5)
+            {
+                sb.AppendLine($"  PASS Doan 5 (DDR RAM Telex): '{out5}'");
+            }
+            else
+            {
+                allPassed = false;
+                sb.AppendLine($"  FAIL Doan 5 (DDR RAM Telex):\n    Ket qua : '{out5}'\n    Mong doi: '{expected5}'");
             }
 
             // 3. Test Tu Binh Tran
@@ -237,7 +254,9 @@ namespace ModernKey.Core
                 ("d[2ngd", "đừng"),
                 ("downloads", "downloads"),
                 ("dictated", "dictated"),
-                ("do1dd", "dód")
+                ("do1dd", "dód"),
+                ("ddd", "dd"),
+                ("dddr", "ddr")
             };
 
             foreach (var tc in testCasesTbt)
@@ -687,16 +706,24 @@ namespace ModernKey.Core
             try
             {
                 const string originalText = "VanBanGocTruocKhiGoTat_12345";
+                System.Windows.Forms.Clipboard.Clear();
+                System.Threading.Thread.Sleep(50);
                 System.Windows.Forms.Clipboard.SetText(originalText);
-                System.Threading.Thread.Sleep(20);
+                System.Threading.Thread.Sleep(100);
 
                 ModernKey.Hook.KeySender.SendViaClipboardPaste("ChuoiMacroThayThe_67890");
 
-                // Đợi 1000ms để Timer phục hồi văn bản an toàn (800ms) hoàn tất trọn vẹn
-                System.Threading.Thread.Sleep(1000);
-
-                bool hasTextAfter = System.Windows.Forms.Clipboard.ContainsText();
-                string textAfter = hasTextAfter ? System.Windows.Forms.Clipboard.GetText() : null;
+                // Đợi Timer phục hồi văn bản an toàn (800ms) hoàn tất trọn vẹn (với retry check)
+                string textAfter = null;
+                for (int waitCount = 0; waitCount < 20; waitCount++)
+                {
+                    System.Threading.Thread.Sleep(100);
+                    if (System.Windows.Forms.Clipboard.ContainsText())
+                    {
+                        textAfter = System.Windows.Forms.Clipboard.GetText();
+                        if (textAfter == originalText) break;
+                    }
+                }
 
                 if (textAfter == originalText)
                 {
