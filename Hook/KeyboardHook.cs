@@ -99,10 +99,18 @@ namespace ModernKey.Hook
         private bool _shiftDown = false;
         private bool _altDown = false;
         private bool _physicalAltDown = false;
-        private bool _swallowNextAltUp = false;
         private bool _winDown = false;
         private bool _hasOtherKeyPressed = false;
         private bool _modifierHotKeyTriggered = false;
+
+        private void SyncModifierState()
+        {
+            _shiftDown = ((GetAsyncKeyState(0xA0) & 0x8000) != 0) || ((GetAsyncKeyState(0xA1) & 0x8000) != 0) || ((GetAsyncKeyState(0x10) & 0x8000) != 0);
+            _ctrlDown = ((GetAsyncKeyState(0xA2) & 0x8000) != 0) || ((GetAsyncKeyState(0xA3) & 0x8000) != 0) || ((GetAsyncKeyState(0x11) & 0x8000) != 0);
+            _altDown = ((GetAsyncKeyState(0xA4) & 0x8000) != 0) || ((GetAsyncKeyState(0xA5) & 0x8000) != 0) || ((GetAsyncKeyState(0x12) & 0x8000) != 0);
+            _winDown = ((GetAsyncKeyState(0x5B) & 0x8000) != 0) || ((GetAsyncKeyState(0x5C) & 0x8000) != 0);
+            _physicalAltDown = _altDown;
+        }
 
         private uint _lastDoubleShiftKey = 0;
         private int _lastDoubleShiftTime = 0;
@@ -372,15 +380,13 @@ namespace ModernKey.Hook
                     uint scanCode = hookStruct.scanCode;
 
                     // 3. Quản lý trạng thái Modifier (Ctrl, Shift, Alt, Win)
-                    bool isLWin = (GetKeyState(0x5B) & 0x8000) != 0;
-                    bool isRWin = (GetKeyState(0x5C) & 0x8000) != 0;
-                    bool isWin = isLWin || isRWin;
-                    bool isShift = (GetKeyState(0x10) & 0x8000) != 0;
-                    bool isCtrl = (GetKeyState(0x11) & 0x8000) != 0;
-                    bool isAlt = _physicalAltDown || ((GetAsyncKeyState(0x12) & 0x8000) != 0) || ((GetKeyState(0x12) & 0x8000) != 0);
-                    bool isCaps = (GetKeyState(0x14) & 0x0001) != 0;
+                    SyncModifierState();
 
-                    if (vkCode == 0x11 || vkCode == 0xA2 || vkCode == 0xA3) _ctrlDown = true;
+                    if (vkCode == 0x11 || vkCode == 0xA2 || vkCode == 0xA3)
+                    {
+                        _ctrlDown = true;
+                        _engine.Reset(); // Bấm phím Ctrl lập tức reset engine để ký tự sau là ký tự đầu tiên
+                    }
                     if (vkCode == 0x10 || vkCode == 0xA0 || vkCode == 0xA1) _shiftDown = true;
                     if (vkCode == 0x12 || vkCode == 0xA4 || vkCode == 0xA5)
                     {
@@ -388,6 +394,12 @@ namespace ModernKey.Hook
                         _physicalAltDown = true;
                     }
                     if (vkCode == 0x5B || vkCode == 0x5C) _winDown = true;
+
+                    bool isWin = _winDown || (vkCode == 0x5B || vkCode == 0x5C);
+                    bool isShift = _shiftDown || (vkCode == 0x10 || vkCode == 0xA0 || vkCode == 0xA1);
+                    bool isCtrl = _ctrlDown || (vkCode == 0x11 || vkCode == 0xA2 || vkCode == 0xA3);
+                    bool isAlt = _altDown || (vkCode == 0x12 || vkCode == 0xA4 || vkCode == 0xA5);
+                    bool isCaps = (GetKeyState(0x14) & 0x0001) != 0;
 
                     // 4. Phím chuyển chế độ gõ tự do (Ctrl/Alt/Win/Shift + KeyChar / Space / CapsLock) chuẩn OpenKey C++
                     bool hasAnySwitchModifier = _settings.SwitchCtrl || _settings.SwitchAlt || _settings.SwitchWin || _settings.SwitchShift;
@@ -413,10 +425,9 @@ namespace ModernKey.Hook
                             _hasOtherKeyPressed = true;
                             TriggerLanguageSwitch();
 
-                            if (curAlt)
+                            if (curAlt || curWin)
                             {
                                 KeySender.SuppressAltMenuActivation();
-                                _swallowNextAltUp = true;
                             }
 
                             return (IntPtr)1; // Nuốt phím modifier cuối để không bung Start Menu hoặc menu hệ thống
@@ -457,10 +468,9 @@ namespace ModernKey.Hook
                             {
                                 _hasOtherKeyPressed = true;
                                 TriggerLanguageSwitch();
-                                if (_altDown || isAlt)
+                                if (_altDown || isAlt || _winDown || isWin)
                                 {
                                     KeySender.SuppressAltMenuActivation();
-                                    _swallowNextAltUp = true;
                                 }
                                 return (IntPtr)1; // Nuốt phím chuyển
                             }
@@ -495,6 +505,10 @@ namespace ModernKey.Hook
                         vkCode == 0x12 || vkCode == 0xA4 || vkCode == 0xA5 || // Alt
                         vkCode == 0x90 || vkCode == 0x91)                     // NumLock, ScrollLock
                     {
+                        if (vkCode == 0x11 || vkCode == 0xA2 || vkCode == 0xA3)
+                        {
+                            _engine.Reset(); // Nhấn Ctrl đơn lẻ cũng reset bộ gõ
+                        }
                         return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
                     }
 
@@ -516,10 +530,9 @@ namespace ModernKey.Hook
                             int fIndex = (int)(vkCode - 0x70 + 1); // F1=1..F12=12
                             if ((_settings.ShortcutEnableMask & (1 << fIndex)) != 0)
                             {
-                                if ((currentMod & 0x04) != 0) // Có phím Alt trong modifier
+                                if ((currentMod & 0x04) != 0 || (currentMod & 0x08) != 0) // Có phím Alt hoặc Win
                                 {
                                     KeySender.SuppressAltMenuActivation();
-                                    _swallowNextAltUp = true;
                                 }
                                 _engine.Reset();
 
@@ -670,6 +683,7 @@ namespace ModernKey.Hook
                             TriggerLanguageSwitch();
                         }
                         _ctrlDown = false;
+                        _engine.Reset(); // Reset bộ gõ khi nhả Ctrl để ký tự sau chắc chắn là ký tự đầu tiên
                     }
                     // Nhả Shift
                     else if (vkCode == 0x10 || vkCode == 0xA0 || vkCode == 0xA1)
@@ -682,7 +696,6 @@ namespace ModernKey.Hook
                         {
                             TriggerLanguageSwitch();
                             KeySender.SuppressAltMenuActivation();
-                            _swallowNextAltUp = true;
                         }
                         else if (_settings.UseMacro && !_hasOtherKeyPressed)
                         {
@@ -745,30 +758,22 @@ namespace ModernKey.Hook
                     // Nhả Alt
                     else if (vkCode == 0x12 || vkCode == 0xA4 || vkCode == 0xA5)
                     {
-                        _physicalAltDown = false;
-                        _altDown = false;
-
-                        if (_swallowNextAltUp)
-                        {
-                            _swallowNextAltUp = false;
-                            return (IntPtr)1; // Nuốt phím nhả Alt vật lý vì đã giải phóng trước đó kèm Mask key!
-                        }
-
                         if (_settings.SwitchMode == SwitchKeyMode.AltShift && _altDown && _shiftDown && !_hasOtherKeyPressed)
                         {
                             TriggerLanguageSwitch();
                             KeySender.SuppressAltMenuActivation();
                         }
+                        _physicalAltDown = false;
+                        _altDown = false;
                     }
                     // Nhả Win
                     else if (vkCode == 0x5B || vkCode == 0x5C)
                     {
                         _winDown = false;
-                        if (_modifierHotKeyTriggered)
-                        {
-                            return (IntPtr)1; // Nuốt sự kiện nhả phím Win sau khi chuyển ngôn ngữ để tránh Start Menu bung lên
-                        }
                     }
+
+                    // Đồng bộ lại trạng thái modifier theo phần cứng thực tế sau khi nhả phím
+                    SyncModifierState();
 
                     // Khi tất cả modifier đã được thả ra: reset cờ phím phụ
                     if (!_ctrlDown && !_shiftDown && !_altDown && !_winDown)

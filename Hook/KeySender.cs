@@ -440,20 +440,21 @@ namespace ModernKey.Hook
         }
 
         /// <summary>
-        /// Gửi phím che mặt nạ (Mask Key 0xE8) kèm giải phóng Alt (VK_MENU, VK_LMENU, VK_RMENU KEYUP) để triệt tiêu hoàn toàn
-        /// việc kích hoạt Menu Bar / File menu trên các ứng dụng Windows khi gõ phím tắt chuyển E-V (Alt+Z / Alt+Shift).
+        /// Gửi phím che mặt nạ (Mask Key 0xE8) chuẩn AutoHotkey / Microsoft PowerToys để triệt tiêu hoàn toàn
+        /// việc kích hoạt Menu Bar / Start Menu khi dùng các tổ hợp phím có Alt / Win.
+        /// Tuyệt đối KHÔNG gửi KEYUP giả lập của Alt khi phím Alt vật lý chưa nhả, để tránh kẹt phím!
         /// </summary>
         public static void SuppressAltMenuActivation()
         {
-            INPUT[] inputs = new INPUT[5];
-            // 1. Gửi phím unassigned 0xE8 (vkE8 - chuẩn AutoHotkey / Windows Mask Key)
+            SendMaskKey();
+        }
+
+        public static void SendMaskKey()
+        {
+            INPUT[] inputs = new INPUT[2];
             inputs[0] = CreateKeyInput(0xE8, 0);
             inputs[1] = CreateKeyInput(0xE8, KEYEVENTF_KEYUP);
-            // 2. Gửi lệnh nhả phím Alt (VK_MENU, VK_LMENU, VK_RMENU) lập tức
-            inputs[2] = CreateKeyInput(0x12, KEYEVENTF_KEYUP);
-            inputs[3] = CreateKeyInput(0xA4, KEYEVENTF_KEYUP);
-            inputs[4] = CreateKeyInput(0xA5, KEYEVENTF_KEYUP);
-            SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT)));
+            SendInput(2, inputs, Marshal.SizeOf(typeof(INPUT)));
         }
 
         public static void SendKeyCode(ushort vkCode)

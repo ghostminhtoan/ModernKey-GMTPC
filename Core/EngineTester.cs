@@ -628,6 +628,70 @@ namespace ModernKey.Core
                 sb.AppendLine($"  FAIL Macro Số & Ký hiệu: 1111='{num1111Out}', 023='{num023Out}', ///='{symSlashOut}', ??='{symQuestOut}'");
             }
 
+            // 8.2. Test Full Word Match cho Gõ Tắt: Không bung macro khi gõ từ chứa hậu tố (app != apeople, ctrl != ctrả lời)
+            macroMgr.MacroList.Add(new MacroEntry("pp", "people"));
+            macroMgr.MacroList.Add(new MacroEntry("trl", "trả lời"));
+
+            string appOut = SimulateTypingSentence(macroEngine, "app ");
+            string ppOut = SimulateTypingSentence(macroEngine, "pp ");
+            string ctrlOut = SimulateTypingSentence(macroEngine, "ctrl ");
+            string trlOut = SimulateTypingSentence(macroEngine, "trl ");
+
+            if (appOut == "app " && ppOut == "people " && ctrlOut == "ctrl " && trlOut == "trả lời ")
+            {
+                sb.AppendLine("  PASS: Macro chỉ khớp chính xác toàn bộ từ (app -> app, pp -> people, ctrl -> ctrl, trl -> trả lời)");
+            }
+            else
+            {
+                allPassed = false;
+                sb.AppendLine($"  FAIL Macro Full Word Match: app='{appOut}', pp='{ppOut}', ctrl='{ctrlOut}', trl='{trlOut}'");
+            }
+
+            // 8.3. Test Phím Ctrl reset phiên gõ (Ký tự sau Ctrl được coi như ký tự đầu tiên)
+            macroEngine.Reset();
+            // Gõ 'ti'
+            foreach (char c in "ti") macroEngine.ProcessKey(c, (int)c, false, false, false, false, out _, out _);
+            // Nhấn phím Ctrl (isCtrl = true)
+            macroEngine.ProcessKey('\0', 0x11, false, false, true, false, out _, out _);
+            // Gõ tiếp 'e'
+            string afterCtrlTi = "";
+            if (macroEngine.ProcessKey('e', (int)'e', false, false, false, false, out int ctrlBc, out string ctrlStr))
+            {
+                afterCtrlTi = ctrlStr;
+            }
+            else
+            {
+                afterCtrlTi = "e";
+            }
+
+            // Gõ 't', nhấn Ctrl, gõ 'rl '
+            macroEngine.Reset();
+            macroEngine.ProcessKey('t', (int)'t', false, false, false, false, out _, out _);
+            macroEngine.ProcessKey('\0', 0x11, false, false, true, false, out _, out _);
+            string afterCtrlMacro = "";
+            foreach (char c in "rl ")
+            {
+                if (macroEngine.ProcessKey(c, (int)c, false, false, false, false, out int mBc, out string mStr))
+                {
+                    if (mBc > 0 && afterCtrlMacro.Length >= mBc) afterCtrlMacro = afterCtrlMacro.Substring(0, afterCtrlMacro.Length - mBc);
+                    afterCtrlMacro += mStr;
+                }
+                else
+                {
+                    afterCtrlMacro += c;
+                }
+            }
+
+            if (afterCtrlTi == "e" && afterCtrlMacro == "rl ")
+            {
+                sb.AppendLine("  PASS: Bấm phím Ctrl reset bộ gõ, ký tự tiếp theo được coi là ký tự đầu tiên của từ mới");
+            }
+            else
+            {
+                allPassed = false;
+                sb.AppendLine($"  FAIL Ctrl Reset: afterCtrlTi='{afterCtrlTi}' (Mong đợi 'e'), afterCtrlMacro='{afterCtrlMacro}' (Mong đợi 'rl ')");
+            }
+
             // 9. Test phim ESC dung ngay go tat
             macroEngine.Reset();
             // Go 'emogr'

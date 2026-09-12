@@ -63,22 +63,12 @@ namespace ModernKey.Core
             replacement = null;
             if (string.IsNullOrEmpty(text)) return false;
 
-            // 1. Thử khớp toàn bộ chuỗi text
+            // Khớp chính xác toàn bộ chuỗi text với từ viết tắt đã đăng ký (Full Word Exact Match)
+            // Tuyệt đối không quét suffix bên trong từ chữ cái để tránh lỗi gõ app -> apeople (pp) hay ctrl -> ctrả lời (trl)
             if (_macroManager.TryGetMacro(text, _settings.AutoCapsMacro, out replacement))
             {
                 matchedShortcut = text;
                 return true;
-            }
-
-            // 2. Thử khớp các hậu tố (suffix) từ dài đến ngắn
-            for (int len = text.Length - 1; len >= 1; len--)
-            {
-                string suffix = text.Substring(text.Length - len);
-                if (_macroManager.TryGetMacro(suffix, _settings.AutoCapsMacro, out replacement))
-                {
-                    matchedShortcut = suffix;
-                    return true;
-                }
             }
 
             return false;
