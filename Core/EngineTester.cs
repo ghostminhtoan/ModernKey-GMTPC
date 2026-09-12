@@ -192,7 +192,7 @@ namespace ModernKey.Core
                 ("^n", "Ân"),
                 ("&-dde7", "Ê-đê"),
                 ("*n2", "Ồn"),
-                ("(n", "Ăn"),
+                ("A9n", "Ăn"),
                 ("e7m", "êm"),
                 ("7m", "êm"),
                 ("o8m", "ôm"),
@@ -202,9 +202,9 @@ namespace ModernKey.Core
                 ("o8n2", "ồn"),
                 ("a6y1", "ấy"),
                 ("[3", "ử"),
-                ("{3", "Ử"),
+                ("U[3", "Ử"),
                 ("]3", "ở"),
-                ("}3", "Ở"),
+                ("O]3", "Ở"),
                 ("[1", "ứ"),
                 ("]1", "ớ"),
                 ("T8", "Tô"),
@@ -273,7 +273,7 @@ namespace ModernKey.Core
                 }
             }
 
-            // Test toggle số lặp lại trong TBT (66->6, 77->7, 88->8, 99->9, Shift+66->^, Shift+77->&, Shift+88->*, Shift+99->()
+            // Test toggle số lặp lại trong TBT (66->6, 77->7, 88->8, 99->9, Shift+66->^, Shift+77->&, Shift+88->*, [[->[, ]]->])
             (string numInput, string numExpected)[] toggleCases = new[]
             {
                 ("66", "6"),
@@ -288,12 +288,8 @@ namespace ModernKey.Core
                 ("^^", "^"),
                 ("&&", "&"),
                 ("**", "*"),
-                ("((", "("),
-                ("((*", "(*"),
                 ("[[", "["),
-                ("]]", "]"),
-                ("{{", "{"),
-                ("}}", "}")
+                ("]]", "]")
             };
 
             foreach (var numCase in toggleCases)
@@ -310,10 +306,15 @@ namespace ModernKey.Core
                 }
             }
 
-            // Test toan bo doan van mau moi nhat cua nguoi dung
+            // Bật tự động viết hoa chữ cái đầu câu cho tbtEngine để test toàn diện
+            // Cấu hình chuẩn theo ảnh của người dùng: Tắt kiểu mới (dấu cũ 'tỏa') và Bật tự động viết hoa chữ cái đầu câu
+            tbtSettings.ModernToneRules = false;
+            tbtSettings.UpperCaseFirstChar = true;
+
+            // Test toan bo doan van mau moi nhat cua nguoi dung (Notepad++ new 108)
             sb.AppendLine("[TEST TU BINH TRAN - TOAN BO DOAN VAN]");
-            string paragraphExpected = "Ồn ào là một ngày mà tôi không mong muốn nhất. Ăn uống xong, mệt mỏi, tôi chuẩn bị đi ngủ. Mỗi khi mệt mỏi, tôi lại nhớ về căn nhà sàn nhỏ của người Ân sư vùng cao gốc Ê-đê, nơi tràn ngập sự êm ái và tình yêu thương ôm ấp lấy tuổi thơ tôi. Trái ngược với sự ầm ĩ, ồn ào của phố thị ngoài kia, gian nhà của thầy luôn bình yên với tiếng guốc gỗ lộc cộc quen thuộc trên sàn nhà. Ngày ấy, tôi chỉ là một đứa trẻ mới qua thời ăn dặm, được thầy cưu mang, dạy dỗ từng cách ăn uống đi đứng, cho đến đức tính tiết kiệm và siêng năng học tập. Đêm về, bên ánh lửa bập bùng, tôi lại nằm trên chiếc giường tre mộc mạc, lắng nghe thầy kể chuyện rồi chìm vào giấc ngủ an lành.";
-            string paragraphInput = "*n2 ao2 la2 m8t5 ngay2 ma2 t8i kh8ng mong mu8n1 nh6t1. (n u8ng1 xong, m7t5 moi3, t8i chu6n3 bi5 ddi ngu3. M8i4 khi m7t5 moi3, t8i lai5 nh]1 v72 c9n nha2 san2 nho3 cua3 ng[]i2 ^n s[ vung2 cao g8c1 &-dde7, n]i tran2 ng6p5 s[5 e7m ai1 va2 tinh2 y7u th[]ng o8m a6p1 l6y1 tu8i3 th] t8i. Trai1 ng[]c5 v]i1 s[5 a6m2 i4, o8n2 ao2 cua3 ph81 thi5 ngoai2 kia, gian nha2 cua3 th6y2 lu8n binh2 y7n v]i1 ti7ng1 gu8c1 g84 l8c5 c8c5 quen thu8c5 tr7n san2 nha2. Ngay2 a6y1, t8i chi3 la2 m8t5 dd[a1 tre3 m]i1 qua th]i2 a9n da9m5, dd[]c5 th6y2 c[u mang, day5 d84 t[ng2 cach1 a9n u8ng1 ddi dd[ng1, cho dd7n1 dd[c1 tinh1 ti7t1 ki7m5 va2 si7ng na9ng hoc5 t6p5. Dd7m v72, b7n anh1 l[a3 b6p5 bung2, t8i lai5 na9m2 tr7n chi7c1 gi[]ng2 tre m8c5 mac5, la9ng1 nghe th6y2 k73 chuy7n5 r8i2 chim2 vao2 gi6c1 ngu3 an lanh2.";
+            string paragraphExpected = "Mâm cơm chiều hôm nay có món canh chua cá lóc thơm lừng (ấm áp) đưa cơm. Đêm rằm trung thu, lũ trẻ con trong xóm háo hức (rước đèn) khắp các ngõ nhỏ. Hộp bánh trung thu thập cẩm này có vị ngọt bùi (đậm đà) rất đưa miệng. Trăng rằm tỏa ánh sáng lung linh xuống khoảng sân rộng (bình yên) trước hiên nhà. Bức tranh phong cảnh vùng cao mang một vẻ đẹp {mộc mạc} mà vô cùng cuốn hút. Ở góc vườn nhỏ ba trồng, những khóm hoa hồng nhung đang {đua nở} khoe sắc thắm. Ửng hồng cả một góc trời phía đông chính là dấu hiệu {bình minh} của một ngày mới bắt đầu.";
+            string paragraphInput = "M6m c]m chi7u2 h8m nay co1 mon1 canh chua ca1 loc1 th]m l[ng2 (6m1 ap1) dd[a c]m. DD7m r9m2 trung thu, lu4 tre3 con trong xom1 hao1 h[c1 (r[]c1 dden2) kh9p1 cac1 ngo4 nho3. H8p5 banh1 trung thu th6p5 c6m3 nay2 co1 vi5 ngot5 bui2 (dd6m5 dda2) r6t1 dd[a mi7ng5. Tr9ng r9m2 toa3 anh1 sang1 lung linh xu8ng1 khoang3 s6n r8ng5 (binh2 y7n) tr[]c1 hi7n nha2. B[c1 tranh phong canh3 vung2 cao mang m8t5 ve3 ddep5 {m8c5 mac5} ma2 v8 cung2 cu8n1 hut1. ]3 goc1 vu]n2 nho3 ba tr8ng2, nh[ng4 kho1m hoa h8ng2 nhung ddang {ddua n]3} khoe s9c1 th9m1. [3ng h8ng2 ca3 m8t5 goc1 tr]i2 phi1a dd8ng chi1nh la2 d6u1 hi7u5 {binh2 minh} cua3 m8t5 ngay2 m]i1 b9t1 dd6u2.";
 
             string paragraphActual = SimulateTypingSentence(tbtEngine, paragraphInput);
             if (paragraphActual == paragraphExpected)
