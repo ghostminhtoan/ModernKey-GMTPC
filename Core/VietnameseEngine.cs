@@ -65,61 +65,6 @@ namespace ModernKey.Core
             return _codeKeywords.Contains(text);
         }
 
-        /// <summary>
-        /// Đếm số cụm nguyên âm tách rời bởi phụ âm trong từ.
-        /// Tiếng Việt chuẩn chỉ có 1 cụm nguyên âm duy nhất trong 1 âm tiết.
-        /// </summary>
-        public static int CountVowelClusters(string word)
-        {
-            if (string.IsNullOrEmpty(word)) return 0;
-            int clusters = 0;
-            bool inVowel = false;
-
-            for (int i = 0; i < word.Length; i++)
-            {
-                if (IsVowel(word[i]))
-                {
-                    if (!inVowel)
-                    {
-                        clusters++;
-                        inVowel = true;
-                    }
-                }
-                else
-                {
-                    inVowel = false;
-                }
-            }
-
-            return clusters;
-        }
-
-        /// <summary>
-        /// Kiểm tra từ có phải từ đa âm tiết không (>= 2 cụm nguyên âm bị ngăn cách bởi phụ âm).
-        /// </summary>
-        public static bool IsMultiSyllableWord(string word)
-        {
-            return CountVowelClusters(word) >= 2;
-        }
-
-        /// <summary>
-        /// Kiểm tra xem từ có phải là từ tiếng Anh cần bảo vệ nguyên bản (không biến đổi tiếng Việt) không.
-        /// Áp dụng cho các từ có độ dài >= 4 ký tự nằm trong en_US.dic và không phải từ tiếng Việt hợp lệ.
-        /// Tuyệt đối không áp dụng cho các từ ngắn 1..3 ký tự để tránh xung đột với các tổ hợp gõ phím tiếng Việt (dd, aa, ee, oo, aw, ow, ai, em...).
-        /// </summary>
-        public static bool ShouldPreserveEnglishWord(string word)
-        {
-            if (string.IsNullOrEmpty(word) || word.Length < 4) return false;
-
-            // Bắt buộc từ phải có trong từ điển tiếng Anh en_US.dic
-            if (!SpellingDictionary.Instance.IsEnglishWord(word)) return false;
-
-            // Và không phải là từ tiếng Việt hợp lệ trong vi_VN.dic
-            if (SpellingDictionary.Instance.IsValidVietnameseWord(word)) return false;
-
-            return true;
-        }
-
         private static bool HasMainVowel(string word)
         {
             if (string.IsNullOrEmpty(word)) return false;
@@ -324,10 +269,33 @@ namespace ModernKey.Core
                         string displayWord = GetDisplayWord(_charBuffer);
                         string rawWord = new string(_charBuffer.ToArray());
 
-                        if (_macroManager.TryGetMacro(displayWord, _settings.AutoCapsMacro, out string replacement) ||
-                            _macroManager.TryGetMacro(rawWord, _settings.AutoCapsMacro, out replacement))
+                        if (_macroManager.TryGetMacro(displayWord, _settings.AutoCapsMacro, out string replacement))
                         {
                             backspaceCount = Math.Min(displayWord.Length, 15);
+                            newString = replacement;
+                            if (isSpace)
+                            {
+                                trailingVkCode = 0x20; // Phím vật lý VK_SPACE (chuẩn OpenKey C++)
+                            }
+                            else if (isReturn)
+                            {
+                                trailingVkCode = 0x0D; // Phím vật lý VK_RETURN (chuẩn OpenKey C++)
+                            }
+                            else if (isPunctuation && ch != '\0')
+                            {
+                                newString = replacement + ch;
+                                trailingVkCode = 0;
+                            }
+                            else
+                            {
+                                trailingVkCode = 0;
+                            }
+                            Reset();
+                            return true;
+                        }
+                        else if (_macroManager.TryGetMacro(rawWord, _settings.AutoCapsMacro, out replacement))
+                        {
+                            backspaceCount = Math.Min(rawWord.Length, 15);
                             newString = replacement;
                             if (isSpace)
                             {
@@ -380,18 +348,14 @@ namespace ModernKey.Core
                     }
                 }
 
-                // Kiểm tra từ điển chính tả vi_VN.dic & en_US.dic và tự động khôi phục nếu từ sai chính tả hoặc là từ tiếng Anh
-                if (_charBuffer.Count > 0)
+                // Kiểm tra chính tả theo cơ chế OpenKey C++ và tự động khôi phục nếu từ sai chính tả
+                if (_settings.CheckSpelling && _settings.RestoreIfWrongSpelling && _charBuffer.Count > 0)
                 {
                     string displayWord = GetDisplayWord(_charBuffer);
                     string rawWord = new string(_charBuffer.ToArray());
 
-                    bool shouldRestoreEnglish = !string.IsNullOrEmpty(displayWord) && displayWord != rawWord && ShouldPreserveEnglishWord(rawWord);
-                    bool shouldRestoreInvalidSpelling = _settings.CheckSpelling && _settings.RestoreIfWrongSpelling &&
-                                                        !string.IsNullOrEmpty(displayWord) && displayWord != rawWord &&
-                                                        !SpellingDictionary.Instance.IsValidVietnameseWord(displayWord);
-
-                    if (shouldRestoreEnglish || shouldRestoreInvalidSpelling)
+                    if (!string.IsNullOrEmpty(displayWord) && displayWord != rawWord &&
+                        !OpenKeySpelling.IsValidWord(displayWord, forceCheckVowel: true, _settings))
                     {
                         backspaceCount = displayWord.Length;
                         newString = rawWord;
@@ -434,16 +398,6 @@ namespace ModernKey.Core
                 {
                     // Nếu buffer rỗng hoặc đang trong chuỗi số thuần
                     if (_charBuffer.Count == 0 || _inNumberSequence)
-                    {
-                        _inNumberSequence = true;
-                        _charBuffer.Clear();
-                        return false;
-                    }
-
-                    // Bảo vệ từ tiếng Anh & từ đa âm (ví dụ anbumin2, hentai2):
-                    // Phím số là chữ số thuần, không bị nuốt làm phím dấu tiếng Việt
-                    string currentRaw = new string(_charBuffer.ToArray());
-                    if (ShouldPreserveEnglishWord(currentRaw))
                     {
                         _inNumberSequence = true;
                         _charBuffer.Clear();
@@ -662,6 +616,17 @@ namespace ModernKey.Core
                 return false; // KHÔNG GỬI BACKSPACE, KHÔNG NUỐT PHÍM! (ch đã nằm trong _charBuffer)
             }
 
+            // 4.5. KIỂM TRA CHÍNH TẢ CHUẨN OPENKEY C++ (tempDisableKey):
+            // Nếu bật CheckSpelling: nếu từ trước đó (prevDisplayWord) đã vi phạm cấu trúc âm tiết
+            // (ví dụ "họcc", "dơnl") thì không nhận diện phím dấu tiếp theo (trừ phím 'd'/'D' chuẩn C++).
+            if (_settings.CheckSpelling && prevDisplayWord.Length > 0 && ch != 'd' && ch != 'D')
+            {
+                if (!OpenKeySpelling.IsValidWord(prevDisplayWord, forceCheckVowel: false, _settings))
+                {
+                    return false;
+                }
+            }
+
             // 5. NẾU KHÁC NHAU: THỰC SỰ CÓ BIẾN ĐỔI DẤU HOẶC MŨ TIẾNG VIỆT!
             // Số lượng ký tự cần xóa đúng bằng độ dài của từ trước đó đang hiển thị trên màn hình
             backspaceCount = Math.Min(prevDisplayWord.Length, 15); // Bảo vệ không xóa lấn sang từ trước
@@ -675,14 +640,6 @@ namespace ModernKey.Core
         public static string TransformWord(List<char> keys, InputMethod method, bool modernTone, List<CustomInputRule> customRules = null)
         {
             if (keys == null || keys.Count == 0) return null;
-
-            // Nếu toàn bộ chuỗi phím đã gõ tạo thành từ tiếng Anh hợp lệ cần bảo vệ (như download, read, game):
-            // Bảo vệ trực tiếp từ tiếng Anh, không biến đổi sai sang tiếng Việt
-            string rawWord = new string(keys.ToArray());
-            if (ShouldPreserveEnglishWord(rawWord))
-            {
-                return EnforceCasingConsistency(rawWord, keys);
-            }
 
             string result = null;
             if (method == InputMethod.TuBinhTran)
@@ -911,16 +868,12 @@ namespace ModernKey.Core
 
                     if (dIdx >= 0 && hasVowelSoFar)
                     {
-                        string rawCandidate = new string(keys.ToArray());
-                        if (!SpellingDictionary.Instance.IsEnglishWord(rawCandidate) && !ShouldPreserveEnglishWord(rawCandidate) && CountVowelClusters(sb.ToString()) <= 1)
-                        {
-                            bool isUpper = (sb[dIdx] == 'D') || char.IsUpper(c) || IsCapsLockActive();
-                            sb[dIdx] = isUpper ? 'Đ' : 'đ';
-                            lastRawKey = c;
-                            wasStandaloneAtStart = false;
-                            modified = true;
-                            continue;
-                        }
+                        bool isUpper = (sb[dIdx] == 'D') || char.IsUpper(c) || IsCapsLockActive();
+                        sb[dIdx] = isUpper ? 'Đ' : 'đ';
+                        lastRawKey = c;
+                        wasStandaloneAtStart = false;
+                        modified = true;
+                        continue;
                     }
 
                     int dDauIdx = -1;
@@ -1844,14 +1797,10 @@ namespace ModernKey.Core
 
                         if (dIdx >= 0 && hasVowelSoFar)
                         {
-                            string rawCandidate = new string(keys.ToArray());
-                            if (!SpellingDictionary.Instance.IsEnglishWord(rawCandidate) && !ShouldPreserveEnglishWord(rawCandidate) && CountVowelClusters(sb.ToString()) <= 1)
-                            {
-                                bool isUpper = (sb[dIdx] == 'D') || char.IsUpper(c) || IsCapsLockActive();
-                                sb[dIdx] = isUpper ? 'Đ' : 'đ';
-                                modified = true;
-                                continue;
-                            }
+                            bool isUpper = (sb[dIdx] == 'D') || char.IsUpper(c) || IsCapsLockActive();
+                            sb[dIdx] = isUpper ? 'Đ' : 'đ';
+                            modified = true;
+                            continue;
                         }
 
                         int dDauIdx = -1;
@@ -2110,21 +2059,6 @@ namespace ModernKey.Core
             }
 
             if (vowelIndices.Count == 1) return vowelIndices[0];
-
-            // Trong tiếng Việt, các nguyên âm trong 1 âm tiết chuẩn bắt buộc phải liền nhau.
-            // Nếu có phụ âm xen giữa các nguyên âm (như trong "anbumin" có n, b, m xen giữa):
-            // Chỉ lấy cụm nguyên âm liên tục CUỐI CÙNG của từ, không để dấu nhảy ngược qua phụ âm!
-            int lastClusterStart = vowelIndices.Count - 1;
-            while (lastClusterStart > 0 && vowelIndices[lastClusterStart] == vowelIndices[lastClusterStart - 1] + 1)
-            {
-                lastClusterStart--;
-            }
-
-            if (lastClusterStart > 0)
-            {
-                vowelIndices = vowelIndices.GetRange(lastClusterStart, vowelIndices.Count - lastClusterStart);
-                if (vowelIndices.Count == 1) return vowelIndices[0];
-            }
 
             // 2. Xét xem có phụ âm cuối không
             bool hasEndingConsonant = vowelIndices[vowelIndices.Count - 1] < word.Length - 1;

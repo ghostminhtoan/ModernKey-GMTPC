@@ -175,7 +175,7 @@
                         </WrapPanel>
 
                         <Border Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="10,6" Margin="0,4,0,4">
-                            <TextBlock x:Name="TxtDictionaryStatus" Text="TỪ ĐIỂN CHÍNH TẢ: vi_VN.dic (59.547 từ) đang hoạt động" FontSize="11" FontFamily="Consolas" Foreground="{StaticResource CyberNeonYellow}" />
+                            <TextBlock x:Name="TxtDictionaryStatus" Text="KIỂM TRA CHÍNH TẢ: Thuật toán OpenKey C++ đang hoạt động" FontSize="11" FontFamily="Consolas" Foreground="{StaticResource CyberNeonYellow}" />
                         </Border>
                     </StackPanel>
                 </ScrollViewer>

@@ -63,10 +63,7 @@ namespace ModernKey.Core
                 ("leex", "lễ"),
                 ("duowngfd", "đường"),
                 ("dood", "đô"),
-                ("hentai2read", "hentai2read"),
-                ("download", "download"),
-                ("dead", "dead"),
-                ("dad", "dad")
+                ("hentai2read", "hentai2read")
             };
 
             sb.AppendLine("[TEST TELEX - TUNG TU]");
@@ -324,10 +321,7 @@ namespace ModernKey.Core
                 ("da85m", "dặm"),
                 ("Tie6t1", "Tiết"),
                 ("D9ao5", "Đạo"),
-                ("Bui2", "Bùi"),
-                ("anbumin2", "anbumin2"),
-                ("hentai2read", "hentai2read"),
-                ("download", "download")
+                ("Bui2", "Bùi")
             };
 
             foreach (var tc in testCasesVni)
@@ -893,24 +887,23 @@ namespace ModernKey.Core
                 {
                     SettingsManager.SaveSettings(originalSettings);
                 }
-                // 15. Kiểm tra từ điển chính tả vi_VN.dic & en_US.dic
-                SpellingDictionary.Instance.LoadDictionary();
-                bool dicValid1 = SpellingDictionary.Instance.IsValidVietnameseWord("tiếng");
-                bool dicValid2 = SpellingDictionary.Instance.IsValidVietnameseWord("việt");
-                bool dicValid3 = SpellingDictionary.Instance.IsValidVietnameseWord("trên");
-                bool dicInvalid = SpellingDictionary.Instance.IsValidWord("asdfzxcv");
-                bool enValid1 = SpellingDictionary.Instance.IsEnglishWord("download");
-                bool enValid2 = SpellingDictionary.Instance.IsEnglishWord("anbumin");
-                bool enValid3 = SpellingDictionary.Instance.IsEnglishWord("hentai");
-                bool countOk = SpellingDictionary.Instance.VietnameseWordCount > 6000 && SpellingDictionary.Instance.EnglishWordCount > 50000;
-                if (dicValid1 && dicValid2 && dicValid3 && !dicInvalid && enValid1 && enValid2 && enValid3 && countOk)
+                // 15. Kiểm tra cơ chế kiểm tra chính tả thuật toán OpenKey C++
+                bool dicValid1 = OpenKeySpelling.IsValidWord("tiếng");
+                bool dicValid2 = OpenKeySpelling.IsValidWord("việt");
+                bool dicValid3 = OpenKeySpelling.IsValidWord("trên");
+                bool dicValid4 = OpenKeySpelling.IsValidWord("đường");
+                bool dicInvalid1 = !OpenKeySpelling.IsValidWord("asdfzxcv");
+                bool dicInvalid2 = !OpenKeySpelling.IsValidWord("thuơng"); // 'uơ' không đi với phụ âm cuối 'ng'
+                bool dicInvalid3 = !OpenKeySpelling.IsValidWord("toiss"); // hai phụ âm 'ss' ở cuối
+
+                if (dicValid1 && dicValid2 && dicValid3 && dicValid4 && dicInvalid1 && dicInvalid2 && dicInvalid3)
                 {
-                    sb.AppendLine($"  PASS: Từ điển kép nạp thành công: {SpellingDictionary.Instance.VietnameseWordCount:N0} từ tiếng Việt (vi_VN.dic) + {SpellingDictionary.Instance.EnglishWordCount:N0} từ tiếng Anh (en_US.dic) = {SpellingDictionary.Instance.WordCount:N0} từ tổng!");
+                    sb.AppendLine("  PASS: Thuật toán kiểm tra chính tả OpenKey C++ hoạt động chính xác tuyệt đối!");
                 }
                 else
                 {
                     allPassed = false;
-                    sb.AppendLine($"  FAIL: Từ điển tra cứu sai (vn='tiếng':{dicValid1}, en='download':{enValid1}, 'anbumin':{enValid2}, 'hentai':{enValid3}, invalid:{dicInvalid})");
+                    sb.AppendLine($"  FAIL: Kiểm tra chính tả sai ('tiếng'={dicValid1}, 'asdfzxcv'={!dicInvalid1}, 'thuơng'={!dicInvalid2})");
                 }
 
                 // 16. Kiểm tra EscKeyUndo

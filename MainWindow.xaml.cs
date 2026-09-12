@@ -147,11 +147,10 @@ namespace ModernKey
                 if (ChkStartAsAdmin != null) ChkStartAsAdmin.IsChecked = _settings.StartAsAdmin;
                 if (ChkOpenDialogOnStartup != null) ChkOpenDialogOnStartup.IsChecked = _settings.OpenDialogOnStartup;
 
-                // Trạng thái từ điển chính tả vi_VN.dic
+                // Trạng thái kiểm tra chính tả chuẩn thuật toán OpenKey C++
                 if (TxtDictionaryStatus != null)
                 {
-                    int wc = SpellingDictionary.Instance.WordCount;
-                    TxtDictionaryStatus.Text = $"TỪ ĐIỂN CHÍNH TẢ: vi_VN.dic ({(wc > 0 ? wc : 59547):N0} từ) đang hoạt động";
+                    TxtDictionaryStatus.Text = "KIỂM TRA CHÍNH TẢ: Thuật toán OpenKey C++ đang hoạt động";
                 }
 
                 // Đồng bộ ComboBox Compact Mode
