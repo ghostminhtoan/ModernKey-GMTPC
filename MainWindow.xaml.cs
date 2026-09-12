@@ -147,11 +147,6 @@ namespace ModernKey
                 if (ChkStartAsAdmin != null) ChkStartAsAdmin.IsChecked = _settings.StartAsAdmin;
                 if (ChkOpenDialogOnStartup != null) ChkOpenDialogOnStartup.IsChecked = _settings.OpenDialogOnStartup;
 
-                // Trạng thái kiểm tra chính tả chuẩn thuật toán OpenKey C++
-                if (TxtDictionaryStatus != null)
-                {
-                    TxtDictionaryStatus.Text = "KIỂM TRA CHÍNH TẢ: Thuật toán OpenKey C++ đang hoạt động";
-                }
 
                 // Đồng bộ ComboBox Compact Mode
                 if (CmbCompactCharset != null)

@@ -46,27 +46,25 @@
                         </Grid>
                     </Border>
 
-                    <StackPanel Orientation="Vertical">
+                    <StackPanel Orientation="Vertical" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="MODERNKEY" FontSize="21" FontWeight="ExtraBold" Foreground="{StaticResource CyberNeonCyan}" FontFamily="Consolas, Segoe UI">
+                            <TextBlock Text="ModernKey" FontSize="22" FontWeight="ExtraBold" Foreground="{StaticResource CyberNeonCyan}" FontFamily="Consolas, Segoe UI">
                                 <TextBlock.Effect>
                                     <DropShadowEffect Color="#00F0FF" BlurRadius="8" ShadowDepth="0" Opacity="0.75"/>
                                 </TextBlock.Effect>
                             </TextBlock>
-                            <TextBlock Text=" // GMTPC CYBER" FontSize="21" FontWeight="Light" Foreground="{StaticResource CyberNeonPink}" FontFamily="Consolas, Segoe UI" Margin="8,0,0,0">
+                            <TextBlock Text=" - GMTPC" FontSize="22" FontWeight="Bold" Foreground="{StaticResource CyberNeonPink}" FontFamily="Consolas, Segoe UI" Margin="8,0,0,0">
                                 <TextBlock.Effect>
                                     <DropShadowEffect Color="#FF007F" BlurRadius="8" ShadowDepth="0" Opacity="0.75"/>
                                 </TextBlock.Effect>
                             </TextBlock>
                         </StackPanel>
-                        <TextBlock Text="NEURAL VIETNAMESE INPUT ENGINE | .NET 4.7.2 - C# 7.3"
-                                   FontSize="11" Foreground="{StaticResource CyberNeonYellow}" FontFamily="Consolas" Margin="0,3,0,0" />
                     </StackPanel>
                 </StackPanel>
 
                 <!-- Actions: Compact HUD Mode & Status Toggle VI/EN -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button x:Name="BtnToggleCompact" Click="BtnToggleCompact_Click" Content="[HUD COMPACT]" Width="110" Height="38" Margin="0,0,8,0"
+                    <Button x:Name="BtnToggleCompact" Click="BtnToggleCompact_Click" Content="[HUD COMPACT]" Width="136" Height="38" Margin="0,0,8,0"
                             Background="#0E1C24" BorderBrush="{StaticResource CyberNeonCyan}" Foreground="{StaticResource CyberNeonCyan}"
                             FontFamily="Consolas" FontWeight="Bold" ToolTip="Thu nhỏ cửa sổ thành bảng điều khiển mini" />
                     <Button x:Name="BtnQuickLangToggle" Click="BtnQuickLangToggle_Click" Width="140" Height="38"
@@ -175,10 +173,6 @@
                             <CheckBox x:Name="ChkAutoExclude" Content="Loại trừ ứng dụng thông minh" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Tự động chuyển [EN] khi vào ứng dụng loại trừ / game (Chuẩn OpenKey C++)" />
                             <CheckBox x:Name="ChkEnableStatusOsd" Content="Hiện huy hiệu OSD [VI]/[EN] tại vị trí con trỏ chuột" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
                         </WrapPanel>
-
-                        <Border Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="10,6" Margin="0,4,0,4">
-                            <TextBlock x:Name="TxtDictionaryStatus" Text="KIỂM TRA CHÍNH TẢ: Thuật toán OpenKey C++ đang hoạt động" FontSize="11" FontFamily="Consolas" Foreground="{StaticResource CyberNeonYellow}" />
-                        </Border>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -275,15 +269,27 @@
                               SelectionChanged="DgMacro_SelectionChanged">
                         <DataGrid.ColumnHeaderStyle>
                             <Style TargetType="DataGridColumnHeader">
-                                <Setter Property="Foreground" Value="#0A2540" />
+                                <Setter Property="Foreground" Value="#8B0000" />
                                 <Setter Property="FontFamily" Value="Consolas" />
                                 <Setter Property="FontWeight" Value="Bold" />
                                 <Setter Property="Padding" Value="8,4" />
                             </Style>
                         </DataGrid.ColumnHeaderStyle>
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="TỪ VIẾT TẮT" Binding="{Binding Shortcut}" Width="160" />
-                            <DataGridTextColumn Header="CỤM TỪ THAY THẾ" Binding="{Binding Replacement}" Width="*" />
+                            <DataGridTextColumn Header="TỪ VIẾT TẮT" Binding="{Binding Shortcut}" Width="160">
+                                <DataGridTextColumn.HeaderTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="TỪ VIẾT TẮT" Foreground="#8B0000" FontFamily="Consolas" FontWeight="Bold" />
+                                    </DataTemplate>
+                                </DataGridTextColumn.HeaderTemplate>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="CỤM TỪ THAY THẾ" Binding="{Binding Replacement}" Width="*">
+                                <DataGridTextColumn.HeaderTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="CỤM TỪ THAY THẾ" Foreground="#8B0000" FontFamily="Consolas" FontWeight="Bold" />
+                                    </DataTemplate>
+                                </DataGridTextColumn.HeaderTemplate>
+                            </DataGridTextColumn>
                         </DataGrid.Columns>
                     </DataGrid>
 
@@ -454,7 +460,6 @@
         <Border x:Name="MainFooter" Grid.Row="2" Background="{StaticResource CyberDark}" CornerRadius="2" Padding="12,10" Margin="0,12,0,0"
                 BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1">
             <Grid>
-                <TextBlock Text="STATUS: NEURAL HOOK ACTIVE" VerticalAlignment="Center" FontSize="11" FontFamily="Consolas" Foreground="{StaticResource CyberNeonYellow}" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button Content="ĐÓNG VỀ KHAY" Click="BtnCloseToTray_Click" Margin="0,0,8,0" />
                     <Button Content="LƯU CẤU HÌNH" Click="BtnSaveSettings_Click" Margin="0,0,8,0" />
