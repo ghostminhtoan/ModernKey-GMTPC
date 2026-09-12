@@ -459,6 +459,7 @@ namespace ModernKey
                 if (string.Equals(item.Shortcut, shortcut, StringComparison.OrdinalIgnoreCase))
                 {
                     item.Replacement = replacement;
+                    _macroManager.Save();
                     TxtMacroShortcut.Clear();
                     TxtMacroReplacement.Clear();
                     return;
@@ -466,6 +467,7 @@ namespace ModernKey
             }
 
             _macroManager.MacroList.Add(new MacroEntry(shortcut, replacement));
+            _macroManager.Save();
             TxtMacroShortcut.Clear();
             TxtMacroReplacement.Clear();
         }
@@ -475,6 +477,7 @@ namespace ModernKey
             if (DgMacro.SelectedItem is MacroEntry selected)
             {
                 _macroManager.MacroList.Remove(selected);
+                _macroManager.Save();
             }
             else
             {
@@ -486,6 +489,7 @@ namespace ModernKey
                         if (string.Equals(_macroManager.MacroList[i].Shortcut, shortcut, StringComparison.OrdinalIgnoreCase))
                         {
                             _macroManager.MacroList.RemoveAt(i);
+                            _macroManager.Save();
                             TxtMacroShortcut.Clear();
                             TxtMacroReplacement.Clear();
                             return;
