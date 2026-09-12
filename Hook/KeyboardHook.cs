@@ -102,6 +102,7 @@ namespace ModernKey.Hook
         private bool _swallowNextAltUp = false;
         private bool _winDown = false;
         private bool _hasOtherKeyPressed = false;
+        private bool _modifierHotKeyTriggered = false;
 
         private uint _lastDoubleShiftKey = 0;
         private int _lastDoubleShiftTime = 0;
@@ -389,53 +390,80 @@ namespace ModernKey.Hook
                     if (vkCode == 0x5B || vkCode == 0x5C) _winDown = true;
 
                     // 4. Phím chuyển chế độ gõ tự do (Ctrl/Alt/Win/Shift + KeyChar / Space / CapsLock) chuẩn OpenKey C++
-                    bool matchCtrl = !_settings.SwitchCtrl || isCtrl || _ctrlDown;
-                    bool matchAlt = !_settings.SwitchAlt || isAlt || _altDown;
-                    bool matchWin = !_settings.SwitchWin || isWin || _winDown;
-                    bool matchShift = !_settings.SwitchShift || isShift || _shiftDown;
-                    bool hasRequiredModifier = (!_settings.SwitchCtrl || isCtrl || _ctrlDown) &&
-                                                (!_settings.SwitchAlt || isAlt || _altDown) &&
-                                                (!_settings.SwitchWin || isWin || _winDown) &&
-                                                (!_settings.SwitchShift || isShift || _shiftDown);
+                    bool hasAnySwitchModifier = _settings.SwitchCtrl || _settings.SwitchAlt || _settings.SwitchWin || _settings.SwitchShift;
+                    string targetKeyStr = (_settings.SwitchKeyChar ?? "").Trim().ToUpperInvariant();
 
-                    bool isModifierOnlyRequired = !_settings.SwitchCtrl && !_settings.SwitchAlt && !_settings.SwitchWin && !_settings.SwitchShift;
-
-                    if (!isModifierOnlyRequired && hasRequiredModifier)
+                    if (hasAnySwitchModifier && string.IsNullOrEmpty(targetKeyStr))
                     {
-                        string targetKeyStr = (_settings.SwitchKeyChar ?? "").Trim().ToUpperInvariant();
-                        bool isMatchKey = false;
+                        // Trường hợp KHÔNG có ký tự đi kèm (ví dụ: Alt + Win, Ctrl + Shift, Alt + Shift...):
+                        // Chỉ cần bấm tổ hợp phím Modifier là chuyển E/V ngay lập tức!
+                        bool curCtrl = isCtrl || _ctrlDown;
+                        bool curAlt = isAlt || _altDown || _physicalAltDown;
+                        bool curWin = isWin || _winDown;
+                        bool curShift = isShift || _shiftDown;
 
-                        if (string.IsNullOrEmpty(targetKeyStr) || targetKeyStr == "SPACE")
-                        {
-                            isMatchKey = (vkCode == 0x20); // Space
-                        }
-                        else if (targetKeyStr == "CAPSLOCK" || targetKeyStr == "CAPS")
-                        {
-                            isMatchKey = (vkCode == 0x14); // CapsLock
-                        }
-                        else if (targetKeyStr.Length == 1)
-                        {
-                            char targetChar = targetKeyStr[0];
-                            if (targetChar >= 'A' && targetChar <= 'Z')
-                            {
-                                isMatchKey = (vkCode == (uint)targetChar);
-                            }
-                            else if (targetChar >= '0' && targetChar <= '9')
-                            {
-                                isMatchKey = (vkCode == (uint)targetChar);
-                            }
-                        }
+                        bool matchExactModifiers = (_settings.SwitchCtrl == curCtrl) &&
+                                                   (_settings.SwitchAlt == curAlt) &&
+                                                   (_settings.SwitchWin == curWin) &&
+                                                   (_settings.SwitchShift == curShift);
 
-                        if (isMatchKey)
+                        if (matchExactModifiers && !_modifierHotKeyTriggered && !_hasOtherKeyPressed)
                         {
+                            _modifierHotKeyTriggered = true;
                             _hasOtherKeyPressed = true;
                             TriggerLanguageSwitch();
-                            if (_altDown || isAlt)
+
+                            if (curAlt)
                             {
                                 KeySender.SuppressAltMenuActivation();
                                 _swallowNextAltUp = true;
                             }
-                            return (IntPtr)1; // Nuốt phím chuyển
+
+                            return (IntPtr)1; // Nuốt phím modifier cuối để không bung Start Menu hoặc menu hệ thống
+                        }
+                    }
+                    else if (hasAnySwitchModifier && !string.IsNullOrEmpty(targetKeyStr))
+                    {
+                        bool hasRequiredModifier = (!_settings.SwitchCtrl || isCtrl || _ctrlDown) &&
+                                                    (!_settings.SwitchAlt || isAlt || _altDown) &&
+                                                    (!_settings.SwitchWin || isWin || _winDown) &&
+                                                    (!_settings.SwitchShift || isShift || _shiftDown);
+
+                        if (hasRequiredModifier)
+                        {
+                            bool isMatchKey = false;
+                            if (targetKeyStr == "SPACE")
+                            {
+                                isMatchKey = (vkCode == 0x20); // Space
+                            }
+                            else if (targetKeyStr == "CAPSLOCK" || targetKeyStr == "CAPS")
+                            {
+                                isMatchKey = (vkCode == 0x14); // CapsLock
+                            }
+                            else if (targetKeyStr.Length == 1)
+                            {
+                                char targetChar = targetKeyStr[0];
+                                if (targetChar >= 'A' && targetChar <= 'Z')
+                                {
+                                    isMatchKey = (vkCode == (uint)targetChar);
+                                }
+                                else if (targetChar >= '0' && targetChar <= '9')
+                                {
+                                    isMatchKey = (vkCode == (uint)targetChar);
+                                }
+                            }
+
+                            if (isMatchKey)
+                            {
+                                _hasOtherKeyPressed = true;
+                                TriggerLanguageSwitch();
+                                if (_altDown || isAlt)
+                                {
+                                    KeySender.SuppressAltMenuActivation();
+                                    _swallowNextAltUp = true;
+                                }
+                                return (IntPtr)1; // Nuốt phím chuyển
+                            }
                         }
                     }
 
@@ -736,12 +764,17 @@ namespace ModernKey.Hook
                     else if (vkCode == 0x5B || vkCode == 0x5C)
                     {
                         _winDown = false;
+                        if (_modifierHotKeyTriggered)
+                        {
+                            return (IntPtr)1; // Nuốt sự kiện nhả phím Win sau khi chuyển ngôn ngữ để tránh Start Menu bung lên
+                        }
                     }
 
                     // Khi tất cả modifier đã được thả ra: reset cờ phím phụ
                     if (!_ctrlDown && !_shiftDown && !_altDown && !_winDown)
                     {
                         _hasOtherKeyPressed = false;
+                        _modifierHotKeyTriggered = false;
                     }
                 }
             }

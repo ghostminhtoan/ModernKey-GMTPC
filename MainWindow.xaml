@@ -117,35 +117,35 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="150" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
 
-                            <!-- Bảng mã -->
+                            <!-- Hàng 0: Bảng mã & Kiểu gõ gộp chung một hàng -->
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="BẢNG MÃ:" VerticalAlignment="Center" Margin="0,8"
                                        FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" />
-                            <ComboBox x:Name="CmbCharset" Grid.Row="0" Grid.Column="1" Margin="0,4" SelectionChanged="CmbCharset_SelectionChanged" />
-
-                            <!-- Kiểu gõ -->
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="KIỂU GÕ:" VerticalAlignment="Center" Margin="0,8"
-                                       FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" />
-                            <Grid Grid.Row="1" Grid.Column="1" Margin="0,4">
+                            <Grid Grid.Row="0" Grid.Column="1" Margin="0,4">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <ComboBox x:Name="CmbInputMethod" Grid.Column="0" SelectionChanged="CmbInputMethod_SelectionChanged" />
-                                <Button x:Name="BtnCustomInputMethod" Grid.Column="1" Content="TÙY CHỈNH..." Margin="10,0,0,0"
+                                <ComboBox x:Name="CmbCharset" Grid.Column="0" Margin="0,0,14,0" SelectionChanged="CmbCharset_SelectionChanged" />
+
+                                <TextBlock Grid.Column="1" Text="KIỂU GÕ:" VerticalAlignment="Center" Margin="0,0,10,0"
+                                           FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" />
+                                <ComboBox x:Name="CmbInputMethod" Grid.Column="2" SelectionChanged="CmbInputMethod_SelectionChanged" />
+                                <Button x:Name="BtnCustomInputMethod" Grid.Column="3" Content="TÙY CHỈNH..." Margin="10,0,0,0"
                                         Padding="12,4" Click="BtnCustomInputMethod_Click" ToolTip="Tùy chỉnh kiểu gõ tự định nghĩa (OpenKey Custom Input Method)" />
                             </Grid>
 
-                            <!-- Phím chuyển tự do (Chuẩn OpenKey C++) -->
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="PHÍM CHUYỂN VI/EN:" VerticalAlignment="Center" Margin="0,8"
+                            <!-- Hàng 1: Phím chuyển tự do (Chuẩn OpenKey C++) -->
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="PHÍM CHUYỂN VI/EN:" VerticalAlignment="Center" Margin="0,8"
                                        FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" />
-                            <WrapPanel Grid.Row="2" Grid.Column="1" Margin="0,4" VerticalAlignment="Center">
+                            <WrapPanel Grid.Row="1" Grid.Column="1" Margin="0,4" VerticalAlignment="Center">
                                 <CheckBox x:Name="ChkSwitchCtrl" Content="Ctrl" Margin="0,4,12,4" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
                                 <CheckBox x:Name="ChkSwitchAlt" Content="Alt" Margin="0,4,12,4" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
                                 <CheckBox x:Name="ChkSwitchWin" Content="Win" Margin="0,4,12,4" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
@@ -169,7 +169,9 @@
                             <CheckBox x:Name="ChkFixRecommendBrowser" Content="Khắc phục gợi ý / autocomplete trên trình duyệt" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
                             <CheckBox x:Name="ChkClipboard" Content="Gửi phím qua Clipboard (Hỗ trợ game &amp; đồ họa)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
                             <CheckBox x:Name="ChkSmartCodePassthrough" Content="Tạm dừng tiếng Việt khi gặp từ khóa lập trình / URL" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
-                            <CheckBox x:Name="ChkEscKeyUndo" Content="Nhấn phím Esc để hoàn tác dấu về chuỗi gốc (Esc Undo)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                            <CheckBox x:Name="ChkEscKeyUndo" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged">
+                                <TextBlock Text="Nhấn phím Esc để hoàn tác dấu về chuỗi gốc (Esc Undo)" TextWrapping="Wrap" />
+                            </CheckBox>
                             <CheckBox x:Name="ChkAutoExclude" Content="Loại trừ ứng dụng thông minh" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Tự động chuyển [EN] khi vào ứng dụng loại trừ / game (Chuẩn OpenKey C++)" />
                             <CheckBox x:Name="ChkEnableStatusOsd" Content="Hiện huy hiệu OSD [VI]/[EN] tại vị trí con trỏ chuột" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
                         </WrapPanel>
@@ -258,7 +260,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="VIẾT TẮT:" VerticalAlignment="Center" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" />
-                        <TextBox x:Name="TxtMacroShortcut" Grid.Column="1" Margin="0,0,10,0" />
+                        <TextBox x:Name="TxtMacroShortcut" Grid.Column="1" Margin="0,0,10,0" TextChanged="TxtMacroShortcut_TextChanged" />
                         <TextBlock Grid.Column="2" Text="THAY THẾ BẰNG:" VerticalAlignment="Center" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" />
                         <TextBox x:Name="TxtMacroReplacement" Grid.Column="3" Margin="0,0,10,0" />
                         <Button Grid.Column="4" Content="THÊM / SỬA" Click="BtnAddMacro_Click" Padding="12,4" />
@@ -271,6 +273,14 @@
                               RowBackground="{StaticResource CyberDark}" AlternatingRowBackground="{StaticResource CyberPanel}"
                               GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="{StaticResource CyberBorderDim}"
                               SelectionChanged="DgMacro_SelectionChanged">
+                        <DataGrid.ColumnHeaderStyle>
+                            <Style TargetType="DataGridColumnHeader">
+                                <Setter Property="Foreground" Value="#0A2540" />
+                                <Setter Property="FontFamily" Value="Consolas" />
+                                <Setter Property="FontWeight" Value="Bold" />
+                                <Setter Property="Padding" Value="8,4" />
+                            </Style>
+                        </DataGrid.ColumnHeaderStyle>
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="TỪ VIẾT TẮT" Binding="{Binding Shortcut}" Width="160" />
                             <DataGridTextColumn Header="CỤM TỪ THAY THẾ" Binding="{Binding Replacement}" Width="*" />

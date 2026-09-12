@@ -380,12 +380,70 @@ namespace ModernKey
             _trayManager?.BuildContextMenu();
         }
 
+        private bool _isUpdatingMacroFields = false;
+
         private void DgMacro_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (_isUpdatingMacroFields) return;
+
             if (DgMacro.SelectedItem is MacroEntry selected)
             {
+                _isUpdatingMacroFields = true;
                 TxtMacroShortcut.Text = selected.Shortcut;
                 TxtMacroReplacement.Text = selected.Replacement;
+                _isUpdatingMacroFields = false;
+            }
+        }
+
+        private void TxtMacroShortcut_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isUpdatingMacroFields) return;
+
+            string query = TxtMacroShortcut.Text?.Trim();
+            if (string.IsNullOrEmpty(query))
+            {
+                _isUpdatingMacroFields = true;
+                TxtMacroReplacement.Text = string.Empty;
+                DgMacro.SelectedItem = null;
+                _isUpdatingMacroFields = false;
+                return;
+            }
+
+            if (_macroManager?.MacroList == null || _macroManager.MacroList.Count == 0)
+                return;
+
+            // Cơ chế OpenKey C++ (MacroDialog.cpp dòng 164-184):
+            // 1. Exact match trước: item.Shortcut.Equals(query, OrdinalIgnoreCase)
+            MacroEntry matched = null;
+            foreach (var item in _macroManager.MacroList)
+            {
+                if (string.Equals(item.Shortcut, query, StringComparison.OrdinalIgnoreCase))
+                {
+                    matched = item;
+                    break;
+                }
+            }
+
+            // 2. Prefix match nếu chưa tìm thấy exact match
+            if (matched == null)
+            {
+                foreach (var item in _macroManager.MacroList)
+                {
+                    if (item.Shortcut != null && item.Shortcut.StartsWith(query, StringComparison.OrdinalIgnoreCase))
+                    {
+                        matched = item;
+                        break;
+                    }
+                }
+            }
+
+            if (matched != null)
+            {
+                _isUpdatingMacroFields = true;
+                DgMacro.SelectedItem = matched;
+                DgMacro.ScrollIntoView(matched);
+                TxtMacroReplacement.Text = matched.Replacement;
+                _isUpdatingMacroFields = false;
             }
         }
 
