@@ -244,21 +244,32 @@
                         </Grid>
                     </Border>
 
-                    <!-- Nhập gõ tắt (Chuẩn OpenKey C++: Ô nội dung cố định chiều cao kèm scrollbar dọc) -->
-                    <Grid Grid.Row="1" Margin="0,0,0,10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="130" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="VIẾT TẮT:" VerticalAlignment="Center" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,8,0" />
-                        <TextBox x:Name="TxtMacroShortcut" Grid.Column="1" Height="28" VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="0,0,14,0" TextChanged="TxtMacroShortcut_TextChanged" />
-                        <TextBlock Grid.Column="2" Text="THAY THẾ BẰNG:" VerticalAlignment="Center" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,8,0" />
-                        <TextBox x:Name="TxtMacroReplacement" Grid.Column="3" Height="56" VerticalScrollBarVisibility="Auto" AcceptsReturn="True" TextWrapping="Wrap" Margin="0,0,10,0" FontFamily="Consolas" />
-                        <Button Grid.Column="4" Content="THÊM / SỬA" Height="56" VerticalAlignment="Center" Click="BtnAddMacro_Click" Padding="14,0" />
-                    </Grid>
+                    <!-- Khu vực nhập liệu Gõ tắt: Hiển thị nhiều hàng rộng rãi -->
+                    <Border Grid.Row="1" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="12,8" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <!-- Hàng 1: Từ viết tắt & Nút Thêm / Sửa -->
+                            <Grid Grid.Row="0" Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="180" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="VIẾT TẮT:" VerticalAlignment="Center" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,10,0" />
+                                <TextBox x:Name="TxtMacroShortcut" Grid.Column="1" Height="28" VerticalAlignment="Center" VerticalContentAlignment="Center" TextChanged="TxtMacroShortcut_TextChanged" />
+                                <TextBlock Grid.Column="2" Text="CỤM TỪ THAY THẾ (NỘI DUNG GÕ TẮT):" VerticalAlignment="Center" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" Margin="20,0,0,0" />
+                                <Button Grid.Column="3" Content="THÊM / SỬA" Height="28" VerticalAlignment="Center" Click="BtnAddMacro_Click" Padding="18,3" />
+                            </Grid>
+
+                            <!-- Hàng 2: Ô nhập cụm từ thay thế nhiều dòng -->
+                            <TextBox x:Name="TxtMacroReplacement" Grid.Row="1" Height="100" VerticalScrollBarVisibility="Auto" AcceptsReturn="True" TextWrapping="Wrap" FontFamily="Consolas" FontSize="12" Padding="6,4" />
+                        </Grid>
+                    </Border>
 
                     <!-- Bảng dữ liệu -->
                     <DataGrid x:Name="DgMacro" Grid.Row="2" AutoGenerateColumns="False" CanUserAddRows="False"

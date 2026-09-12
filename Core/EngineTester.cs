@@ -604,6 +604,30 @@ namespace ModernKey.Core
                 sb.AppendLine($"  FAIL Punctuation Trigger: dot='{punctDot}', excl='{punctExcl}', comma='{punctComma}', quest='{punctQuest}', semi='{punctSemi}', hyphen='{punctHyphen}'");
             }
 
+            // 8.1. Test Macro với Số và Ký hiệu đặc biệt: 1111 -> shutdown-s-f-t 0, 023 -> \\192.168.1.023, /// -> ∕, ?? -> ¿?
+            macroMgr.MacroList.Add(new MacroEntry("1111", "shutdown-s-f-t 0"));
+            macroMgr.MacroList.Add(new MacroEntry("023", @"\\192.168.1.023"));
+            macroMgr.MacroList.Add(new MacroEntry("///", "∕"));
+            macroMgr.MacroList.Add(new MacroEntry("??", "¿?"));
+
+            string num1111Out = SimulateTypingSentence(macroEngine, "1111 ");
+            string num023Out = SimulateTypingSentence(macroEngine, "023 ");
+            string symSlashOut = SimulateTypingSentence(macroEngine, "///");
+            string symQuestOut = SimulateTypingSentence(macroEngine, "??");
+
+            if (num1111Out == "shutdown-s-f-t 0 " &&
+                num023Out == @"\\192.168.1.023 " &&
+                symSlashOut == "∕" &&
+                symQuestOut == "¿?")
+            {
+                sb.AppendLine("  PASS: Macro nhận diện chính xác Số (1111, 023) và Ký hiệu (///, ??)");
+            }
+            else
+            {
+                allPassed = false;
+                sb.AppendLine($"  FAIL Macro Số & Ký hiệu: 1111='{num1111Out}', 023='{num023Out}', ///='{symSlashOut}', ??='{symQuestOut}'");
+            }
+
             // 9. Test phim ESC dung ngay go tat
             macroEngine.Reset();
             // Go 'emogr'

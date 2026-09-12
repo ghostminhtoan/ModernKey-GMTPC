@@ -25,6 +25,9 @@ namespace ModernKey.Core
         // Buffer lưu trữ các phím gốc đã gõ cho từ hiện tại
         private readonly List<char> _charBuffer = new List<char>();
 
+        // Buffer lưu trữ các phím cho gõ tắt (Macro) chuẩn OpenKey C++: hỗ trợ cả chữ cái, chữ số (1111, 023), ký hiệu (///, ??)
+        private readonly List<char> _macroBuffer = new List<char>();
+
         // Cờ trạng thái
         private bool _inNumberSequence = false;
 
@@ -37,10 +40,49 @@ namespace ModernKey.Core
         public void Reset()
         {
             _charBuffer.Clear();
+            _macroBuffer.Clear();
             _inNumberSequence = false;
         }
 
         public bool HasPendingWord => _charBuffer.Count > 0;
+
+        private static bool IsSymbolOnly(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            foreach (char c in text)
+            {
+                if (char.IsLetterOrDigit(c) || char.IsWhiteSpace(c))
+                    return false;
+            }
+            return true;
+        }
+
+        private bool TryFindMacroMatch(string text, out string matchedShortcut, out string replacement)
+        {
+            matchedShortcut = null;
+            replacement = null;
+            if (string.IsNullOrEmpty(text)) return false;
+
+            // 1. Thử khớp toàn bộ chuỗi text
+            if (_macroManager.TryGetMacro(text, _settings.AutoCapsMacro, out replacement))
+            {
+                matchedShortcut = text;
+                return true;
+            }
+
+            // 2. Thử khớp các hậu tố (suffix) từ dài đến ngắn
+            for (int len = text.Length - 1; len >= 1; len--)
+            {
+                string suffix = text.Substring(text.Length - len);
+                if (_macroManager.TryGetMacro(suffix, _settings.AutoCapsMacro, out replacement))
+                {
+                    matchedShortcut = suffix;
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         private static readonly HashSet<string> _codeKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -198,6 +240,7 @@ namespace ModernKey.Core
             // 3. Phím Backspace
             if (vkCode == 0x08)
             {
+                if (_macroBuffer.Count > 0) _macroBuffer.RemoveAt(_macroBuffer.Count - 1);
                 string currentDisplay = GetDisplayWord(_charBuffer);
                 if (string.IsNullOrEmpty(currentDisplay) || currentDisplay.Length <= 1)
                 {
@@ -216,7 +259,7 @@ namespace ModernKey.Core
                 return false;
             }
 
-            // 4. Ký tự ngắt từ (Space, Enter, Tab, Dấu câu, Dấu ngoặc, Gạch nối...)
+            // 4. Ký tự ngắt từ (Space, Enter, Tab) và Dấu câu / Ký hiệu
             bool isSpace = (vkCode == 0x20 || ch == ' ');
             bool isReturn = (vkCode == 0x0D || ch == '\r' || ch == '\n');
             bool isTab = (vkCode == 0x09 || ch == '\t');
@@ -253,69 +296,53 @@ namespace ModernKey.Core
                     isPunctuation = true;
             }
 
-            bool isWordBreak = isSpace || isReturn || isTab || isPunctuation;
-
-            if (isWordBreak)
+            // 4.1. Xử lý khi nhấn Phím ngắt từ: Space, Enter, Tab
+            if (isSpace || isReturn || isTab)
             {
-                // Kiểm tra Macro khi ấn phím ngắt theo MacroTriggerMask hoặc bất kỳ Punctuation nào
-                if (_settings.UseMacro && _charBuffer.Count > 0)
+                // Kiểm tra Macro khi ấn phím ngắt theo MacroTriggerMask
+                if (_settings.UseMacro)
                 {
                     bool triggerAllowed = (isSpace && (_settings.MacroTriggerMask & 0x01) != 0) ||
-                                          (isReturn && (_settings.MacroTriggerMask & 0x02) != 0) ||
-                                          isPunctuation;
+                                          (isReturn && (_settings.MacroTriggerMask & 0x02) != 0);
 
                     if (triggerAllowed)
                     {
-                        string displayWord = GetDisplayWord(_charBuffer);
-                        string rawWord = new string(_charBuffer.ToArray());
-
-                        if (_macroManager.TryGetMacro(displayWord, _settings.AutoCapsMacro, out string replacement))
+                        // A. Kiểm tra trong _macroBuffer (hỗ trợ số thuần 1111, 023, ký hiệu ///, ??, và chữ)
+                        if (_macroBuffer.Count > 0)
                         {
-                            backspaceCount = Math.Min(displayWord.Length, 15);
-                            newString = replacement;
-                            if (isSpace)
+                            string macroStr = new string(_macroBuffer.ToArray());
+                            if (TryFindMacroMatch(macroStr, out string matchedShortcut, out string replacement))
                             {
-                                trailingVkCode = 0x20; // Phím vật lý VK_SPACE (chuẩn OpenKey C++)
+                                backspaceCount = Math.Min(matchedShortcut.Length, 30);
+                                newString = replacement;
+                                trailingVkCode = isSpace ? 0x20 : (isReturn ? 0x0D : 0);
+                                Reset();
+                                return true;
                             }
-                            else if (isReturn)
-                            {
-                                trailingVkCode = 0x0D; // Phím vật lý VK_RETURN (chuẩn OpenKey C++)
-                            }
-                            else if (isPunctuation && ch != '\0')
-                            {
-                                newString = replacement + ch;
-                                trailingVkCode = 0;
-                            }
-                            else
-                            {
-                                trailingVkCode = 0;
-                            }
-                            Reset();
-                            return true;
                         }
-                        else if (_macroManager.TryGetMacro(rawWord, _settings.AutoCapsMacro, out replacement))
+
+                        // B. Kiểm tra trong _charBuffer (từ tiếng Việt có dấu, ví dụ vn -> việt nam)
+                        if (_charBuffer.Count > 0)
                         {
-                            backspaceCount = Math.Min(rawWord.Length, 15);
-                            newString = replacement;
-                            if (isSpace)
+                            string displayWord = GetDisplayWord(_charBuffer);
+                            string rawWord = new string(_charBuffer.ToArray());
+
+                            if (_macroManager.TryGetMacro(displayWord, _settings.AutoCapsMacro, out string replacement))
                             {
-                                trailingVkCode = 0x20; // Phím vật lý VK_SPACE (chuẩn OpenKey C++)
+                                backspaceCount = Math.Min(displayWord.Length, 15);
+                                newString = replacement;
+                                trailingVkCode = isSpace ? 0x20 : (isReturn ? 0x0D : 0);
+                                Reset();
+                                return true;
                             }
-                            else if (isReturn)
+                            else if (_macroManager.TryGetMacro(rawWord, _settings.AutoCapsMacro, out replacement))
                             {
-                                trailingVkCode = 0x0D; // Phím vật lý VK_RETURN (chuẩn OpenKey C++)
+                                backspaceCount = Math.Min(rawWord.Length, 15);
+                                newString = replacement;
+                                trailingVkCode = isSpace ? 0x20 : (isReturn ? 0x0D : 0);
+                                Reset();
+                                return true;
                             }
-                            else if (isPunctuation && ch != '\0')
-                            {
-                                newString = replacement + ch;
-                                trailingVkCode = 0;
-                            }
-                            else
-                            {
-                                trailingVkCode = 0;
-                            }
-                            Reset();
-                            return true;
                         }
                     }
                 }
@@ -330,19 +357,7 @@ namespace ModernKey.Core
                     {
                         backspaceCount = displayWord.Length;
                         newString = rawWord;
-                        if (isSpace)
-                        {
-                            trailingVkCode = 0x20;
-                        }
-                        else if (isReturn)
-                        {
-                            trailingVkCode = 0x0D;
-                        }
-                        else if (isPunctuation && ch != '\0')
-                        {
-                            newString = rawWord + ch;
-                            trailingVkCode = 0;
-                        }
+                        trailingVkCode = isSpace ? 0x20 : (isReturn ? 0x0D : 0);
                         Reset();
                         return true;
                     }
@@ -360,19 +375,7 @@ namespace ModernKey.Core
                     {
                         backspaceCount = displayWord.Length;
                         newString = rawWord;
-                        if (isSpace)
-                        {
-                            trailingVkCode = 0x20;
-                        }
-                        else if (isReturn)
-                        {
-                            trailingVkCode = 0x0D;
-                        }
-                        else if (isPunctuation && ch != '\0')
-                        {
-                            newString = rawWord + ch;
-                            trailingVkCode = 0;
-                        }
+                        trailingVkCode = isSpace ? 0x20 : (isReturn ? 0x0D : 0);
                         Reset();
                         return true;
                     }
@@ -380,6 +383,108 @@ namespace ModernKey.Core
 
                 Reset();
                 return false;
+            }
+
+            // 4.2. Xử lý khi gõ Dấu câu / Ký hiệu (Punctuation)
+            if (isPunctuation)
+            {
+                // A. Kiểm tra nếu từ TRƯỚC dấu câu là một macro (vd: vn. -> việt nam., vn? -> việt nam?, emogrin! -> 😏😏😏!)
+                if (_settings.UseMacro)
+                {
+                    if (_charBuffer.Count > 0)
+                    {
+                        string displayWord = GetDisplayWord(_charBuffer);
+                        string rawWord = new string(_charBuffer.ToArray());
+
+                        if (_macroManager.TryGetMacro(displayWord, _settings.AutoCapsMacro, out string replacement))
+                        {
+                            backspaceCount = Math.Min(displayWord.Length, 15);
+                            newString = replacement + (ch != '\0' ? ch.ToString() : "");
+                            trailingVkCode = 0;
+                            Reset();
+                            return true;
+                        }
+                        else if (_macroManager.TryGetMacro(rawWord, _settings.AutoCapsMacro, out replacement))
+                        {
+                            backspaceCount = Math.Min(rawWord.Length, 15);
+                            newString = replacement + (ch != '\0' ? ch.ToString() : "");
+                            trailingVkCode = 0;
+                            Reset();
+                            return true;
+                        }
+                    }
+
+                    if (_macroBuffer.Count > 0)
+                    {
+                        string beforeText = new string(_macroBuffer.ToArray());
+                        if (TryFindMacroMatch(beforeText, out string matchedShortcut, out string replacement))
+                        {
+                            backspaceCount = Math.Min(matchedShortcut.Length, 30);
+                            newString = replacement + (ch != '\0' ? ch.ToString() : "");
+                            trailingVkCode = 0;
+                            Reset();
+                            return true;
+                        }
+                    }
+                }
+
+                // B. Ký hiệu này có thể là một phần của macro ký hiệu (như "///" -> "∕", "??" -> "¿?", "==>" -> "⇒")
+                if (_settings.UseMacro && ch != '\0')
+                {
+                    if (_macroBuffer.Count < 64) _macroBuffer.Add(ch);
+                    string currentMacro = new string(_macroBuffer.ToArray());
+                    if (TryFindMacroMatch(currentMacro, out string symShortcut, out string symRep) &&
+                        IsSymbolOnly(symShortcut) && symShortcut.Length >= 2)
+                    {
+                        backspaceCount = symShortcut.Length - 1; // Ký tự cuối (ch) đang được giữ lại, xóa các ký tự trước đã lên màn hình
+                        newString = symRep;
+                        trailingVkCode = 0;
+                        Reset();
+                        return true;
+                    }
+                }
+
+                // Smart Code Passthrough & Kiểm tra chính tả cho dấu câu thông thường
+                if (_settings.SmartCodePassthrough && _charBuffer.Count > 0)
+                {
+                    string displayWord = GetDisplayWord(_charBuffer);
+                    string rawWord = new string(_charBuffer.ToArray());
+                    if (!string.IsNullOrEmpty(displayWord) && displayWord != rawWord && IsCodeKeyword(rawWord))
+                    {
+                        backspaceCount = displayWord.Length;
+                        newString = rawWord + (ch != '\0' ? ch.ToString() : "");
+                        trailingVkCode = 0;
+                        Reset();
+                        return true;
+                    }
+                }
+
+                if (_settings.CheckSpelling && _settings.RestoreIfWrongSpelling && _charBuffer.Count > 0)
+                {
+                    string displayWord = GetDisplayWord(_charBuffer);
+                    string rawWord = new string(_charBuffer.ToArray());
+                    if (!string.IsNullOrEmpty(displayWord) && displayWord != rawWord &&
+                        OpenKeySpelling.HasToneMarkOnVowel(displayWord) &&
+                        !OpenKeySpelling.IsValidWord(displayWord, forceCheckVowel: true, _settings))
+                    {
+                        backspaceCount = displayWord.Length;
+                        newString = rawWord + (ch != '\0' ? ch.ToString() : "");
+                        trailingVkCode = 0;
+                        Reset();
+                        return true;
+                    }
+                }
+
+                // Reset buffer tiếng Việt nhưng KHÔNG xóa _macroBuffer nếu đang gõ chuỗi ký hiệu
+                _charBuffer.Clear();
+                _inNumberSequence = false;
+                return false;
+            }
+
+            // 5. Lưu ký tự hợp lệ vào _macroBuffer cho các phím số và chữ
+            if (!char.IsControl(ch))
+            {
+                if (_macroBuffer.Count < 64) _macroBuffer.Add(ch);
             }
 
             // 5. Kiểm tra bảo vệ số thuần và từ chứa số (như hardcode, hentai2read)
@@ -480,18 +585,35 @@ namespace ModernKey.Core
         {
             backspaceCount = 0;
             newString = null;
-            if (!_settings.UseMacro || _charBuffer.Count == 0) return false;
+            if (!_settings.UseMacro) return false;
 
-            string displayWord = GetDisplayWord(_charBuffer);
-            string rawWord = new string(_charBuffer.ToArray());
-
-            if (_macroManager.TryGetMacro(displayWord, _settings.AutoCapsMacro, out string replacement) ||
-                _macroManager.TryGetMacro(rawWord, _settings.AutoCapsMacro, out replacement))
+            // 1. Kiểm tra trong _macroBuffer trước (hỗ trợ số thuần 1111, 023, ký hiệu ///, ??, và chữ)
+            if (_macroBuffer.Count > 0)
             {
-                backspaceCount = Math.Min(displayWord.Length, 15);
-                newString = replacement;
-                Reset();
-                return true;
+                string macroStr = new string(_macroBuffer.ToArray());
+                if (TryFindMacroMatch(macroStr, out string matchedShortcut, out string replacement))
+                {
+                    backspaceCount = Math.Min(matchedShortcut.Length, 30);
+                    newString = replacement;
+                    Reset();
+                    return true;
+                }
+            }
+
+            // 2. Kiểm tra trong _charBuffer
+            if (_charBuffer.Count > 0)
+            {
+                string displayWord = GetDisplayWord(_charBuffer);
+                string rawWord = new string(_charBuffer.ToArray());
+
+                if (_macroManager.TryGetMacro(displayWord, _settings.AutoCapsMacro, out string replacement) ||
+                    _macroManager.TryGetMacro(rawWord, _settings.AutoCapsMacro, out replacement))
+                {
+                    backspaceCount = Math.Min(displayWord.Length, 15);
+                    newString = replacement;
+                    Reset();
+                    return true;
+                }
             }
             return false;
         }
@@ -511,6 +633,7 @@ namespace ModernKey.Core
 
             if (vkCode == 0x08)
             {
+                if (_macroBuffer.Count > 0) _macroBuffer.RemoveAt(_macroBuffer.Count - 1);
                 if (_charBuffer.Count > 0) _charBuffer.RemoveAt(_charBuffer.Count - 1);
                 return false;
             }
@@ -531,40 +654,34 @@ namespace ModernKey.Core
                 ch == '^' || ch == '&' || ch == '*' || ch == '[' || ch == ']' ||
                 ch == '{' || ch == '}');
 
-            bool isWordBreak = isSpace || isReturn || isTab || isPunctuation;
-
-            if (isWordBreak)
+            if (isSpace || isReturn || isTab)
             {
-                if (_charBuffer.Count > 0)
-                {
-                    bool triggerAllowed = (isSpace && (_settings.MacroTriggerMask & 0x01) != 0) ||
-                                          (isReturn && (_settings.MacroTriggerMask & 0x02) != 0) ||
-                                          isPunctuation;
+                bool triggerAllowed = (isSpace && (_settings.MacroTriggerMask & 0x01) != 0) ||
+                                      (isReturn && (_settings.MacroTriggerMask & 0x02) != 0);
 
-                    if (triggerAllowed)
+                if (triggerAllowed)
+                {
+                    if (_macroBuffer.Count > 0)
+                    {
+                        string macroStr = new string(_macroBuffer.ToArray());
+                        if (TryFindMacroMatch(macroStr, out string matchedShortcut, out string replacement))
+                        {
+                            backspaceCount = Math.Min(matchedShortcut.Length, 30);
+                            newString = replacement;
+                            trailingVkCode = isSpace ? 0x20 : (isReturn ? 0x0D : 0);
+                            Reset();
+                            return true;
+                        }
+                    }
+
+                    if (_charBuffer.Count > 0)
                     {
                         string word = new string(_charBuffer.ToArray());
                         if (_macroManager.TryGetMacro(word, _settings.AutoCapsMacro, out string replacement))
                         {
                             backspaceCount = Math.Min(word.Length, 15);
                             newString = replacement;
-                            if (isSpace)
-                            {
-                                trailingVkCode = 0x20; // Phím vật lý VK_SPACE (chuẩn OpenKey C++)
-                            }
-                            else if (isReturn)
-                            {
-                                trailingVkCode = 0x0D; // Phím vật lý VK_RETURN (chuẩn OpenKey C++)
-                            }
-                            else if (isPunctuation && ch != '\0')
-                            {
-                                newString = replacement + ch;
-                                trailingVkCode = 0;
-                            }
-                            else
-                            {
-                                trailingVkCode = 0;
-                            }
+                            trailingVkCode = isSpace ? 0x20 : (isReturn ? 0x0D : 0);
                             Reset();
                             return true;
                         }
@@ -574,8 +691,58 @@ namespace ModernKey.Core
                 return false;
             }
 
-            if (char.IsLetterOrDigit(ch))
+            if (isPunctuation)
             {
+                // A. Kiểm tra từ trước dấu câu
+                if (_macroBuffer.Count > 0)
+                {
+                    string beforeText = new string(_macroBuffer.ToArray());
+                    if (TryFindMacroMatch(beforeText, out string matchedShortcut, out string replacement))
+                    {
+                        backspaceCount = Math.Min(matchedShortcut.Length, 30);
+                        newString = replacement + (ch != '\0' ? ch.ToString() : "");
+                        trailingVkCode = 0;
+                        Reset();
+                        return true;
+                    }
+                }
+
+                if (_charBuffer.Count > 0)
+                {
+                    string word = new string(_charBuffer.ToArray());
+                    if (_macroManager.TryGetMacro(word, _settings.AutoCapsMacro, out string replacement))
+                    {
+                        backspaceCount = Math.Min(word.Length, 15);
+                        newString = replacement + (ch != '\0' ? ch.ToString() : "");
+                        trailingVkCode = 0;
+                        Reset();
+                        return true;
+                    }
+                }
+
+                // B. Ký hiệu là một phần của macro ký hiệu (như "///", "??", "==>")
+                if (ch != '\0')
+                {
+                    if (_macroBuffer.Count < 64) _macroBuffer.Add(ch);
+                    string currentMacro = new string(_macroBuffer.ToArray());
+                    if (TryFindMacroMatch(currentMacro, out string symShortcut, out string symRep) &&
+                        IsSymbolOnly(symShortcut) && symShortcut.Length >= 2)
+                    {
+                        backspaceCount = symShortcut.Length - 1;
+                        newString = symRep;
+                        trailingVkCode = 0;
+                        Reset();
+                        return true;
+                    }
+                }
+
+                _charBuffer.Clear();
+                return false;
+            }
+
+            if (!char.IsControl(ch))
+            {
+                if (_macroBuffer.Count < 64) _macroBuffer.Add(ch);
                 if (_charBuffer.Count < 30) _charBuffer.Add(ch);
             }
             else
