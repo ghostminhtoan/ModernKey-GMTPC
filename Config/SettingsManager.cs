@@ -17,7 +17,18 @@ namespace ModernKey.Config
 
         private static string GetAppDirectory()
         {
-            return Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? AppDomain.CurrentDomain.BaseDirectory;
+            try
+            {
+                string loc = Assembly.GetExecutingAssembly().Location;
+                if (!string.IsNullOrEmpty(loc))
+                {
+                    string dir = Path.GetDirectoryName(loc);
+                    if (!string.IsNullOrEmpty(dir)) return dir;
+                }
+            }
+            catch { }
+
+            return AppDomain.CurrentDomain.BaseDirectory;
         }
 
         public static bool IsPortableMode()

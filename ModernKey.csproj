@@ -28,7 +28,14 @@
     <None Update="Config\vi_VN.dic">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="Config\en_US.dic">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="en_US.dic">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <EmbeddedResource Include="Config\vi_VN.dic" />
+    <EmbeddedResource Include="Config\en_US.dic" />
   </ItemGroup>
 
   <ItemGroup>

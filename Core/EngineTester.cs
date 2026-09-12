@@ -63,7 +63,10 @@ namespace ModernKey.Core
                 ("leex", "lễ"),
                 ("duowngfd", "đường"),
                 ("dood", "đô"),
-                ("hentai2read", "hentai2read")
+                ("hentai2read", "hentai2read"),
+                ("download", "download"),
+                ("dead", "dead"),
+                ("dad", "dad")
             };
 
             sb.AppendLine("[TEST TELEX - TUNG TU]");
@@ -321,7 +324,10 @@ namespace ModernKey.Core
                 ("da85m", "dặm"),
                 ("Tie6t1", "Tiết"),
                 ("D9ao5", "Đạo"),
-                ("Bui2", "Bùi")
+                ("Bui2", "Bùi"),
+                ("anbumin2", "anbumin2"),
+                ("hentai2read", "hentai2read"),
+                ("download", "download")
             };
 
             foreach (var tc in testCasesVni)
@@ -887,20 +893,24 @@ namespace ModernKey.Core
                 {
                     SettingsManager.SaveSettings(originalSettings);
                 }
-                // 15. Kiểm tra từ điển chính tả vi_VN.dic
+                // 15. Kiểm tra từ điển chính tả vi_VN.dic & en_US.dic
                 SpellingDictionary.Instance.LoadDictionary();
-                bool dicValid1 = SpellingDictionary.Instance.IsValidWord("tiếng");
-                bool dicValid2 = SpellingDictionary.Instance.IsValidWord("việt");
-                bool dicValid3 = SpellingDictionary.Instance.IsValidWord("trên");
+                bool dicValid1 = SpellingDictionary.Instance.IsValidVietnameseWord("tiếng");
+                bool dicValid2 = SpellingDictionary.Instance.IsValidVietnameseWord("việt");
+                bool dicValid3 = SpellingDictionary.Instance.IsValidVietnameseWord("trên");
                 bool dicInvalid = SpellingDictionary.Instance.IsValidWord("asdfzxcv");
-                if (dicValid1 && dicValid2 && dicValid3 && !dicInvalid)
+                bool enValid1 = SpellingDictionary.Instance.IsEnglishWord("download");
+                bool enValid2 = SpellingDictionary.Instance.IsEnglishWord("anbumin");
+                bool enValid3 = SpellingDictionary.Instance.IsEnglishWord("hentai");
+                bool countOk = SpellingDictionary.Instance.VietnameseWordCount > 6000 && SpellingDictionary.Instance.EnglishWordCount > 50000;
+                if (dicValid1 && dicValid2 && dicValid3 && !dicInvalid && enValid1 && enValid2 && enValid3 && countOk)
                 {
-                    sb.AppendLine($"  PASS: Từ điển vi_VN.dic nạp thành công {SpellingDictionary.Instance.WordCount:N0} từ và tra cứu O(1) chính xác!");
+                    sb.AppendLine($"  PASS: Từ điển kép nạp thành công: {SpellingDictionary.Instance.VietnameseWordCount:N0} từ tiếng Việt (vi_VN.dic) + {SpellingDictionary.Instance.EnglishWordCount:N0} từ tiếng Anh (en_US.dic) = {SpellingDictionary.Instance.WordCount:N0} từ tổng!");
                 }
                 else
                 {
                     allPassed = false;
-                    sb.AppendLine($"  FAIL: Từ điển vi_VN.dic tra cứu sai ('tiếng'={dicValid1}, 'asdfzxcv'={dicInvalid})");
+                    sb.AppendLine($"  FAIL: Từ điển tra cứu sai (vn='tiếng':{dicValid1}, en='download':{enValid1}, 'anbumin':{enValid2}, 'hentai':{enValid3}, invalid:{dicInvalid})");
                 }
 
                 // 16. Kiểm tra EscKeyUndo
