@@ -658,7 +658,7 @@ namespace ModernKey.Hook
 
                     bool oldState = _settings.IsVietnamese;
 
-                    bool isShift = (_modifierFlag & MASK_SHIFT) != 0;
+                    bool isShift = ((_modifierFlag & MASK_SHIFT) != 0) || _shiftDown || ((GetAsyncKeyState(0x10) & 0x8000) != 0);
                     bool isCtrl = (_modifierFlag & MASK_CTRL) != 0;
                     bool isAlt = (_modifierFlag & MASK_ALT) != 0;
                     bool isCaps = (GetKeyState(0x14) & 0x0001) != 0;
@@ -813,6 +813,20 @@ namespace ModernKey.Hook
         private char ConvertVkToChar(uint vkCode, uint scanCode)
         {
             GetKeyboardState(_cachedKeyStates);
+
+            bool shiftActive = _shiftDown || ((_modifierFlag & MASK_SHIFT) != 0) || ((GetAsyncKeyState(0x10) & 0x8000) != 0);
+            _cachedKeyStates[0x10] = (byte)(shiftActive ? 0x80 : 0);
+            _cachedKeyStates[0xA0] = (byte)(shiftActive ? 0x80 : 0);
+            _cachedKeyStates[0xA1] = (byte)(shiftActive ? 0x80 : 0);
+            bool ctrlActive = _ctrlDown || ((_modifierFlag & MASK_CTRL) != 0) || ((GetAsyncKeyState(0x11) & 0x8000) != 0);
+            _cachedKeyStates[0x11] = (byte)(ctrlActive ? 0x80 : 0);
+            _cachedKeyStates[0xA2] = (byte)(ctrlActive ? 0x80 : 0);
+            _cachedKeyStates[0xA3] = (byte)(ctrlActive ? 0x80 : 0);
+            bool altActive = _altDown || ((_modifierFlag & MASK_ALT) != 0) || ((GetAsyncKeyState(0x12) & 0x8000) != 0);
+            _cachedKeyStates[0x12] = (byte)(altActive ? 0x80 : 0);
+            _cachedKeyStates[0xA4] = (byte)(altActive ? 0x80 : 0);
+            _cachedKeyStates[0xA5] = (byte)(altActive ? 0x80 : 0);
+            _cachedKeyStates[0x14] = (byte)((GetKeyState(0x14) & 0x0001) != 0 ? 0x01 : 0);
 
             IntPtr hWnd = GetForegroundWindow();
             uint threadId = GetWindowThreadProcessId(hWnd, out _);

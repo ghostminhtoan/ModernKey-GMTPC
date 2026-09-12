@@ -174,6 +174,9 @@ namespace ModernKey.Models
                     rules.Add(new CustomInputRule('^', 22)); // Chữ Â
                     rules.Add(new CustomInputRule('&', 26)); // Chữ Ê
                     rules.Add(new CustomInputRule('*', 28)); // Chữ Ô
+                    rules.Add(new CustomInputRule('(', 20)); // Chữ Ă
+                    rules.Add(new CustomInputRule('{', 32)); // Chữ Ư
+                    rules.Add(new CustomInputRule('}', 30)); // Chữ Ơ
                     break;
             }
             return rules;

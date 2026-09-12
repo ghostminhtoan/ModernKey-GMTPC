@@ -256,7 +256,10 @@ namespace ModernKey.Core
                 ("dictated", "dictated"),
                 ("do1dd", "dód"),
                 ("ddd", "dd"),
-                ("dddr", "ddr")
+                ("dddr", "ddr"),
+                ("T8i", "Tôi"),
+                ("T*i", "Tôi"),
+                ("t*i", "Tôi")
             };
 
             foreach (var tc in testCasesTbt)
@@ -273,7 +276,7 @@ namespace ModernKey.Core
                 }
             }
 
-            // Test toggle số lặp lại trong TBT (66->6, 77->7, 88->8, 99->9, Shift+66->^, Shift+77->&, Shift+88->*, [[->[, ]]->])
+            // Test toggle số lặp lại trong TBT (66->6, 77->7, 88->8, 99->9, Shift+66->^, Shift+77->&, Shift+88->*, Shift+99->(, [[->[, ]]->], {{->{, }}->})
             (string numInput, string numExpected)[] toggleCases = new[]
             {
                 ("66", "6"),
@@ -288,8 +291,11 @@ namespace ModernKey.Core
                 ("^^", "^"),
                 ("&&", "&"),
                 ("**", "*"),
+                ("((", "("),
                 ("[[", "["),
-                ("]]", "]")
+                ("]]", "]"),
+                ("{{", "{"),
+                ("}}", "}")
             };
 
             foreach (var numCase in toggleCases)

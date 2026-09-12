@@ -108,21 +108,36 @@ namespace ModernKey.Core
             return HasAnyVowel(word);
         }
 
+        private static bool IsTbtTogglePair(char key1, char key2)
+        {
+            if (key1 == '\0' || key2 == '\0') return false;
+            if (key1 == key2) return true;
+            if ((key1 == '6' && key2 == '^') || (key1 == '^' && key2 == '6')) return true;
+            if ((key1 == '7' && key2 == '&') || (key1 == '&' && key2 == '7')) return true;
+            if ((key1 == '8' && key2 == '*') || (key1 == '*' && key2 == '8')) return true;
+            if ((key1 == '9' && key2 == '(') || (key1 == '(' && key2 == '9')) return true;
+            if ((key1 == '[' && key2 == '{') || (key1 == '{' && key2 == '[')) return true;
+            if ((key1 == ']' && key2 == '}') || (key1 == '}' && key2 == ']')) return true;
+            return false;
+        }
+
         private bool IsTuBinhTranPunctuation(char ch)
         {
-            // Dấu ngoặc đơn '(', ')' và ngoặc nhọn '{', '}' LUÔN LUÔN là dấu câu ngắt từ trong mọi trường hợp!
-            if (ch == '(' || ch == ')' || ch == '{' || ch == '}')
+            if (ch == ')')
                 return true;
 
-            if (ch != '[' && ch != ']' && ch != '^' && ch != '&' && ch != '*')
+            if (ch != '[' && ch != ']' && ch != '^' && ch != '&' && ch != '*' && ch != '(' && ch != '{' && ch != '}')
                 return false;
 
             if (_charBuffer.Count == 0)
                 return false;
 
-            // Nếu gõ lặp lại cùng phím ký hiệu (Shift+66 -> ^^, Shift+77 -> &&, Shift+88 -> **, [[, ]]):
-            // Đây là phím toggle phục hồi ký tự gốc chuẩn OpenKey, không phải dấu câu ngắt từ
-            if (_charBuffer[_charBuffer.Count - 1] == ch)
+            char lastKey = _charBuffer[_charBuffer.Count - 1];
+
+            // Nếu gõ lặp lại cùng phím hoặc phím Shift tương ứng:
+            // (66/^^, 77/&&, 88/**, 99/((, [[/{{, ]]/}})
+            // Đây là phím toggle phục hồi ký tự gốc chuẩn OpenKey C++, không phải dấu câu ngắt từ
+            if (IsTbtTogglePair(lastKey, ch))
                 return false;
 
             string currentDisplay = GetDisplayWord(_charBuffer);
@@ -141,11 +156,12 @@ namespace ModernKey.Core
             // Nếu từ đã có nguyên âm chính nhưng ký tự cuối không thể kết hợp với ký hiệu này để tạo nguyên âm đôi hợp lệ
             if (HasMainVowel(currentDisplay))
             {
-                if (ch == '^' && !(lastLower == 'a' || lastLower == 'u')) return true;
-                if (ch == '&' && !(lastLower == 'e' || lastLower == 'i' || lastLower == 'y')) return true;
-                if (ch == '*' && !(lastLower == 'o' || lastLower == 'u')) return true;
-                if (ch == '[' && !(lastLower == 'u' || lastLower == 'ơ')) return true;
-                if (ch == ']' && !(lastLower == 'u' || lastLower == 'o' || lastLower == 'ư')) return true;
+                if ((ch == '^' || ch == '6') && !(lastLower == 'a' || lastLower == 'u')) return true;
+                if ((ch == '&' || ch == '7') && !(lastLower == 'e' || lastLower == 'i' || lastLower == 'y')) return true;
+                if ((ch == '*' || ch == '8') && !(lastLower == 'o' || lastLower == 'u')) return true;
+                if ((ch == '[' || ch == '{') && !(lastLower == 'u' || lastLower == 'ơ')) return true;
+                if ((ch == ']' || ch == '}') && !(lastLower == 'u' || lastLower == 'o' || lastLower == 'ư')) return true;
+                if ((ch == '(' || ch == '9') && !(lastLower == 'a' || lastLower == 'o' || lastLower == 'u')) return true;
             }
 
             return false;
@@ -184,6 +200,13 @@ namespace ModernKey.Core
             backspaceCount = 0;
             newString = null;
             trailingVkCode = 0;
+
+            // Đảm bảo casing của ch phản ánh đúng phím Shift hoặc CapsLock khi gõ chữ cái
+            if (char.IsLetter(ch))
+            {
+                bool targetUpper = isShift ^ isCaps;
+                ch = targetUpper ? char.ToUpper(ch) : char.ToLower(ch);
+            }
 
             // 0. Phím ESC: hoàn tác từ tiếng Việt về ký tự gốc nếu bật EscKeyUndo, hoặc reset engine
             if (vkCode == 0x1B)
@@ -263,7 +286,6 @@ namespace ModernKey.Core
             bool isPunctuation = ch == '.' || ch == ',' || ch == ';' || ch == ':' ||
                                  ch == '!' || ch == '?' ||
                                  ch == '/' || ch == '\\' || ch == '|' ||
-                                 ch == '(' || ch == ')' || ch == '{' || ch == '}' ||
                                  ch == '<' || ch == '>' ||
                                  ch == '\"' || ch == '\'' || ch == '`' ||
                                  ch == '-' || ch == '_' || ch == '+' || ch == '=' ||
@@ -279,17 +301,19 @@ namespace ModernKey.Core
                         if (_settings.CustomRules[r].Key == ch) { isCustomKey = true; break; }
                     }
                 }
-                if (!isCustomKey && (ch == '[' || ch == ']' || ch == '^' || ch == '&' || ch == '*'))
+                if (!isCustomKey && (ch == '[' || ch == ']' || ch == '^' || ch == '&' || ch == '*' || ch == '(' || ch == ')' || ch == '{' || ch == '}'))
                     isPunctuation = true;
             }
             else if (_settings.CurrentInputMethod != InputMethod.TuBinhTran)
             {
-                if (ch == '[' || ch == ']' || ch == '^' || ch == '&' || ch == '*')
+                if (ch == '[' || ch == ']' || ch == '^' || ch == '&' || ch == '*' || ch == '(' || ch == ')' || ch == '{' || ch == '}')
                     isPunctuation = true;
             }
             else
             {
-                if (IsTuBinhTranPunctuation(ch))
+                if (ch == ')')
+                    isPunctuation = true;
+                else if (IsTuBinhTranPunctuation(ch))
                     isPunctuation = true;
             }
 
@@ -918,9 +942,9 @@ namespace ModernKey.Core
                     letterCount++;
                     if (char.IsUpper(k)) upperCount++;
                 }
-                else if (k == '^' || k == '&' || k == '*')
+                else if (k == '^' || k == '&' || k == '*' || k == '(' || k == '{' || k == '}')
                 {
-                    // Trong Tư Bình Trần, các phím ký hiệu Shift đại diện cho nguyên âm viết HOA (^=Â, &=Ê, *=Ô)
+                    // Trong Tư Bình Trần, các phím ký hiệu Shift đại diện cho nguyên âm viết HOA (^=Â, &=Ê, *=Ô, (=Ă, {=Ư, }=Ơ)
                     letterCount++;
                     upperCount++;
                 }
@@ -936,7 +960,7 @@ namespace ModernKey.Core
                     firstLetterIsUpper = char.IsUpper(k);
                     break;
                 }
-                else if (k == '^' || k == '&' || k == '*')
+                else if (k == '^' || k == '&' || k == '*' || k == '(' || k == '{' || k == '}')
                 {
                     firstLetterIsUpper = true;
                     break;
@@ -944,9 +968,8 @@ namespace ModernKey.Core
             }
 
             // 3. Nếu người dùng gõ dạng TitleCase:
-            // Nếu từ bắt đầu bằng 2 chữ cái HOA giống nhau liên tiếp (ví dụ: DD, AA, EE, OO)
+            // a) Nếu từ bắt đầu bằng 2 chữ cái HOA giống nhau liên tiếp (ví dụ: DD, AA, EE, OO)
             // Hai chữ cái này thực chất kết hợp thành 1 chữ cái tiếng Việt HOA duy nhất (Đ, Â, Ê, Ô)
-            // Do đó tính effectiveUpperCount = upperCount - 1 để nhận diện chính xác kiểu gõ TitleCase (ví dụ: DDem / DD7m -> Đêm, DDuowng -> Đường)
             int effectiveUpperCount = upperCount;
             if (originalKeys.Count >= 2 &&
                 char.IsLetter(originalKeys[0]) && char.IsUpper(originalKeys[0]) &&
@@ -954,10 +977,27 @@ namespace ModernKey.Core
             {
                 effectiveUpperCount = upperCount - 1;
             }
+            else if (originalKeys.Count >= 2 &&
+                     char.IsLetter(originalKeys[0]) && char.IsUpper(originalKeys[0]) &&
+                     (originalKeys[1] == '^' || originalKeys[1] == '&' || originalKeys[1] == '*' || originalKeys[1] == '(' || originalKeys[1] == '{' || originalKeys[1] == '}'))
+            {
+                // Khi người dùng gõ chữ đầu HOA (Shift+T) rồi ngón tay còn giữ Shift khi bấm phím nguyên âm TBT (thành *, ^, &, (, {, }):
+                // Ví dụ: T*i -> Tôi, T^n -> Tân, T&m -> Têm... Ký hiệu nguyên âm này không tính là 1 chữ hoa độc lập làm mất TitleCase!
+                effectiveUpperCount = upperCount - 1;
+            }
 
             if (firstLetterIsUpper && effectiveUpperCount == 1)
             {
                 if (transformedWord.Length <= 1) return transformedWord.ToUpper();
+                return char.ToUpper(transformedWord[0]) + transformedWord.Substring(1).ToLower();
+            }
+
+            // Trường hợp người dùng gõ phụ âm thường + nguyên âm TBT viết hoa (ví dụ t*i -> Tôi):
+            // Người dùng gõ phím hoa ở nguyên âm TBT để viết hoa cả từ -> chuẩn hóa thành TitleCase "Tôi"
+            if (!firstLetterIsUpper && originalKeys.Count >= 2 && char.IsLetter(originalKeys[0]) &&
+                (originalKeys[1] == '^' || originalKeys[1] == '&' || originalKeys[1] == '*' || originalKeys[1] == '(' || originalKeys[1] == '{' || originalKeys[1] == '}') &&
+                upperCount == 1)
+            {
                 return char.ToUpper(transformedWord[0]) + transformedWord.Substring(1).ToLower();
             }
 
@@ -973,6 +1013,13 @@ namespace ModernKey.Core
             if (letterCount > 0 && upperCount == 0)
             {
                 return transformedWord.ToLower();
+            }
+
+            // Bảo vệ an toàn: Nếu phím chữ cái đầu tiên trong originalKeys là chữ HOA,
+            // thì transformedWord TUYỆT ĐỐI BẮT BUỘC phải bắt đầu bằng chữ HOA (không bao giờ bắt đầu bằng chữ thường!)
+            if (firstLetterIsUpper && transformedWord.Length > 0 && !char.IsUpper(transformedWord[0]))
+            {
+                transformedWord = char.ToUpper(transformedWord[0]) + transformedWord.Substring(1);
             }
 
             return transformedWord;
@@ -1058,6 +1105,16 @@ namespace ModernKey.Core
         {
             if (keys.Count == 0) return null;
 
+            // Nếu từ bắt đầu bằng dấu ngoặc/móc đơn lẻ không phải cặp toggle (ví dụ: "(6m1", "{m8c5", "(r[]c1", "(dd6m5")
+            // Giữ nguyên ký tự mở ngoặc thô và xử lý phần còn lại làm từ tiếng Việt
+            if (keys.Count >= 2 && (keys[0] == '(' || keys[0] == '{' || keys[0] == '}') && !IsTbtTogglePair(keys[0], keys[1]))
+            {
+                var subKeys = new List<char>(keys.Count - 1);
+                for (int s = 1; s < keys.Count; s++) subKeys.Add(keys[s]);
+                string subResult = ProcessTuBinhTran(subKeys, modernTone);
+                return keys[0] + (subResult ?? new string(subKeys.ToArray()));
+            }
+
             bool modified = false;
             StringBuilder sb = new StringBuilder();
             int tone = 0; // 0: không dấu, 1: sắc, 2: huyền, 3: hỏi, 4: ngã, 5: nặng
@@ -1069,9 +1126,10 @@ namespace ModernKey.Core
                 char c = keys[i];
                 char lower = char.ToLower(c);
 
-                // 1. Toggle phím số / ký hiệu: nếu gõ lặp lại cùng phím (66->6, 77->7, 88->8, 99->9, [[->[, ]]->]), phục hồi thành đúng 1 ký tự gốc chuẩn OpenKey C++!
-                if (c == lastRawKey && (c == '6' || c == '7' || c == '8' || c == '9' || c == '[' || c == ']' ||
-                                        c == '^' || c == '&' || c == '*'))
+                // 1. Toggle phím số / ký hiệu: nếu gõ lặp lại cùng phím hoặc cặp phím Shift tương ứng (66->6, 77->7, 88->8, 99->9, [[->[, ]]->], ^^->^, &&->&, **->*, ((->(, {{->{, }}->})
+                // phục hồi thành đúng 1 ký tự gốc chuẩn OpenKey C++!
+                if (IsTbtTogglePair(lastRawKey, c) && (c == '6' || c == '7' || c == '8' || c == '9' || c == '[' || c == ']' ||
+                                                       c == '^' || c == '&' || c == '*' || c == '(' || c == '{' || c == '}'))
                 {
                     if (sb.Length > 0)
                     {
@@ -1208,10 +1266,10 @@ namespace ModernKey.Core
                     }
                 }
 
-                // [ -> ư
-                if (c == '[')
+                // [ hoặc { (Shift+[): ư / Ư
+                if (c == '[' || c == '{')
                 {
-                    bool isUpper = IsCapsLockActive() || (sb.Length > 1 && IsAllLettersUpper(sb));
+                    bool isUpper = (c == '{') || IsCapsLockActive() || (sb.Length > 1 && IsAllLettersUpper(sb));
                     if (sb.Length > 0 && (sb[sb.Length - 1] == 'ơ' || sb[sb.Length - 1] == 'Ơ'))
                     {
                         bool wasUpper = char.IsUpper(sb[sb.Length - 1]) || isUpper;
@@ -1237,10 +1295,10 @@ namespace ModernKey.Core
                     continue;
                 }
 
-                // ] -> ơ
-                if (c == ']')
+                // ] hoặc } (Shift+]): ơ / Ơ
+                if (c == ']' || c == '}')
                 {
-                    bool isUpper = IsCapsLockActive() || (sb.Length > 1 && IsAllLettersUpper(sb));
+                    bool isUpper = (c == '}') || IsCapsLockActive() || (sb.Length > 1 && IsAllLettersUpper(sb));
                     if (sb.Length > 0 && (sb[sb.Length - 1] == 'ư' || sb[sb.Length - 1] == 'Ư'))
                     {
                         bool wasUpper = char.IsUpper(sb[sb.Length - 1]) || isUpper;
@@ -1435,8 +1493,8 @@ namespace ModernKey.Core
                     }
                 }
 
-                // 9: ă / Ă (ví dụ "o9" -> "oă", "u9" -> "uă", "a9" -> "ă", "c9n" -> "căn", "9n" -> "ăn")
-                if (c == '9')
+                // 9 hoặc ( (Shift+9): ă / Ă (ví dụ "o9" -> "oă", "u9" -> "uă", "a9" -> "ă", "c9n" -> "căn", "9n" -> "ăn", "(n" -> "Ăn")
+                if (c == '9' || c == '(')
                 {
                     if (prevWasPureDigit)
                     {
@@ -1446,7 +1504,7 @@ namespace ModernKey.Core
                         continue;
                     }
 
-                    bool isUpperTarget = IsCapsLockActive() || (sb.Length > 1 && IsAllLettersUpper(sb));
+                    bool isUpperTarget = (c == '(') || IsCapsLockActive() || (sb.Length > 1 && IsAllLettersUpper(sb));
                     if (sb.Length > 0)
                     {
                         char pChar = sb[sb.Length - 1];
@@ -2639,15 +2697,15 @@ namespace ModernKey.Core
                     }
                     else if (lower == 'ă')
                     {
-                        keys.Add('9');
+                        keys.Add(isUpper ? '(' : '9');
                     }
                     else if (lower == 'ư')
                     {
-                        keys.Add('[');
+                        keys.Add(isUpper ? '{' : '[');
                     }
                     else if (lower == 'ơ')
                     {
-                        keys.Add(']');
+                        keys.Add(isUpper ? '}' : ']');
                     }
                     else
                     {
