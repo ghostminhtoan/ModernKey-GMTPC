@@ -63,7 +63,10 @@ namespace ModernKey.Core
                 ("leex", "lễ"),
                 ("duowngfd", "đường"),
                 ("dood", "đô"),
-                ("hentai2read", "hentai2read")
+                ("hentai2read", "hentai2read"),
+                ("dictated", "dictated"),
+                ("deadline", "deadline"),
+                ("dad", "dad")
             };
 
             sb.AppendLine("[TEST TELEX - TUNG TU]");
@@ -120,6 +123,19 @@ namespace ModernKey.Core
             {
                 allPassed = false;
                 sb.AppendLine($"  FAIL Doan 3:\n    Ket qua : '{out3}'\n    Mong doi: '{expected3}'");
+            }
+
+            string sample4 = "downloads dictated deadline dad.";
+            string expected4 = "downloads dictated deadline dad.";
+            string out4 = SimulateTypingSentence(telexEngine, sample4);
+            if (out4 == expected4)
+            {
+                sb.AppendLine($"  PASS Doan 4 (Tieng Anh Telex): '{out4}'");
+            }
+            else
+            {
+                allPassed = false;
+                sb.AppendLine($"  FAIL Doan 4 (Tieng Anh Telex):\n    Ket qua : '{out4}'\n    Mong doi: '{expected4}'");
             }
 
             // 3. Test Tu Binh Tran
@@ -218,6 +234,9 @@ namespace ModernKey.Core
                 ("d6nd", "đân"),
                 ("d8ngd", "đông"),
                 ("d7d", "đê"),
+                ("d[2ngd", "đừng"),
+                ("downloads", "downloads"),
+                ("dictated", "dictated"),
                 ("do1dd", "dód")
             };
 

@@ -756,6 +756,66 @@ namespace ModernKey.Core
             return letterCount > 0;
         }
 
+        private static bool HasVietnameseMarkedVowel(StringBuilder sb)
+        {
+            if (sb == null) return false;
+            for (int i = 0; i < sb.Length; i++)
+            {
+                char ch = sb[i];
+                char baseChar = RemoveToneFromChar(ch, out int tone);
+                if (tone > 0) return true;
+                char l = char.ToLowerInvariant(baseChar);
+                if (l == 'â' || l == 'ă' || l == 'ê' || l == 'ô' || l == 'ơ' || l == 'ư')
+                    return true;
+            }
+            return false;
+        }
+
+        private static bool CanTransformTrailingD(StringBuilder sb, char c, int tone, bool modernTone)
+        {
+            if (sb == null || sb.Length < 2) return false;
+
+            // 1. Chữ d phải là ký tự đầu tiên của từ
+            if (sb[0] != 'd' && sb[0] != 'D') return false;
+
+            // 2. Không được có chữ d nào khác ở giữa từ
+            for (int i = 1; i < sb.Length; i++)
+            {
+                if (sb[i] == 'd' || sb[i] == 'D') return false;
+            }
+
+            // 3. Bắt buộc phải có nguyên âm mang dấu thanh (tone > 0) hoặc mang mũ/móc tiếng Việt (â, ă, ê, ô, ơ, ư)
+            bool hasMark = (tone > 0) || HasVietnameseMarkedVowel(sb);
+            if (!hasMark) return false;
+
+            // 4. Kiểm tra cấu trúc đơn âm tiết: tiếng Việt chỉ có đúng 1 cụm nguyên âm (loại bỏ downloads, dictated, decide...)
+            int vowelGroupCount = 0;
+            bool inVowelGroup = false;
+            for (int i = 0; i < sb.Length; i++)
+            {
+                if (IsVowel(sb[i]))
+                {
+                    if (!inVowelGroup)
+                    {
+                        vowelGroupCount++;
+                        inVowelGroup = true;
+                    }
+                }
+                else
+                {
+                    inVowelGroup = false;
+                }
+            }
+            if (vowelGroupCount != 1) return false;
+
+            // 5. Thử tạo candidate với 'Đ' / 'đ' ở đầu và áp dụng tone (nếu có), kiểm tra tính hợp lệ bằng OpenKeySpelling
+            bool isUpper = (sb[0] == 'D') || char.IsUpper(c) || IsCapsLockActive();
+            string baseWord = (isUpper ? "Đ" : "đ") + sb.ToString().Substring(1);
+            string candidate = tone > 0 ? ApplyToneMark(baseWord, tone, modernTone) : baseWord;
+
+            return OpenKeySpelling.IsValidWord(candidate, forceCheckVowel: true);
+        }
+
         private static string ProcessTuBinhTran(List<char> keys, bool modernTone)
         {
             if (keys.Count == 0) return null;
@@ -866,10 +926,10 @@ namespace ModernKey.Core
                         }
                     }
 
-                    if (dIdx >= 0 && hasVowelSoFar)
+                    if (dIdx == 0 && CanTransformTrailingD(sb, c, tone, modernTone))
                     {
-                        bool isUpper = (sb[dIdx] == 'D') || char.IsUpper(c) || IsCapsLockActive();
-                        sb[dIdx] = isUpper ? 'Đ' : 'đ';
+                        bool isUpper = (sb[0] == 'D') || char.IsUpper(c) || IsCapsLockActive();
+                        sb[0] = isUpper ? 'Đ' : 'đ';
                         lastRawKey = c;
                         wasStandaloneAtStart = false;
                         modified = true;
@@ -886,9 +946,9 @@ namespace ModernKey.Core
                         }
                     }
 
-                    if (dDauIdx >= 0 && hasVowelSoFar)
+                    if (dDauIdx == 0 && (hasVowelSoFar || tone > 0))
                     {
-                        sb[dDauIdx] = (sb[dDauIdx] == 'Đ') ? 'D' : 'd';
+                        sb[0] = (sb[0] == 'Đ') ? 'D' : 'd';
                         sb.Append(c);
                         lastRawKey = c;
                         wasStandaloneAtStart = false;
@@ -1519,10 +1579,10 @@ namespace ModernKey.Core
                         {
                             if (sb[j] == 'd' || sb[j] == 'D') { dIdx = j; break; }
                         }
-                        if (dIdx >= 0 && hasVowelSoFar)
+                        if (dIdx == 0 && CanTransformTrailingD(sb, c, tone, modernTone))
                         {
-                            bool isUp = (sb[dIdx] == 'D') || isCaps;
-                            sb[dIdx] = isUp ? 'Đ' : 'đ';
+                            bool isUp = (sb[0] == 'D') || isCaps;
+                            sb[0] = isUp ? 'Đ' : 'đ';
                             lastRawKey = c;
                             modified = true;
                             continue;
@@ -1533,9 +1593,9 @@ namespace ModernKey.Core
                         {
                             if (sb[j] == 'đ' || sb[j] == 'Đ') { dDauIdx = j; break; }
                         }
-                        if (dDauIdx >= 0 && hasVowelSoFar)
+                        if (dDauIdx == 0 && (hasVowelSoFar || tone > 0))
                         {
-                            sb[dDauIdx] = (sb[dDauIdx] == 'Đ') ? 'D' : 'd';
+                            sb[0] = (sb[0] == 'Đ') ? 'D' : 'd';
                             sb.Append(c);
                             lastRawKey = c;
                             modified = true;
@@ -1759,8 +1819,21 @@ namespace ModernKey.Core
 
                 if (method == InputMethod.Telex || method == InputMethod.SimpleTelex)
                 {
-                    // FIX TRIỆT ĐỂ: Dấu thanh (s, f, r, x, j) CHỈ có hiệu lực khi đã có NGUYÊN ÂM!
-                    if (hasVowelSoFar)
+                    // FIX TRIỆT ĐỂ: Dấu thanh (s, f, r, x, j) CHỈ có hiệu lực khi đã có NGUYÊN ÂM và ký tự trước có thể nhận dấu!
+                    // Nếu ký tự cuối là phụ âm không hợp lệ trong tiếng Việt (như 'd' trong download, card, word, need):
+                    // không nhận diện s/f/r/x/j là dấu thanh mà giữ nguyên ký tự thường!
+                    bool canTakeTone = true;
+                    if (sb.Length > 0 && !IsVowel(sb[sb.Length - 1]))
+                    {
+                        char endChar = char.ToLowerInvariant(sb[sb.Length - 1]);
+                        if (endChar != 'c' && endChar != 'm' && endChar != 'n' && endChar != 'p' && endChar != 't' &&
+                            endChar != 'g' && endChar != 'h' && endChar != 'k')
+                        {
+                            canTakeTone = false;
+                        }
+                    }
+
+                    if (hasVowelSoFar && canTakeTone)
                     {
                         if (lower == 's') { tone = (tone == 1 ? 0 : 1); modified = true; continue; }
                         if (lower == 'f') { tone = (tone == 2 ? 0 : 2); modified = true; continue; }
@@ -1785,40 +1858,43 @@ namespace ModernKey.Core
                             continue;
                         }
 
-                        int dIdx = -1;
-                        for (int j = 0; j < sb.Length; j++)
+                        if (method != InputMethod.Vni)
                         {
-                            if (sb[j] == 'd' || sb[j] == 'D')
+                            int dIdx = -1;
+                            for (int j = 0; j < sb.Length; j++)
                             {
-                                dIdx = j;
-                                break;
+                                if (sb[j] == 'd' || sb[j] == 'D')
+                                {
+                                    dIdx = j;
+                                    break;
+                                }
                             }
-                        }
 
-                        if (dIdx >= 0 && hasVowelSoFar)
-                        {
-                            bool isUpper = (sb[dIdx] == 'D') || char.IsUpper(c) || IsCapsLockActive();
-                            sb[dIdx] = isUpper ? 'Đ' : 'đ';
-                            modified = true;
-                            continue;
-                        }
-
-                        int dDauIdx = -1;
-                        for (int j = 0; j < sb.Length; j++)
-                        {
-                            if (sb[j] == 'đ' || sb[j] == 'Đ')
+                            if (dIdx == 0 && CanTransformTrailingD(sb, c, tone, modernTone))
                             {
-                                dDauIdx = j;
-                                break;
+                                bool isUpper = (sb[0] == 'D') || char.IsUpper(c) || IsCapsLockActive();
+                                sb[0] = isUpper ? 'Đ' : 'đ';
+                                modified = true;
+                                continue;
                             }
-                        }
 
-                        if (dDauIdx >= 0 && hasVowelSoFar)
-                        {
-                            sb[dDauIdx] = (sb[dDauIdx] == 'Đ') ? 'D' : 'd';
-                            sb.Append(c);
-                            modified = true;
-                            continue;
+                            int dDauIdx = -1;
+                            for (int j = 0; j < sb.Length; j++)
+                            {
+                                if (sb[j] == 'đ' || sb[j] == 'Đ')
+                                {
+                                    dDauIdx = j;
+                                    break;
+                                }
+                            }
+
+                            if (dDauIdx == 0 && (hasVowelSoFar || tone > 0))
+                            {
+                                sb[0] = (sb[0] == 'Đ') ? 'D' : 'd';
+                                sb.Append(c);
+                                modified = true;
+                                continue;
+                            }
                         }
                     }
                     // aa -> â
