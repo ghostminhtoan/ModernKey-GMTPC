@@ -45,6 +45,7 @@ namespace ModernKey.Core
             _macroBuffer.Clear();
             _inNumberSequence = false;
             _isFirstWordOfSentence = false;
+            _upperCaseSentenceStatus = 0;
         }
 
         public bool HasPendingWord => _charBuffer.Count > 0;
@@ -115,7 +116,6 @@ namespace ModernKey.Core
             if ((key1 == '6' && key2 == '^') || (key1 == '^' && key2 == '6')) return true;
             if ((key1 == '7' && key2 == '&') || (key1 == '&' && key2 == '7')) return true;
             if ((key1 == '8' && key2 == '*') || (key1 == '*' && key2 == '8')) return true;
-            if ((key1 == '9' && key2 == '(') || (key1 == '(' && key2 == '9')) return true;
             if ((key1 == '[' && key2 == '{') || (key1 == '{' && key2 == '[')) return true;
             if ((key1 == ']' && key2 == '}') || (key1 == '}' && key2 == ']')) return true;
             return false;
@@ -931,6 +931,21 @@ namespace ModernKey.Core
                 return transformedWord.ToUpper();
             }
 
+            // Nếu transformedWord bắt đầu bằng ký tự mở ngoặc / móc đơn lẻ:
+            if (transformedWord.StartsWith("(") || transformedWord.StartsWith("{") || transformedWord.StartsWith("[") || transformedWord.StartsWith("]"))
+            {
+                char prefix = transformedWord[0];
+                string restWord = transformedWord.Substring(1);
+                int skipCount = 1;
+                if (originalKeys.Count >= 2 && originalKeys[0] == originalKeys[1] && originalKeys[0] == prefix)
+                {
+                    skipCount = 2;
+                }
+                var subKeys = new List<char>(originalKeys.Count - skipCount);
+                for (int i = skipCount; i < originalKeys.Count; i++) subKeys.Add(originalKeys[i]);
+                return prefix + EnforceCasingConsistency(restWord, subKeys);
+            }
+
             // 1. Đếm số lượng chữ cái và số chữ cái viết hoa trong keystrokes gốc
             int letterCount = 0;
             int upperCount = 0;
@@ -1105,14 +1120,56 @@ namespace ModernKey.Core
         {
             if (keys.Count == 0) return null;
 
-            // Nếu từ bắt đầu bằng dấu ngoặc/móc đơn lẻ không phải cặp toggle (ví dụ: "(6m1", "{m8c5", "(r[]c1", "(dd6m5")
-            // Giữ nguyên ký tự mở ngoặc thô và xử lý phần còn lại làm từ tiếng Việt
-            if (keys.Count >= 2 && (keys[0] == '(' || keys[0] == '{' || keys[0] == '}') && !IsTbtTogglePair(keys[0], keys[1]))
+            // 0. Xử lý các cặp phím toggle ngoặc kép mở đầu từ (ví dụ: (( -> (, {{ -> {, [[ -> [, ]] -> ])
+            if (keys.Count >= 2 && keys[0] == keys[1] && (keys[0] == '(' || keys[0] == '{' || keys[0] == '[' || keys[0] == ']'))
             {
-                var subKeys = new List<char>(keys.Count - 1);
-                for (int s = 1; s < keys.Count; s++) subKeys.Add(keys[s]);
+                if (keys.Count == 2)
+                {
+                    return keys[0].ToString();
+                }
+                var subKeys = new List<char>(keys.Count - 2);
+                for (int s = 2; s < keys.Count; s++) subKeys.Add(keys[s]);
                 string subResult = ProcessTuBinhTran(subKeys, modernTone);
                 return keys[0] + (subResult ?? new string(subKeys.ToArray()));
+            }
+
+            // 0.5. Xử lý ký tự mở ngoặc đơn lẻ '(' hoặc '{' đi liền trước một từ (ví dụ: "(6m1", "(9n", "(7m", "{8n3", "(r[]c1", "{m8c5", "{dd6m5")
+            if (keys.Count >= 2)
+            {
+                if (keys[0] == '(')
+                {
+                    // '(' đi liền trước các số 6, 7, 8, 9 hoặc các phụ âm không thể đứng sau 'ă' ở đầu từ tiếng Việt
+                    // Trong tiếng Việt, 'ă' không bao giờ đi trước nguyên âm (6, 7, 8, 9, a, e, i, o, u, y, [, ])
+                    // và không bao giờ đi trước các phụ âm đầu như: b, d, đ, l, r, s, v, x, k, q
+                    char k1 = char.ToLower(keys[1]);
+                    bool isPrefixParen = (keys[1] >= '6' && keys[1] <= '9') ||
+                                         (k1 == 'b' || k1 == 'd' || k1 == 'đ' || k1 == 'l' || k1 == 'r' || k1 == 's' || k1 == 'v' || k1 == 'x' || k1 == 'k' || k1 == 'q');
+                    if (isPrefixParen)
+                    {
+                        var subKeys = new List<char>(keys.Count - 1);
+                        for (int s = 1; s < keys.Count; s++) subKeys.Add(keys[s]);
+                        string subResult = ProcessTuBinhTran(subKeys, modernTone);
+                        return '(' + (subResult ?? new string(subKeys.ToArray()));
+                    }
+                }
+                else if (keys[0] == '{')
+                {
+                    // '{' là chữ 'Ư' hoa khi đi liền với dấu thanh 1..5 (vd: {3ng -> Ửng, {1c -> Ức) hoặc nguyên âm kết hợp (a, ], u)
+                    // '{' là dấu ngoặc nhọn mở '{' khi đi liền với số 6, 7, 8, 9 (vd: {8n3 -> {ổn, {6m1 -> {ấm)
+                    // hoặc các từ bắt đầu bằng phụ âm đầu (vd: {m8c5 -> {mộc, {ddua -> {đua, {b2nh -> {bình)
+                    bool isVowelDigit = (keys[1] >= '6' && keys[1] <= '9') || keys[1] == '0';
+                    char k1 = char.ToLower(keys[1]);
+                    bool isToneDigit = (keys[1] >= '1' && keys[1] <= '5');
+                    bool isVowelCombine = (k1 == 'a' || k1 == ']' || k1 == '}' || k1 == 'u');
+
+                    if (isVowelDigit || (!isToneDigit && !isVowelCombine && (k1 == 'b' || k1 == 'd' || k1 == 'đ' || k1 == 'm' || k1 == 'n' || k1 == 'l' || k1 == 'r' || k1 == 's' || k1 == 'v' || k1 == 'x' || k1 == 'k' || k1 == 'q' || k1 == 't' || k1 == 'c' || k1 == 'p' || k1 == 'g' || k1 == 'h')))
+                    {
+                        var subKeys = new List<char>(keys.Count - 1);
+                        for (int s = 1; s < keys.Count; s++) subKeys.Add(keys[s]);
+                        string subResult = ProcessTuBinhTran(subKeys, modernTone);
+                        return '{' + (subResult ?? new string(subKeys.ToArray()));
+                    }
+                }
             }
 
             bool modified = false;

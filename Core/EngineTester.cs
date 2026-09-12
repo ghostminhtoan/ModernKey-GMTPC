@@ -259,7 +259,21 @@ namespace ModernKey.Core
                 ("dddr", "ddr"),
                 ("T8i", "Tôi"),
                 ("T*i", "Tôi"),
-                ("t*i", "Tôi")
+                ("t*i", "Tôi"),
+                ("}3", "Ở"),
+                ("}1", "Ớ"),
+                ("{3ng", "Ửng"),
+                ("{1c", "Ức"),
+                ("(6m1", "(ấm"),
+                ("(61m", "(ấm"),
+                ("((6m1", "(ấm"),
+                ("(9n", "(ăn"),
+                ("((9n", "(ăn"),
+                ("(7m", "(êm"),
+                ("((7m", "(êm"),
+                ("{8n3", "{ổn"),
+                ("{83n", "{ổn"),
+                ("{{8n3", "{ổn")
             };
 
             foreach (var tc in testCasesTbt)
@@ -319,8 +333,8 @@ namespace ModernKey.Core
 
             // Test toan bo doan van mau moi nhat cua nguoi dung (Notepad++ new 108)
             sb.AppendLine("[TEST TU BINH TRAN - TOAN BO DOAN VAN]");
-            string paragraphExpected = "Mâm cơm chiều hôm nay có món canh chua cá lóc thơm lừng (ấm áp) đưa cơm. Đêm rằm trung thu, lũ trẻ con trong xóm háo hức (rước đèn) khắp các ngõ nhỏ. Hộp bánh trung thu thập cẩm này có vị ngọt bùi (đậm đà) rất đưa miệng. Trăng rằm tỏa ánh sáng lung linh xuống khoảng sân rộng (bình yên) trước hiên nhà. Bức tranh phong cảnh vùng cao mang một vẻ đẹp {mộc mạc} mà vô cùng cuốn hút. Ở góc vườn nhỏ ba trồng, những khóm hoa hồng nhung đang {đua nở} khoe sắc thắm. Ửng hồng cả một góc trời phía đông chính là dấu hiệu {bình minh} của một ngày mới bắt đầu.";
-            string paragraphInput = "M6m c]m chi7u2 h8m nay co1 mon1 canh chua ca1 loc1 th]m l[ng2 (6m1 ap1) dd[a c]m. DD7m r9m2 trung thu, lu4 tre3 con trong xom1 hao1 h[c1 (r[]c1 dden2) kh9p1 cac1 ngo4 nho3. H8p5 banh1 trung thu th6p5 c6m3 nay2 co1 vi5 ngot5 bui2 (dd6m5 dda2) r6t1 dd[a mi7ng5. Tr9ng r9m2 toa3 anh1 sang1 lung linh xu8ng1 khoang3 s6n r8ng5 (binh2 y7n) tr[]c1 hi7n nha2. B[c1 tranh phong canh3 vung2 cao mang m8t5 ve3 ddep5 {m8c5 mac5} ma2 v8 cung2 cu8n1 hut1. ]3 goc1 vu]n2 nho3 ba tr8ng2, nh[ng4 kho1m hoa h8ng2 nhung ddang {ddua n]3} khoe s9c1 th9m1. [3ng h8ng2 ca3 m8t5 goc1 tr]i2 phi1a dd8ng chi1nh la2 d6u1 hi7u5 {binh2 minh} cua3 m8t5 ngay2 m]i1 b9t1 dd6u2.";
+            string paragraphExpected = "Mâm cơm chiều hôm nay có món canh chua cá lóc thơm lừng (ấm áp) đưa cơm. Đêm rằm trung thu, lũ trẻ con trong xóm háo hức (rước đèn) khắp các ngõ nhỏ. Hộp bánh trung thu thập cẩm này có vị ngọt bùi (ăn đậm đà) rất đưa miệng. Trăng rằm tỏa ánh sáng lung linh xuống khoảng sân rộng (êm yên) trước hiên nhà. Bức tranh phong cảnh vùng cao mang một vẻ đẹp {ổn trọng} mà vô cùng cuốn hút. Ở góc vườn nhỏ ba trồng, những khóm hoa hồng nhung đang {đua nở} khoe sắc thắm. Ửng hồng cả một góc trời phía đông chính là dấu hiệu {bình minh} của một ngày mới bắt đầu.";
+            string paragraphInput = "M6m c]m chi7u2 h8m nay co1 mon1 canh chua ca1 loc1 th]m l[ng2 (6m1 ap1) dd[a c]m. DD7m r9m2 trung thu, lu4 tre3 con trong xom1 hao1 h[c1 (r[]c1 dden2) kh9p1 cac1 ngo4 nho3. H8p5 banh1 trung thu th6p5 c6m3 nay2 co1 vi5 ngot5 bui2 (9n dd6m5 dda2) r6t1 dd[a mi7ng5. Tr9ng r9m2 toa3 anh1 sang1 lung linh xu8ng1 khoang3 s6n r8ng5 (7m y7n) tr[]c1 hi7n nha2. B[c1 tranh phong canh3 vung2 cao mang m8t5 ve3 ddep5 {8n3 trong5} ma2 v8 cung2 cu8n1 hut1. }3 goc1 vu]n2 nho3 ba tr8ng2, nh[ng4 kho1m hoa h8ng2 nhung ddang {ddua n]3} khoe s9c1 th9m1. {3ng h8ng2 ca3 m8t5 goc1 tr]i2 phi1a dd8ng chi1nh la2 d6u1 hi7u5 {binh2 minh} cua3 m8t5 ngay2 m]i1 b9t1 dd6u2.";
 
             string paragraphActual = SimulateTypingSentence(tbtEngine, paragraphInput);
             if (paragraphActual == paragraphExpected)
@@ -343,6 +357,40 @@ namespace ModernKey.Core
                         sb.AppendLine($"    Khac biet tai vi tri {d}: thuc te '{paragraphActual.Substring(Math.Max(0, d - 10), Math.Min(25, paragraphActual.Length - Math.Max(0, d - 10)))}' vs mong doi '{paragraphExpected.Substring(Math.Max(0, d - 10), Math.Min(25, paragraphExpected.Length - Math.Max(0, d - 10)))}'");
                         break;
                     }
+                }
+            }
+
+            // Test cac dong mau le 5..10 o cuoi anh Notepad++ cua nguoi dung
+            sb.AppendLine("[TEST TU BINH TRAN - CAC DONG LE 5..10]");
+            (string lInput, string lExpected)[] extraLines = new[]
+            {
+                ("(6m1 ap1)", "(ấm áp)"),
+                ("(61m ap1)", "(ấm áp)"),
+                ("((6m1 ap1)", "(ấm áp)"),
+                ("(9n dd6m5 dda2)", "(ăn đậm đà)"),
+                ("((9n dd6m5 dda2)", "(ăn đậm đà)"),
+                ("(7m y7n)", "(êm yên)"),
+                ("((7m y7n)", "(êm yên)"),
+                ("{8n3 trong5}", "{ổn trọng}"),
+                ("{83n trong5}", "{ổn trọng}"),
+                ("{{8n3 trong5}", "{ổn trọng}"),
+                ("}3", "Ở"),
+                ("}3 goc1", "Ở góc"),
+                ("{3ng", "Ửng"),
+                ("{3ng h8ng2", "Ửng hồng")
+            };
+
+            foreach (var el in extraLines)
+            {
+                string elRes = SimulateTypingSentence(tbtEngine, el.lInput);
+                if (elRes == el.lExpected)
+                {
+                    sb.AppendLine($"  PASS TBT: '{el.lInput}' -> '{elRes}'");
+                }
+                else
+                {
+                    allPassed = false;
+                    sb.AppendLine($"  FAIL TBT: '{el.lInput}' -> '{elRes}' (Mong doi: '{el.lExpected}')");
                 }
             }
 
@@ -1135,7 +1183,7 @@ namespace ModernKey.Core
             {
                 int vk = (int)ch;
                 if (ch == '\b') vk = 0x08;
-                bool isShift = char.IsUpper(ch);
+                bool isShift = char.IsUpper(ch) || ch == '^' || ch == '&' || ch == '*' || ch == '(' || ch == '{' || ch == '}';
 
                 if (engine.ProcessKey(ch, vk, isShift, false, false, false,
                                       out int backspaceCount, out string newString, out int trailingVkCode))
@@ -1189,7 +1237,7 @@ namespace ModernKey.Core
                 if (ch == ' ') vk = 0x20;
                 else if (ch == '\r' || ch == '\n') vk = 0x0D;
 
-                bool isShift = char.IsUpper(ch);
+                bool isShift = char.IsUpper(ch) || ch == '^' || ch == '&' || ch == '*' || ch == '(' || ch == '{' || ch == '}';
 
                 if (engine.ProcessKey(ch, vk, isShift, false, false, false,
                                       out int backspaceCount, out string newString, out int trailingVkCode))
