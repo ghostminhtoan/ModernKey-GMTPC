@@ -95,21 +95,76 @@ namespace ModernKey.Hook
 
         private static bool _isInjecting = false;
 
+        // Mặt nạ phím Modifier chuẩn OpenKey C++ (Bitmask)
+        private const int MASK_CTRL = 0x01;
+        private const int MASK_SHIFT = 0x02;
+        private const int MASK_ALT = 0x04;
+        private const int MASK_WIN = 0x08;
+
+        private int _modifierFlag = 0;
+        private int _lastModifierFlag = 0;
+
         private bool _ctrlDown = false;
         private bool _shiftDown = false;
         private bool _altDown = false;
         private bool _physicalAltDown = false;
         private bool _winDown = false;
-        private bool _hasOtherKeyPressed = false;
-        private bool _modifierHotKeyTriggered = false;
+
+        private void ResetModifierState()
+        {
+            _modifierFlag = 0;
+            _lastModifierFlag = 0;
+            _ctrlDown = false;
+            _shiftDown = false;
+            _altDown = false;
+            _physicalAltDown = false;
+            _winDown = false;
+        }
+
+        private int GetSwitchModifierMask()
+        {
+            bool hasAnyCustomMod = _settings.SwitchCtrl || _settings.SwitchAlt || _settings.SwitchWin || _settings.SwitchShift;
+            string targetKeyStr = (_settings.SwitchKeyChar ?? "").Trim();
+            if (hasAnyCustomMod && string.IsNullOrEmpty(targetKeyStr))
+            {
+                int mask = 0;
+                if (_settings.SwitchCtrl) mask |= MASK_CTRL;
+                if (_settings.SwitchShift) mask |= MASK_SHIFT;
+                if (_settings.SwitchAlt) mask |= MASK_ALT;
+                if (_settings.SwitchWin) mask |= MASK_WIN;
+                return mask;
+            }
+
+            if (_settings.SwitchMode == SwitchKeyMode.CtrlShift)
+            {
+                return MASK_CTRL | MASK_SHIFT;
+            }
+            if (_settings.SwitchMode == SwitchKeyMode.AltShift)
+            {
+                return MASK_ALT | MASK_SHIFT;
+            }
+
+            return 0;
+        }
 
         private void SyncModifierState()
         {
-            _shiftDown = ((GetAsyncKeyState(0xA0) & 0x8000) != 0) || ((GetAsyncKeyState(0xA1) & 0x8000) != 0) || ((GetAsyncKeyState(0x10) & 0x8000) != 0);
-            _ctrlDown = ((GetAsyncKeyState(0xA2) & 0x8000) != 0) || ((GetAsyncKeyState(0xA3) & 0x8000) != 0) || ((GetAsyncKeyState(0x11) & 0x8000) != 0);
-            _altDown = ((GetAsyncKeyState(0xA4) & 0x8000) != 0) || ((GetAsyncKeyState(0xA5) & 0x8000) != 0) || ((GetAsyncKeyState(0x12) & 0x8000) != 0);
-            _winDown = ((GetAsyncKeyState(0x5B) & 0x8000) != 0) || ((GetAsyncKeyState(0x5C) & 0x8000) != 0);
+            int flag = 0;
+            if (((GetAsyncKeyState(0xA2) & 0x8000) != 0) || ((GetAsyncKeyState(0xA3) & 0x8000) != 0) || ((GetAsyncKeyState(0x11) & 0x8000) != 0))
+                flag |= MASK_CTRL;
+            if (((GetAsyncKeyState(0xA0) & 0x8000) != 0) || ((GetAsyncKeyState(0xA1) & 0x8000) != 0) || ((GetAsyncKeyState(0x10) & 0x8000) != 0))
+                flag |= MASK_SHIFT;
+            if (((GetAsyncKeyState(0xA4) & 0x8000) != 0) || ((GetAsyncKeyState(0xA5) & 0x8000) != 0) || ((GetAsyncKeyState(0x12) & 0x8000) != 0))
+                flag |= MASK_ALT;
+            if (((GetAsyncKeyState(0x5B) & 0x8000) != 0) || ((GetAsyncKeyState(0x5C) & 0x8000) != 0))
+                flag |= MASK_WIN;
+
+            _modifierFlag = flag;
+            _ctrlDown = (flag & MASK_CTRL) != 0;
+            _shiftDown = (flag & MASK_SHIFT) != 0;
+            _altDown = (flag & MASK_ALT) != 0;
             _physicalAltDown = _altDown;
+            _winDown = (flag & MASK_WIN) != 0;
         }
 
         private uint _lastDoubleShiftKey = 0;
@@ -232,6 +287,7 @@ namespace ModernKey.Hook
 
         private void OnForegroundWindowChanged(IntPtr hWnd)
         {
+            ResetModifierState();
             if (hWnd == IntPtr.Zero) return;
             string exe = GetExeNameFromWindow(hWnd);
             if (string.IsNullOrEmpty(exe) || exe.Equals("explorer.exe", StringComparison.OrdinalIgnoreCase))
@@ -341,6 +397,7 @@ namespace ModernKey.Hook
                     try
                     {
                         _engine?.Reset();
+                        ResetModifierState();
                     }
                     catch { }
                 }
@@ -379,158 +436,116 @@ namespace ModernKey.Hook
                     uint vkCode = hookStruct.vkCode;
                     uint scanCode = hookStruct.scanCode;
 
-                    // 3. Quản lý trạng thái Modifier (Ctrl, Shift, Alt, Win)
-                    SyncModifierState();
+                    bool isModifierKey = (vkCode == 0x11 || vkCode == 0xA2 || vkCode == 0xA3 || // Ctrl
+                                          vkCode == 0x10 || vkCode == 0xA0 || vkCode == 0xA1 || // Shift
+                                          vkCode == 0x12 || vkCode == 0xA4 || vkCode == 0xA5 || // Alt
+                                          vkCode == 0x5B || vkCode == 0x5C);                     // Win
 
-                    if (vkCode == 0x11 || vkCode == 0xA2 || vkCode == 0xA3)
+                    if (isModifierKey)
                     {
-                        _ctrlDown = true;
-                        _engine.Reset(); // Bấm phím Ctrl lập tức reset engine để ký tự sau là ký tự đầu tiên
-                    }
-                    if (vkCode == 0x10 || vkCode == 0xA0 || vkCode == 0xA1) _shiftDown = true;
-                    if (vkCode == 0x12 || vkCode == 0xA4 || vkCode == 0xA5)
-                    {
-                        _altDown = true;
-                        _physicalAltDown = true;
-                    }
-                    if (vkCode == 0x5B || vkCode == 0x5C) _winDown = true;
-
-                    bool isWin = _winDown || (vkCode == 0x5B || vkCode == 0x5C);
-                    bool isShift = _shiftDown || (vkCode == 0x10 || vkCode == 0xA0 || vkCode == 0xA1);
-                    bool isCtrl = _ctrlDown || (vkCode == 0x11 || vkCode == 0xA2 || vkCode == 0xA3);
-                    bool isAlt = _altDown || (vkCode == 0x12 || vkCode == 0xA4 || vkCode == 0xA5);
-                    bool isCaps = (GetKeyState(0x14) & 0x0001) != 0;
-
-                    // 4. Phím chuyển chế độ gõ tự do (Ctrl/Alt/Win/Shift + KeyChar / Space / CapsLock) chuẩn OpenKey C++
-                    bool hasAnySwitchModifier = _settings.SwitchCtrl || _settings.SwitchAlt || _settings.SwitchWin || _settings.SwitchShift;
-                    string targetKeyStr = (_settings.SwitchKeyChar ?? "").Trim().ToUpperInvariant();
-
-                    if (hasAnySwitchModifier && string.IsNullOrEmpty(targetKeyStr))
-                    {
-                        // Trường hợp KHÔNG có ký tự đi kèm (ví dụ: Alt + Win, Ctrl + Shift, Alt + Shift...):
-                        // Chỉ cần bấm tổ hợp phím Modifier là chuyển E/V ngay lập tức!
-                        bool curCtrl = isCtrl || _ctrlDown;
-                        bool curAlt = isAlt || _altDown || _physicalAltDown;
-                        bool curWin = isWin || _winDown;
-                        bool curShift = isShift || _shiftDown;
-
-                        bool matchExactModifiers = (_settings.SwitchCtrl == curCtrl) &&
-                                                   (_settings.SwitchAlt == curAlt) &&
-                                                   (_settings.SwitchWin == curWin) &&
-                                                   (_settings.SwitchShift == curShift);
-
-                        if (matchExactModifiers && !_modifierHotKeyTriggered && !_hasOtherKeyPressed)
+                        if (vkCode == 0x11 || vkCode == 0xA2 || vkCode == 0xA3)
                         {
-                            _modifierHotKeyTriggered = true;
-                            _hasOtherKeyPressed = true;
-                            TriggerLanguageSwitch();
-
-                            if (curAlt || curWin)
-                            {
-                                KeySender.SuppressAltMenuActivation();
-                            }
-
-                            return (IntPtr)1; // Nuốt phím modifier cuối để không bung Start Menu hoặc menu hệ thống
+                            _modifierFlag |= MASK_CTRL;
+                            _engine.Reset(); // Bấm phím Ctrl lập tức reset engine để ký tự sau là ký tự đầu tiên
                         }
-                    }
-                    else if (hasAnySwitchModifier && !string.IsNullOrEmpty(targetKeyStr))
-                    {
-                        bool hasRequiredModifier = (!_settings.SwitchCtrl || isCtrl || _ctrlDown) &&
-                                                    (!_settings.SwitchAlt || isAlt || _altDown) &&
-                                                    (!_settings.SwitchWin || isWin || _winDown) &&
-                                                    (!_settings.SwitchShift || isShift || _shiftDown);
+                        else if (vkCode == 0x10 || vkCode == 0xA0 || vkCode == 0xA1) _modifierFlag |= MASK_SHIFT;
+                        else if (vkCode == 0x12 || vkCode == 0xA4 || vkCode == 0xA5) _modifierFlag |= MASK_ALT;
+                        else if (vkCode == 0x5B || vkCode == 0x5C) _modifierFlag |= MASK_WIN;
 
-                        if (hasRequiredModifier)
+                        if (_lastModifierFlag == 0 || _lastModifierFlag < _modifierFlag)
                         {
-                            bool isMatchKey = false;
-                            if (targetKeyStr == "SPACE")
-                            {
-                                isMatchKey = (vkCode == 0x20); // Space
-                            }
-                            else if (targetKeyStr == "CAPSLOCK" || targetKeyStr == "CAPS")
-                            {
-                                isMatchKey = (vkCode == 0x14); // CapsLock
-                            }
-                            else if (targetKeyStr.Length == 1)
-                            {
-                                char targetChar = targetKeyStr[0];
-                                if (targetChar >= 'A' && targetChar <= 'Z')
-                                {
-                                    isMatchKey = (vkCode == (uint)targetChar);
-                                }
-                                else if (targetChar >= '0' && targetChar <= '9')
-                                {
-                                    isMatchKey = (vkCode == (uint)targetChar);
-                                }
-                            }
-
-                            if (isMatchKey)
-                            {
-                                _hasOtherKeyPressed = true;
-                                TriggerLanguageSwitch();
-                                if (_altDown || isAlt || _winDown || isWin)
-                                {
-                                    KeySender.SuppressAltMenuActivation();
-                                }
-                                return (IntPtr)1; // Nuốt phím chuyển
-                            }
+                            _lastModifierFlag = _modifierFlag;
                         }
-                    }
 
-                    // 5. Phím Windows (Win+R, Win+D...)
-                    if (vkCode == 0x5B || vkCode == 0x5C || isWin)
-                    {
-                        _engine.Reset();
+                        _ctrlDown = (_modifierFlag & MASK_CTRL) != 0;
+                        _shiftDown = (_modifierFlag & MASK_SHIFT) != 0;
+                        _altDown = (_modifierFlag & MASK_ALT) != 0;
+                        _physicalAltDown = _altDown;
+                        _winDown = (_modifierFlag & MASK_WIN) != 0;
+
                         return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
                     }
 
-                    // 6. Phím CapsLock
+                    // Nếu là phím thường (không phải modifier)
+                    _lastModifierFlag = 0; // Hủy ngay phiên modifier hotkey chuẩn OpenKey C++
+                    _lastDoubleShiftKey = 0;
+
+                    // Self-healing: Tự đồng bộ lại cờ modifier từ bàn phím phần cứng khi gõ phím thường chuẩn OpenKey C++
+                    SyncModifierState();
+
+                    // 4. Phím chuyển chế độ gõ có ký tự đi kèm (Alt+Z hoặc Ctrl/Alt/Win/Shift + KeyChar / Space / CapsLock)
+                    bool hasAnySwitchModifier = _settings.SwitchCtrl || _settings.SwitchAlt || _settings.SwitchWin || _settings.SwitchShift;
+                    string targetKeyStr = (_settings.SwitchKeyChar ?? "").Trim().ToUpperInvariant();
+
+                    bool isAltZMode = (_settings.SwitchMode == SwitchKeyMode.AltZ && (_modifierFlag & MASK_ALT) != 0 && (vkCode == 0x5A));
+
+                    if (isAltZMode || (hasAnySwitchModifier && !string.IsNullOrEmpty(targetKeyStr)))
+                    {
+                        bool isMatchKey = false;
+                        if (isAltZMode)
+                        {
+                            isMatchKey = true;
+                        }
+                        else
+                        {
+                            bool hasRequiredModifier = (!_settings.SwitchCtrl || (_modifierFlag & MASK_CTRL) != 0) &&
+                                                        (!_settings.SwitchAlt || (_modifierFlag & MASK_ALT) != 0) &&
+                                                        (!_settings.SwitchWin || (_modifierFlag & MASK_WIN) != 0) &&
+                                                        (!_settings.SwitchShift || (_modifierFlag & MASK_SHIFT) != 0);
+
+                            if (hasRequiredModifier)
+                            {
+                                if (targetKeyStr == "SPACE") isMatchKey = (vkCode == 0x20);
+                                else if (targetKeyStr == "CAPSLOCK" || targetKeyStr == "CAPS") isMatchKey = (vkCode == 0x14);
+                                else if (targetKeyStr.Length == 1)
+                                {
+                                    char targetChar = targetKeyStr[0];
+                                    if (targetChar >= 'A' && targetChar <= 'Z') isMatchKey = (vkCode == (uint)targetChar);
+                                    else if (targetChar >= '0' && targetChar <= '9') isMatchKey = (vkCode == (uint)targetChar);
+                                }
+                            }
+                        }
+
+                        if (isMatchKey)
+                        {
+                            TriggerLanguageSwitch();
+                            if ((_modifierFlag & (MASK_ALT | MASK_WIN)) != 0)
+                            {
+                                KeySender.SuppressAltMenuActivation();
+                            }
+                            return (IntPtr)1; // Nuốt phím chuyển
+                        }
+                    }
+
+                    // 5. Phím CapsLock
                     if (vkCode == 0x14)
                     {
                         _engine.Reset();
                         return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
                     }
 
-                    // 6.5 Phím Numpad (VK_NUMPAD0..VK_NUMPAD9, Multiply, Add, Separator, Subtract, Decimal, Divide: 0x60..0x6F)
-                    // Numpad tuyệt đối không bao giờ gõ tiếng Việt, chỉ cho phép hàng phím số chính (Dpad 0x30..0x39) gõ tiếng Việt
+                    // 6. Phím Numpad (VK_NUMPAD0..VK_NUMPAD9, Multiply, Add, Separator, Subtract, Decimal, Divide: 0x60..0x6F)
                     if (vkCode >= 0x60 && vkCode <= 0x6F)
                     {
                         _engine.Reset();
                         return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
                     }
 
-                    // 7. Các phím Modifier đứng độc lập
-                    if (vkCode == 0x10 || vkCode == 0xA0 || vkCode == 0xA1 || // Shift
-                        vkCode == 0x11 || vkCode == 0xA2 || vkCode == 0xA3 || // Ctrl
-                        vkCode == 0x12 || vkCode == 0xA4 || vkCode == 0xA5 || // Alt
-                        vkCode == 0x90 || vkCode == 0x91)                     // NumLock, ScrollLock
-                    {
-                        if (vkCode == 0x11 || vkCode == 0xA2 || vkCode == 0xA3)
-                        {
-                            _engine.Reset(); // Nhấn Ctrl đơn lẻ cũng reset bộ gõ
-                        }
-                        return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
-                    }
-
-                    // Đánh dấu đã có phím khác được ấn trong phiên giữ modifier
-                    _hasOtherKeyPressed = true;
-                    _lastDoubleShiftKey = 0;
-
-                    // 7.5 Tab Phím tắt (F1-F12 kết hợp Modifier tùy chọn chuẩn OpenKey C++)
+                    // 7. Tab Phím tắt (F1-F12 kết hợp Modifier tùy chọn chuẩn OpenKey C++)
                     if (_settings.ShortcutModifier != 0 && (vkCode >= 0x70 && vkCode <= 0x7B))
                     {
                         int currentMod = 0;
-                        if (_ctrlDown || isCtrl) currentMod |= 0x01;
-                        if (_shiftDown || isShift) currentMod |= 0x02;
-                        if (_altDown || isAlt) currentMod |= 0x04;
-                        if (_winDown || isWin) currentMod |= 0x08;
+                        if ((_modifierFlag & MASK_CTRL) != 0) currentMod |= 0x01;
+                        if ((_modifierFlag & MASK_SHIFT) != 0) currentMod |= 0x02;
+                        if ((_modifierFlag & MASK_ALT) != 0) currentMod |= 0x04;
+                        if ((_modifierFlag & MASK_WIN) != 0) currentMod |= 0x08;
 
                         if ((currentMod & _settings.ShortcutModifier) == _settings.ShortcutModifier)
                         {
                             int fIndex = (int)(vkCode - 0x70 + 1); // F1=1..F12=12
                             if ((_settings.ShortcutEnableMask & (1 << fIndex)) != 0)
                             {
-                                if ((currentMod & 0x04) != 0 || (currentMod & 0x08) != 0) // Có phím Alt hoặc Win
+                                if ((currentMod & (MASK_ALT | MASK_WIN)) != 0)
                                 {
                                     KeySender.SuppressAltMenuActivation();
                                 }
@@ -595,9 +610,7 @@ namespace ModernKey.Hook
                         }
                     }
 
-
-
-                    // 8. Phím điều hướng và chức năng (Arrows, Home, End, PgUp, PgDn, Esc, Del, Tab, F1..F12)
+                    // 8. Phím điều hướng và chức năng (Arrows, Home, End, PgUp, PgDn, Esc, Del, Tab)
                     if (vkCode == 0x1B) // ESC: Hoàn tác dấu tiếng Việt hoặc reset engine
                     {
                         if (_settings.EscKeyUndo && _engine.HandleEscUndo(out int bc, out string rep))
@@ -632,8 +645,8 @@ namespace ModernKey.Hook
                         return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
                     }
 
-                    // 9. Bỏ qua phím tắt hệ thống (Ctrl+C, Ctrl+V, Alt+Tab...)
-                    if (isCtrl || isAlt)
+                    // 9. Bỏ qua phím tắt hệ thống (Ctrl+C, Ctrl+V, Alt+Tab, Win+R...)
+                    if ((_modifierFlag & (MASK_CTRL | MASK_ALT | MASK_WIN)) != 0)
                     {
                         _engine.Reset();
                         _lastDoubleShiftKey = 0;
@@ -644,6 +657,11 @@ namespace ModernKey.Hook
                     char ch = ConvertVkToChar(vkCode, scanCode);
 
                     bool oldState = _settings.IsVietnamese;
+
+                    bool isShift = (_modifierFlag & MASK_SHIFT) != 0;
+                    bool isCtrl = (_modifierFlag & MASK_CTRL) != 0;
+                    bool isAlt = (_modifierFlag & MASK_ALT) != 0;
+                    bool isCaps = (GetKeyState(0x14) & 0x0001) != 0;
 
                     if (_engine.ProcessKey(ch, (int)vkCode, isShift, isCaps, isCtrl, isAlt,
                                            out int backspaceCount, out string newString, out int trailingVkCode))
@@ -675,111 +693,113 @@ namespace ModernKey.Hook
                 {
                     uint vkCode = hookStruct.vkCode;
 
-                    // Nhả Ctrl
-                    if (vkCode == 0x11 || vkCode == 0xA2 || vkCode == 0xA3)
-                    {
-                        if (_settings.SwitchMode == SwitchKeyMode.CtrlShift && _ctrlDown && _shiftDown && !_hasOtherKeyPressed)
-                        {
-                            TriggerLanguageSwitch();
-                        }
-                        _ctrlDown = false;
-                        _engine.Reset(); // Reset bộ gõ khi nhả Ctrl để ký tự sau chắc chắn là ký tự đầu tiên
-                    }
-                    // Nhả Shift
-                    else if (vkCode == 0x10 || vkCode == 0xA0 || vkCode == 0xA1)
-                    {
-                        if (_settings.SwitchMode == SwitchKeyMode.CtrlShift && _ctrlDown && _shiftDown && !_hasOtherKeyPressed)
-                        {
-                            TriggerLanguageSwitch();
-                        }
-                        else if (_settings.SwitchMode == SwitchKeyMode.AltShift && (_altDown || _physicalAltDown) && _shiftDown && !_hasOtherKeyPressed)
-                        {
-                            TriggerLanguageSwitch();
-                            KeySender.SuppressAltMenuActivation();
-                        }
-                        else if (_settings.UseMacro && !_hasOtherKeyPressed)
-                        {
-                            uint shiftCode = (vkCode == 0x10) ? 0xA0 : vkCode;
-                            bool canTriggerL = (shiftCode == 0xA0 && (_settings.MacroTriggerMask & 0x04) != 0);
-                            bool canTriggerR = (shiftCode == 0xA1 && (_settings.MacroTriggerMask & 0x08) != 0);
+                    bool isModifierKey = (vkCode == 0x11 || vkCode == 0xA2 || vkCode == 0xA3 || // Ctrl
+                                          vkCode == 0x10 || vkCode == 0xA0 || vkCode == 0xA1 || // Shift
+                                          vkCode == 0x12 || vkCode == 0xA4 || vkCode == 0xA5 || // Alt
+                                          vkCode == 0x5B || vkCode == 0x5C);                     // Win
 
-                            if (canTriggerL || canTriggerR)
+                    if (isModifierKey)
+                    {
+                        int prevLastFlag = _lastModifierFlag;
+
+                        if (vkCode == 0x11 || vkCode == 0xA2 || vkCode == 0xA3)
+                        {
+                            _modifierFlag &= ~MASK_CTRL;
+                            _engine.Reset(); // Reset bộ gõ khi nhả Ctrl
+                        }
+                        else if (vkCode == 0x10 || vkCode == 0xA0 || vkCode == 0xA1)
+                        {
+                            _modifierFlag &= ~MASK_SHIFT;
+
+                            if (_settings.UseMacro)
                             {
-                                int now = Environment.TickCount;
-                                uint doubleTime = GetDoubleClickTime();
-                                if (doubleTime < 300) doubleTime = 300;
-                                if (doubleTime > 600) doubleTime = 600;
+                                uint shiftCode = (vkCode == 0x10) ? 0xA0 : vkCode;
+                                bool canTriggerL = (shiftCode == 0xA0 && (_settings.MacroTriggerMask & 0x04) != 0);
+                                bool canTriggerR = (shiftCode == 0xA1 && (_settings.MacroTriggerMask & 0x08) != 0);
 
-                                if (_lastDoubleShiftKey == shiftCode && (now - _lastDoubleShiftTime) <= (int)doubleTime)
+                                if (canTriggerL || canTriggerR)
                                 {
-                                    _lastDoubleShiftKey = 0;
-                                    _lastDoubleShiftTime = 0;
+                                    int now = Environment.TickCount;
+                                    uint doubleTime = GetDoubleClickTime();
+                                    if (doubleTime < 300) doubleTime = 300;
+                                    if (doubleTime > 600) doubleTime = 600;
 
-                                    if (_engine.TryTriggerMacroDirect(out int bc, out string rep))
+                                    if (_lastDoubleShiftKey == shiftCode && (now - _lastDoubleShiftTime) <= (int)doubleTime)
                                     {
-                                        if (bc > 0 || !string.IsNullOrEmpty(rep))
-                                        {
-                                            int backspaceCount = bc;
-                                            string replacement = rep;
-                                            bool fixBrowser = _settings.FixRecommendBrowser;
-                                            bool sendViaClip = _settings.SendViaClipboard;
+                                        _lastDoubleShiftKey = 0;
+                                        _lastDoubleShiftTime = 0;
 
-                                            // Đẩy việc thực thi dán macro sang ThreadPool để cho phép thông điệp WM_KEYUP của Shift
-                                            // được Windows dispatch tới ứng dụng đích (Notepad++) trước, tránh bị hiểu nhầm thành Ctrl+Shift+V!
-                                            ThreadPool.QueueUserWorkItem(_ =>
+                                        if (_engine.TryTriggerMacroDirect(out int bc, out string rep))
+                                        {
+                                            if (bc > 0 || !string.IsNullOrEmpty(rep))
                                             {
-                                                Thread.Sleep(30);
-                                                _isInjecting = true;
-                                                try
+                                                int backspaceCount = bc;
+                                                string replacement = rep;
+                                                bool fixBrowser = _settings.FixRecommendBrowser;
+                                                bool sendViaClip = _settings.SendViaClipboard;
+
+                                                ThreadPool.QueueUserWorkItem(_ =>
                                                 {
-                                                    KeySender.SendReplaceText(backspaceCount, replacement, fixBrowser, sendViaClip);
-                                                }
-                                                finally
-                                                {
-                                                    _isInjecting = false;
-                                                }
-                                            });
+                                                    Thread.Sleep(30);
+                                                    _isInjecting = true;
+                                                    try
+                                                    {
+                                                        KeySender.SendReplaceText(backspaceCount, replacement, fixBrowser, sendViaClip);
+                                                    }
+                                                    finally
+                                                    {
+                                                        _isInjecting = false;
+                                                    }
+                                                });
+                                            }
                                         }
+                                    }
+                                    else
+                                    {
+                                        _lastDoubleShiftKey = shiftCode;
+                                        _lastDoubleShiftTime = now;
                                     }
                                 }
                                 else
                                 {
-                                    _lastDoubleShiftKey = shiftCode;
-                                    _lastDoubleShiftTime = now;
+                                    _lastDoubleShiftKey = 0;
                                 }
                             }
-                            else
-                            {
-                                _lastDoubleShiftKey = 0;
-                            }
                         }
-                        _shiftDown = false;
-                    }
-                    // Nhả Alt
-                    else if (vkCode == 0x12 || vkCode == 0xA4 || vkCode == 0xA5)
-                    {
-                        if (_settings.SwitchMode == SwitchKeyMode.AltShift && _altDown && _shiftDown && !_hasOtherKeyPressed)
+                        else if (vkCode == 0x12 || vkCode == 0xA4 || vkCode == 0xA5)
                         {
-                            TriggerLanguageSwitch();
-                            KeySender.SuppressAltMenuActivation();
+                            _modifierFlag &= ~MASK_ALT;
                         }
-                        _physicalAltDown = false;
-                        _altDown = false;
-                    }
-                    // Nhả Win
-                    else if (vkCode == 0x5B || vkCode == 0x5C)
-                    {
-                        _winDown = false;
-                    }
+                        else if (vkCode == 0x5B || vkCode == 0x5C)
+                        {
+                            _modifierFlag &= ~MASK_WIN;
+                        }
 
-                    // Đồng bộ lại trạng thái modifier theo phần cứng thực tế sau khi nhả phím
-                    SyncModifierState();
+                        _ctrlDown = (_modifierFlag & MASK_CTRL) != 0;
+                        _shiftDown = (_modifierFlag & MASK_SHIFT) != 0;
+                        _altDown = (_modifierFlag & MASK_ALT) != 0;
+                        _physicalAltDown = _altDown;
+                        _winDown = (_modifierFlag & MASK_WIN) != 0;
 
-                    // Khi tất cả modifier đã được thả ra: reset cờ phím phụ
-                    if (!_ctrlDown && !_shiftDown && !_altDown && !_winDown)
-                    {
-                        _hasOtherKeyPressed = false;
-                        _modifierHotKeyTriggered = false;
+                        // Kiểm tra phím chuyển E/V thuần Modifier khi nhả phím chuẩn OpenKey C++
+                        if (prevLastFlag > _modifierFlag)
+                        {
+                            int targetSwitchMask = GetSwitchModifierMask();
+                            if (targetSwitchMask != 0 && prevLastFlag == targetSwitchMask)
+                            {
+                                TriggerLanguageSwitch();
+                            }
+
+                            // Cập nhật lại _lastModifierFlag về trạng thái _modifierFlag hiện tại chuẩn OpenKey C++
+                            _lastModifierFlag = _modifierFlag;
+                        }
+
+                        if (_modifierFlag == 0)
+                        {
+                            _lastModifierFlag = 0;
+                        }
+
+                        return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
                     }
                 }
             }
