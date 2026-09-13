@@ -1,27 +1,4 @@
-Listed directory openkey%20all
-Searched for "workflow.md"
-Viewed workflow.md:1-57
-Viewed SKILL.md:1-100
-Viewed SKILL.md:1-60
-Listed directory Modernkey%20WPF%20GMTPC
-Ran command: `git status`
-Ran command: `git status`
-Ran command: `git remote -v`
-Ran command: `git log -n 5 --oneline`
-Viewed ModernKey.csproj:1-40
-Listed directory Core
-Listed directory Hook
-Listed directory Models
-Viewed StatusOsdWindow.xaml.cs:1-116
-Viewed App.xaml.cs:1-120
-Viewed App.xaml.cs:1-247
-Viewed MainWindow.xaml:1-100
-Searched for "TabItem"
-Viewed MainWindow.xaml:100-200
-Viewed MainWindow.xaml:201-350
-Viewed MainWindow.xaml:351-499
-Searched for "Clipboard"
-Viewed KeySender.cs:160-250
+
 
 ### Đánh giá khả năng tích hợp tính năng Lưu trữ Clipboard (Clipboard Manager) vào ModernKey GMTPC
 
