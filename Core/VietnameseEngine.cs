@@ -157,7 +157,7 @@ namespace ModernKey.Core
             if (HasMainVowel(currentDisplay))
             {
                 if ((ch == '^' || ch == '6') && !(lastLower == 'a' || lastLower == 'u')) return true;
-                if ((ch == '&' || ch == '7') && !(lastLower == 'e' || lastLower == 'i' || lastLower == 'y')) return true;
+                if ((ch == '&' || ch == '7') && !(lastLower == 'e' || lastLower == 'i' || lastLower == 'y' || lastLower == 'u')) return true;
                 if ((ch == '*' || ch == '8') && !(lastLower == 'o' || lastLower == 'u')) return true;
                 if ((ch == '[' || ch == '{') && !(lastLower == 'u' || lastLower == 'ơ')) return true;
                 if ((ch == ']' || ch == '}') && !(lastLower == 'u' || lastLower == 'o' || lastLower == 'ư')) return true;
@@ -1367,13 +1367,25 @@ namespace ModernKey.Core
                     }
                     else if (sb.Length > 0 && (sb[sb.Length - 1] == 'u' || sb[sb.Length - 1] == 'U'))
                     {
-                        // u + ] -> ươ (ví dụ thu]ng -> thương, ngu]i -> người)
-                        bool wasUpper = char.IsUpper(sb[sb.Length - 1]);
-                        sb.Remove(sb.Length - 1, 1);
-                        bool allUpper = IsCapsLockActive() || (sb.Length > 1 && IsAllLettersUpper(sb));
-                        if (allUpper) sb.Append("ƯƠ");
-                        else if (wasUpper) sb.Append("Ươ");
-                        else sb.Append("ươ");
+                        string curLower = sb.ToString().ToLower();
+                        // Các từ vần 'uơ' trong tiếng Việt: thuở, quở, huơ, khuơ
+                        // Giữ nguyên 'u' và thêm 'ơ' (ví dụ thu]3 -> thuở, qu]3 -> quở, hu] -> huơ)
+                        if (curLower == "thu" || curLower == "qu" || curLower == "hu" || curLower == "khu")
+                        {
+                            bool wasUpper = char.IsUpper(sb[sb.Length - 1]);
+                            bool allUpper = IsCapsLockActive() || (sb.Length > 1 && IsAllLettersUpper(sb));
+                            sb.Append(allUpper ? 'Ơ' : 'ơ');
+                        }
+                        else
+                        {
+                            // u + ] -> ươ (ví dụ bu]c -> bước, ngu]i -> người)
+                            bool wasUpper = char.IsUpper(sb[sb.Length - 1]);
+                            sb.Remove(sb.Length - 1, 1);
+                            bool allUpper = IsCapsLockActive() || (sb.Length > 1 && IsAllLettersUpper(sb));
+                            if (allUpper) sb.Append("ƯƠ");
+                            else if (wasUpper) sb.Append("Ươ");
+                            else sb.Append("ươ");
+                        }
                     }
                     else if (sb.Length > 0 && (sb[sb.Length - 1] == 'o' || sb[sb.Length - 1] == 'O'))
                     {
@@ -1480,6 +1492,15 @@ namespace ModernKey.Core
                         }
                         // y + 7 -> yê (y7u -> yêu, chuy7n -> chuyện, khuy7n -> khuyên)
                         if (pLower == 'y')
+                        {
+                            sb.Append((pUpper || isUpperTarget) ? 'Ê' : 'ê');
+                            lastRawKey = c;
+                            wasStandaloneAtStart = false;
+                            modified = true;
+                            continue;
+                        }
+                        // u + 7 -> uê (thu7 -> thuê, thu71 -> thuế, qu7 -> quê, qu71 -> quế, hu7 -> huê/huế, xu7 -> xuê)
+                        if (pLower == 'u')
                         {
                             sb.Append((pUpper || isUpperTarget) ? 'Ê' : 'ê');
                             lastRawKey = c;
@@ -1597,6 +1618,19 @@ namespace ModernKey.Core
                         wasStandaloneAtStart = isStart;
                         modified = true;
                         continue;
+                    }
+                }
+
+                // Nếu có phụ âm cuối đi sau 'uơ' (như thu]ng -> thương, thu]c -> thước):
+                // tự động nâng cấp 'uơ' thành 'ươ' vì tiếng Việt không có vần 'uơng' / 'uơc'
+                if (sb.Length >= 2 && IsConsonant(c))
+                {
+                    string curCheck = sb.ToString().ToLower();
+                    if (curCheck.EndsWith("uơ"))
+                    {
+                        int uIdx = sb.Length - 2;
+                        bool isUUpper = char.IsUpper(sb[uIdx]);
+                        sb[uIdx] = isUUpper ? 'Ư' : 'ư';
                     }
                 }
 

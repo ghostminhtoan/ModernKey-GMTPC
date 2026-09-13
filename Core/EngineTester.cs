@@ -168,6 +168,17 @@ namespace ModernKey.Core
             var testCasesTbt = new (string input, string expected)[]
             {
                 ("tr7n", "trên"),
+                ("thu]3", "thuở"),
+                ("thu71", "thuế"),
+                ("Thu]3", "Thuở"),
+                ("Thu71", "Thuế"),
+                ("thu7", "thuê"),
+                ("qu7", "quê"),
+                ("qu71", "quế"),
+                ("qu]3", "quở"),
+                ("hu]", "huơ"),
+                ("hu75", "huệ"),
+                ("thu]ng", "thương"),
                 ("c6n", "cân"),
                 ("c8ng", "công"),
                 ("c9n", "căn"),
