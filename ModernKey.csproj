@@ -8,6 +8,7 @@
     <AssemblyName>ModernKey</AssemblyName>
     <RootNamespace>ModernKey</RootNamespace>
     <ApplicationIcon>Resources\AppIcon.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
     <StartupObject>ModernKey.App</StartupObject>
     <Deterministic>true</Deterministic>
   </PropertyGroup>

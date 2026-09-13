@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Windows;
@@ -32,6 +33,13 @@ namespace ModernKey
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            try
+            {
+                AppContext.SetSwitch("Switch.System.IO.UseLegacyPathHandling", false);
+                AppContext.SetSwitch("Switch.System.IO.BlockLongPaths", false);
+            }
+            catch { }
+
             var cmdArgs = Environment.GetCommandLineArgs();
             if (cmdArgs != null && Array.IndexOf(cmdArgs, "--test") >= 0)
             {
@@ -201,12 +209,47 @@ namespace ModernKey
                 }));
             };
 
-            // 4. Khởi tạo MainWindow theo nhu cầu (Lazy loading giúp app siêu nhẹ ~8MB khi khởi động khay hệ thống)
+            // 4. Khởi tạo MainWindow theo nhu cầu (Lazy loading giúp app siêu nhẹ khi khởi động khay hệ thống)
             if (_settings.OpenDialogOnStartup)
             {
                 ShowMainWindow();
             }
             else
+            {
+                // Trì hoãn dọn dẹp bộ nhớ sau 4 giây khi engine và hook đã ổn định,
+                // tuyệt đối không dọn ngay lập tức lúc 0s để tránh làm nghẽn I/O trên đĩa HDD!
+                RequestMemoryCleanup(4);
+            }
+        }
+
+        [DllImport("psapi.dll")]
+        private static extern bool EmptyWorkingSet(IntPtr hProcess);
+
+        private static System.Windows.Threading.DispatcherTimer _trimTimer = null;
+
+        public static void RequestMemoryCleanup(int delaySeconds = 2)
+        {
+            try
+            {
+                if (Application.Current?.Dispatcher == null) return;
+
+                Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (_trimTimer == null)
+                    {
+                        _trimTimer = new System.Windows.Threading.DispatcherTimer();
+                        _trimTimer.Tick += (s, ev) =>
+                        {
+                            _trimTimer.Stop();
+                            TrimWorkingSet();
+                        };
+                    }
+                    _trimTimer.Stop();
+                    _trimTimer.Interval = TimeSpan.FromSeconds(Math.Max(1, delaySeconds));
+                    _trimTimer.Start();
+                }));
+            }
+            catch
             {
                 TrimWorkingSet();
             }
@@ -214,11 +257,13 @@ namespace ModernKey
 
         public static void TrimWorkingSet()
         {
-            // TUYỆT ĐỐI KHÔNG DÙNG SetProcessWorkingSetSize(-1, -1) vì nó ép bộ nhớ ra Pagefile trên HDD/SSD,
-            // gây hàng loạt Hard Page Fault khiến bàn phím và chuột bị đóng băng trong 10 giây khi chơi game!
             try
             {
-                GC.Collect(1, GCCollectionMode.Optimized);
+                GC.Collect(2, GCCollectionMode.Forced, false);
+                GC.WaitForPendingFinalizers();
+                GC.Collect(2, GCCollectionMode.Forced, false);
+                // Giải phóng các trang nhớ chưa chạm tới của working set trả về cho hệ điều hành
+                EmptyWorkingSet(Process.GetCurrentProcess().Handle);
             }
             catch { }
         }

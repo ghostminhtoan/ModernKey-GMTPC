@@ -257,17 +257,30 @@ namespace ModernKey.Core
             }
         }
 
+        private string GenerateUniqueImageId(string cacheDir)
+        {
+            string baseId = DateTime.Now.ToString("yyyy-MM-dd HH.mm.ss");
+            string id = baseId;
+            int counter = 1;
+            while (File.Exists(Path.Combine(cacheDir, id + ".png")))
+            {
+                id = $"{baseId} ({counter++})";
+            }
+            return id;
+        }
+
         public ClipboardItem AddImage(byte[] pngBytes, int width, int height, string sourceApp = null, string sourceIconPath = null, string customPreviewText = null)
         {
             if (pngBytes == null || pngBytes.Length == 0) return null;
 
             lock (_lock)
             {
-                string id = Guid.NewGuid().ToString("N");
+                string cacheDir = GetCacheDirectory();
+                string id = GenerateUniqueImageId(cacheDir);
                 string filename = id + ".png";
-                string thumbFilename = id + "_thumb.png";
-                string fullPath = Path.Combine(GetCacheDirectory(), filename);
-                string thumbFullPath = Path.Combine(GetCacheDirectory(), thumbFilename);
+                string thumbFilename = id + "_t.png";
+                string fullPath = Path.Combine(cacheDir, filename);
+                string thumbFullPath = Path.Combine(cacheDir, thumbFilename);
 
                 try
                 {
@@ -864,7 +877,7 @@ namespace ModernKey.Core
             }
             catch { }
 
-            string timeStr = DateTime.Now.ToString("yyyy-MM-dd hh.mm.ss tt dddd", System.Globalization.CultureInfo.InvariantCulture);
+            string timeStr = DateTime.Now.ToString("yyyy-MM-dd HH.mm.ss");
             return $"{nextIndex}. {timeStr}.zip";
         }
 

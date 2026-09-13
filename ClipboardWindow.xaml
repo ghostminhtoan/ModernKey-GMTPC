@@ -278,6 +278,12 @@
                 <Border Grid.Column="0" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2">
                     <ListBox x:Name="LstClipboard" Background="Transparent" BorderThickness="0"
                              SelectionMode="Extended"
+                             VirtualizingStackPanel.IsVirtualizing="True"
+                             VirtualizingStackPanel.VirtualizationMode="Recycling"
+                             ScrollViewer.CanContentScroll="True"
+                             VirtualizingPanel.ScrollUnit="Pixel"
+                             VirtualizingPanel.CacheLength="1,1"
+                             VirtualizingPanel.CacheLengthUnit="Page"
                              Foreground="{StaticResource CyberTextPrimary}" SelectionChanged="LstClipboard_SelectionChanged"
                              MouseDoubleClick="LstClipboard_MouseDoubleClick" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                              PreviewMouseLeftButtonDown="LstClipboard_PreviewMouseLeftButtonDown"

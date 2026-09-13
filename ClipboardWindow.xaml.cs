@@ -58,6 +58,7 @@ namespace ModernKey
 
             Loaded += ClipboardWindow_Loaded;
             Deactivated += ClipboardWindow_Deactivated;
+            IsVisibleChanged += ClipboardWindow_IsVisibleChanged;
             if (TxtPreview != null)
             {
                 TxtPreview.LostFocus += TxtPreview_LostFocus;
@@ -188,6 +189,17 @@ namespace ModernKey
             if (_settings != null && _settings.ClipboardAutoHide && !_settings.ClipboardAlwaysOnTop)
             {
                 Hide();
+            }
+        }
+
+        private void ClipboardWindow_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if (!(bool)e.NewValue)
+            {
+                // Khi HUD bị ẩn hoặc đóng: clear preview để giải phóng bitmap lớn
+                ClearPreview();
+                // Hẹn giờ dọn dẹp nhàn rỗi sau 2 giây
+                App.RequestMemoryCleanup(2);
             }
         }
 

@@ -217,18 +217,28 @@ namespace ModernKey.Models
             }
         }
 
-        private BitmapSource _appIconSource = null;
-        public BitmapSource AppIconSource
+        private static readonly Dictionary<string, BitmapSource> _appIconCache = new Dictionary<string, BitmapSource>(StringComparer.OrdinalIgnoreCase);
+        private static readonly object _appIconCacheLock = new object();
+
+        public static BitmapSource GetCachedAppIcon(string iconPath)
         {
-            get
+            if (string.IsNullOrEmpty(iconPath)) return null;
+            string resolved = ResolvePath(iconPath);
+            if (string.IsNullOrEmpty(resolved) || !File.Exists(resolved)) return null;
+
+            lock (_appIconCacheLock)
             {
-                if (_appIconSource == null)
+                if (_appIconCache.TryGetValue(resolved, out var cached)) return cached;
+                var bmp = LoadBitmapSafe(resolved, 16);
+                if (bmp != null)
                 {
-                    _appIconSource = LoadBitmapSafe(SourceIconPath, 16);
+                    _appIconCache[resolved] = bmp;
                 }
-                return _appIconSource;
+                return bmp;
             }
         }
+
+        public BitmapSource AppIconSource => GetCachedAppIcon(SourceIconPath);
 
         private BitmapSource _thumbSource = null;
         public BitmapSource ThumbSource
@@ -238,10 +248,11 @@ namespace ModernKey.Models
                 if (_thumbSource == null && IsImage)
                 {
                     string target = !string.IsNullOrEmpty(ThumbPath) ? ThumbPath : ImagePath;
-                    _thumbSource = LoadBitmapSafe(target, 88);
+                    // Decode đúng 48px khớp với khung hiển thị 44x32 trên UI để tiết kiệm 75% RAM
+                    _thumbSource = LoadBitmapSafe(target, 48);
                     if (_thumbSource == null && !string.IsNullOrEmpty(ImagePath))
                     {
-                        _thumbSource = LoadBitmapSafe(ImagePath, 88);
+                        _thumbSource = LoadBitmapSafe(ImagePath, 48);
                     }
                 }
                 return _thumbSource;
@@ -264,6 +275,12 @@ namespace ModernKey.Models
                 _imageSource = value;
                 OnPropertyChanged(nameof(ImageSource));
             }
+        }
+
+        public void ReleaseVisualResources()
+        {
+            _thumbSource = null;
+            _imageSource = null;
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
