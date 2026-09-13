@@ -64,6 +64,9 @@
 
                 <!-- Actions: Compact HUD Mode & Status Toggle VI/EN -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button x:Name="BtnTopClipboardHud" Click="BtnOpenClipboardHud_Click" Content="[KHO CLIPBOARD]" Height="38" Margin="0,0,8,0" Padding="12,4"
+                            Background="#180424" BorderBrush="{StaticResource CyberNeonYellow}" Foreground="{StaticResource CyberNeonYellow}"
+                            FontFamily="Consolas" FontWeight="Bold" ToolTip="Mở ngay kho Clipboard Manager HUD (Win+Insert / Ctrl+Alt+V)" />
                     <Button x:Name="BtnToggleCompact" Click="BtnToggleCompact_Click" Content="[HUD COMPACT]" Width="136" Height="38" Margin="0,0,8,0"
                             Background="#0E1C24" BorderBrush="{StaticResource CyberNeonCyan}" Foreground="{StaticResource CyberNeonCyan}"
                             FontFamily="Consolas" FontWeight="Bold" ToolTip="Thu nhỏ cửa sổ thành bảng điều khiển mini" />
@@ -463,7 +466,54 @@
                 </Grid>
             </TabItem>
 
-            <!-- Tab 5: Giới thiệu -->
+            <!-- Tab 6: Quản lý Clipboard (Clipboard Manager HUD) -->
+            <TabItem Header="  CLIPBOARD  ">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="18">
+                        <TextBlock Text="[CẤU HÌNH LƯU TRỮ CLIPBOARD (CLIPBOARD MANAGER)]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,10" />
+                        <WrapPanel Orientation="Horizontal">
+                            <CheckBox x:Name="ChkEnableClipboard" Content="Bật theo dõi thay đổi Clipboard (Track clipboard)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Tự động ghi lại các đoạn văn bản hoặc hình ảnh vừa sao chép" />
+                            <CheckBox x:Name="ChkClipboardAutoHide" Content="Tự động ẩn cửa sổ HUD sau khi dán (Auto hide)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Đóng ngay giao diện Clipboard HUD khi dán xong vào ứng dụng khác" />
+                            <CheckBox x:Name="ChkClipboardAlwaysOnTop" Content="Cửa sổ Clipboard luôn nổi trên cùng (Always on top)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                            <CheckBox x:Name="ChkClipboardIgnoreDuplicates" Content="Không lưu các mục trùng lặp liên tiếp (Ignore duplicates)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Bỏ qua hoặc đẩy lên đầu nếu nội dung sao chép giống mục trước" />
+                            <CheckBox x:Name="ChkClipboardPasteAsPlainText" Content="Mặc định dán văn bản thô (Plain Text)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Tự động loại bỏ font chữ, màu sắc và format khi dán nhanh" />
+                        </WrapPanel>
+
+                        <Separator Background="{StaticResource CyberBorderDim}" Margin="0,6,0,14" />
+
+                        <TextBlock Text="[THÔNG SỐ &amp; PHÍM TẮT KÍCH HOẠT]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,10" />
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="220" />
+                                <ColumnDefinition Width="140" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="SỐ MỤC LƯU TỐI ĐA (FRAGMENTS):" VerticalAlignment="Center" FontFamily="Consolas" Foreground="{StaticResource CyberTextPrimary}" />
+                            <TextBox x:Name="TxtClipboardMaxItems" Grid.Column="1" Height="26" VerticalAlignment="Center" VerticalContentAlignment="Center" TextAlignment="Center" FontFamily="Consolas" FontWeight="Bold" TextChanged="TxtClipboardMaxItems_TextChanged" LostFocus="TxtClipboardMaxItems_LostFocus" ToolTip="Nhập từ 5 đến 99999 (Mặc định: 200)" />
+                            <TextBlock Grid.Column="2" Text="* Khuyến nghị: 5 - 99999 mục (Mặc định: 200, có thể đặt 5 để test nhanh)." VerticalAlignment="Center" Foreground="{StaticResource CyberTextSecondary}" FontFamily="Consolas" Margin="14,0,0,0" FontSize="11" />
+                        </Grid>
+
+                        <Border Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="12,10" Margin="0,0,0,14">
+                            <StackPanel>
+                                <TextBlock Text="PHÍM TẮT TOÀN CỤC MỞ CLIPBOARD HUD:" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonYellow}" Margin="0,0,0,4" />
+                                <TextBlock Text="• [Win + Insert] (Chuẩn Comfort Keys Pro 9.1)" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="10,2" />
+                                <TextBlock Text="• [Ctrl + Alt + V] (Phím tắt thay thế tiện lợi cho bàn phím không có phím Insert)" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="10,2" />
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Text="[THAO TÁC NHANH &amp; DỮ LIỆU]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,10" />
+                        <WrapPanel>
+                            <Button x:Name="BtnOpenClipboardHud" Content="MỞ GIAO DIỆN CLIPBOARD HUD" Click="BtnOpenClipboardHud_Click" Margin="0,0,8,8" Padding="14,6" Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" FontWeight="Bold" />
+                            <Button Content="XÓA LỊCH SỬ (GIỮ YÊU THÍCH)" Click="BtnClearClipboardHistory_Click" Margin="0,0,8,8" Padding="12,6" />
+                            <Button Content="XÓA SẠCH TOÀN BỘ CLIPBOARD" Click="BtnClearAllClipboardHistory_Click" Margin="0,0,8,8" Padding="12,6" Background="#2B0914" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}" />
+                        </WrapPanel>
+
+                        <TextBlock x:Name="TxtClipboardStoragePath" Text="Thư mục lưu trữ: clipboard\" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource CyberTextSecondary}" Margin="0,8,0,0" />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- Tab 7: Giới thiệu -->
             <TabItem Header="  GIỚI THIỆU  ">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="24">

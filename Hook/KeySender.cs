@@ -216,6 +216,9 @@ namespace ModernKey.Hook
         private static bool _activeBackupHadImage = false;
         private static Timer _restoreTimer = null;
 
+        public static volatile bool SuppressClipboardMonitoring = false;
+        public static bool IsInternalClipboardActive => _hasActiveBackup;
+
         private static List<ClipboardFormatItem> NativeBackupClipboard(out bool hasImage)
         {
             EnsureExcludeFormats();
@@ -705,6 +708,26 @@ namespace ModernKey.Hook
                     }
                 }, null, delayMs, Timeout.Infinite);
             }
+        }
+
+        public static void SendCtrlVPaste()
+        {
+            ReleaseAllModifiers();
+            Thread.Sleep(15);
+            INPUT[] ctrlDown = new INPUT[] { CreateKeyInput(VK_CONTROL, 0) };
+            SendInput(1, ctrlDown, Marshal.SizeOf(typeof(INPUT)));
+            Thread.Sleep(8);
+
+            INPUT[] vPress = new INPUT[]
+            {
+                CreateKeyInput(VK_V, 0),
+                CreateKeyInput(VK_V, KEYEVENTF_KEYUP)
+            };
+            SendInput(2, vPress, Marshal.SizeOf(typeof(INPUT)));
+            Thread.Sleep(8);
+
+            INPUT[] ctrlUp = new INPUT[] { CreateKeyInput(VK_CONTROL, KEYEVENTF_KEYUP) };
+            SendInput(1, ctrlUp, Marshal.SizeOf(typeof(INPUT)));
         }
 
         private static INPUT CreateKeyInput(ushort vk, uint flags)

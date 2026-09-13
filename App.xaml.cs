@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Text;
 using System.Threading;
 using System.Windows;
@@ -20,6 +21,11 @@ namespace ModernKey
         private AppSettings _settings;
         private MainWindow _mainWindow;
         private StatusOsdWindow _statusOsdWindow;
+        private ClipboardHistoryManager _clipboardHistory;
+        private ClipboardListener _clipboardListener;
+        private ClipboardWindow _clipboardWindow;
+
+        public ClipboardHistoryManager ClipboardHistory => _clipboardHistory;
 
         [System.Runtime.InteropServices.DllImport("kernel32.dll")]
         private static extern bool AttachConsole(int dwProcessId);
@@ -81,15 +87,17 @@ namespace ModernKey
             // 1. Tải cấu hình và macro
             _settings = SettingsManager.LoadSettings();
             _macroManager = new MacroManager();
+            _clipboardHistory = new ClipboardHistoryManager(_settings);
 
             // 2. Khởi tạo Engine và Hook
             _engine = new VietnameseEngine(_settings, _macroManager);
             _keyboardHook = new KeyboardHook(_engine, _settings);
             _keyboardHook.Start();
 
-            // 3. Khởi tạo Tray Icon & OSD
-            _trayManager = new SystemTrayManager(_settings, ShowMainWindow, ExitApplication);
+            // 3. Khởi tạo Tray Icon, OSD & Clipboard Listener
+            _trayManager = new SystemTrayManager(_settings, ShowMainWindow, ExitApplication, ShowClipboardWindow);
             _statusOsdWindow = new StatusOsdWindow();
+            _clipboardListener = new ClipboardListener(_clipboardHistory, _settings);
 
             // Đồng bộ trạng thái khi phím tắt chuyển đổi chế độ V/E bất đồng bộ (Non-blocking Hook Thread)
             _keyboardHook.LanguageChanged += () =>
@@ -164,6 +172,15 @@ namespace ModernKey
                 }));
             };
 
+            // Phím tắt mở Bảng quản lý Clipboard (Win+Ins / Ctrl+Alt+V)
+            _keyboardHook.OpenClipboardRequested += () =>
+            {
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
+                {
+                    ShowClipboardWindow();
+                }));
+            };
+
             _trayManager.StateChanged += () =>
             {
                 Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
@@ -219,6 +236,31 @@ namespace ModernKey
             _mainWindow.Activate();
         }
 
+        public void ShowClipboardWindow()
+        {
+            try
+            {
+                if (_clipboardWindow == null)
+                {
+                    _clipboardWindow = new ClipboardWindow(_clipboardHistory, _settings);
+                }
+                _clipboardWindow.ShowHud(IntPtr.Zero);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("ShowClipboardWindow error: " + ex.Message);
+                try
+                {
+                    _clipboardWindow = new ClipboardWindow(_clipboardHistory, _settings);
+                    _clipboardWindow.ShowHud(IntPtr.Zero);
+                }
+                catch (Exception ex2)
+                {
+                    Debug.WriteLine("ShowClipboardWindow retry error: " + ex2.Message);
+                }
+            }
+        }
+
         public void ShowStatusOsd(bool isVietnamese)
         {
             if (_settings != null && _settings.EnableStatusOsd)
@@ -230,8 +272,11 @@ namespace ModernKey
         public void ExitApplication()
         {
             _keyboardHook?.Dispose();
+            _clipboardListener?.Dispose();
+            _clipboardHistory?.SaveHistoryNow();
             _trayManager?.Dispose();
             _statusOsdWindow?.Close();
+            _clipboardWindow?.Close();
             _appMutex?.ReleaseMutex();
             Shutdown();
         }
@@ -239,6 +284,8 @@ namespace ModernKey
         protected override void OnExit(ExitEventArgs e)
         {
             _keyboardHook?.Dispose();
+            _clipboardListener?.Dispose();
+            _clipboardHistory?.SaveHistoryNow();
             _trayManager?.Dispose();
             base.OnExit(e);
         }

@@ -59,6 +59,14 @@ namespace ModernKey.Models
         // OSD hiển thị trạng thái VI/EN
         public bool EnableStatusOsd { get; set; } = true;
 
+        // Quản lý Clipboard (Lịch sử, phím tắt, lọc trùng, tự ẩn)
+        public bool EnableClipboardHistory { get; set; } = true;
+        public bool ClipboardAutoHide { get; set; } = true;
+        public bool ClipboardAlwaysOnTop { get; set; } = true;
+        public bool ClipboardIgnoreDuplicates { get; set; } = true;
+        public bool ClipboardPasteAsPlainText { get; set; } = false;
+        public int ClipboardMaxItems { get; set; } = 200;
+
         // Tạm dừng thông minh cho lập trình viên (Smart Passthrough & Esc Undo)
         public bool SmartCodePassthrough { get; set; } = true;
         public bool EscKeyUndo { get; set; } = true;

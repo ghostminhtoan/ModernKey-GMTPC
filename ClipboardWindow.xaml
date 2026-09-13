@@ -1,0 +1,443 @@
+<Window x:Class="ModernKey.ClipboardWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ModernKey - Clipboard Manager HUD"
+        Height="540" Width="820" MinWidth="600" MinHeight="400"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        WindowStartupLocation="CenterScreen" ShowInTaskbar="False" Topmost="True"
+        PreviewKeyDown="Window_PreviewKeyDown">
+
+
+    <Window.Resources>
+        <!-- Cyberpunk Filter RadioButton Style (Fixed White Aero Background and Low Contrast Bug) -->
+        <Style x:Key="CyberFilterRadio" TargetType="RadioButton">
+            <Setter Property="FontFamily" Value="Consolas" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Padding" Value="12,5" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="border"
+                                Background="#10141E"
+                                BorderBrush="#1F4068"
+                                BorderThickness="1"
+                                CornerRadius="2"
+                                Padding="{TemplateBinding Padding}">
+                            <TextBlock x:Name="txt"
+                                       Text="{TemplateBinding Content}"
+                                       Foreground="#80DEEA"
+                                       FontFamily="Consolas"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource CyberNeonPink}" />
+                                <Setter TargetName="border" Property="Background" Value="#1A2536" />
+                                <Setter TargetName="txt" Property="Foreground" Value="#FFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#142B3E" />
+                                <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource CyberNeonCyan}" />
+                                <Setter TargetName="border" Property="BorderThickness" Value="1.2" />
+                                <Setter TargetName="txt" Property="Foreground" Value="{StaticResource CyberNeonCyan}" />
+                                <Setter TargetName="txt" Property="FontWeight" Value="Bold" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Cyberpunk ContextMenu Style -->
+        <Style x:Key="CyberContextMenu" TargetType="ContextMenu">
+            <Setter Property="Background" Value="#0D111A" />
+            <Setter Property="BorderBrush" Value="{StaticResource CyberNeonCyan}" />
+            <Setter Property="BorderThickness" Value="1.2" />
+            <Setter Property="Padding" Value="4,4" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContextMenu">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <Border.Effect>
+                                <DropShadowEffect Color="#00F0FF" BlurRadius="10" ShadowDepth="0" Opacity="0.5" />
+                            </Border.Effect>
+                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Cyberpunk MenuItem Style -->
+        <Style x:Key="CyberMenuItem" TargetType="MenuItem">
+            <Setter Property="Foreground" Value="#80DEEA" />
+            <Setter Property="FontFamily" Value="Consolas" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="MenuItem">
+                        <Border x:Name="border" Background="Transparent" CornerRadius="2" Padding="{TemplateBinding Padding}" Margin="1,1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" MinWidth="22" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" MinWidth="40" />
+                                </Grid.ColumnDefinitions>
+                                <ContentPresenter Grid.Column="0" ContentSource="Icon" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" x:Name="txtHeader" Text="{TemplateBinding Header}"
+                                           Foreground="{TemplateBinding Foreground}" FontFamily="Consolas" FontSize="11" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="2" Text="{TemplateBinding InputGestureText}"
+                                           Foreground="{StaticResource CyberNeonYellow}" FontFamily="Consolas" FontSize="10"
+                                           VerticalAlignment="Center" HorizontalAlignment="Right" Margin="10,0,0,0" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#1A293E" />
+                                <Setter TargetName="txtHeader" Property="Foreground" Value="#FFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="txtHeader" Property="Foreground" Value="#55657E" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Cyberpunk Separator Style -->
+        <Style x:Key="CyberMenuSeparator" TargetType="Separator">
+            <Setter Property="Background" Value="#1F354D" />
+            <Setter Property="Margin" Value="4,3" />
+            <Setter Property="Height" Value="1" />
+        </Style>
+    </Window.Resources>
+
+    <!-- Khung chính Cyberpunk HUD -->
+    <Border Background="{StaticResource CyberBlack}" BorderBrush="{StaticResource CyberNeonCyan}"
+            BorderThickness="1.5" CornerRadius="4" Margin="8">
+        <Border.Effect>
+            <DropShadowEffect Color="#00F0FF" BlurRadius="12" ShadowDepth="0" Opacity="0.55" />
+        </Border.Effect>
+
+        <Grid Margin="12">
+            <Grid.RowDefinitions>
+                <!-- Row 0: Title Bar -->
+                <RowDefinition Height="Auto" />
+                <!-- Row 1: Search & Filter Toolbar -->
+                <RowDefinition Height="Auto" />
+                <!-- Row 2: Content Split View -->
+                <RowDefinition Height="*" />
+                <!-- Row 3: Footer Status -->
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- 1. Title Bar -->
+            <Border Grid.Row="0" Background="{StaticResource CyberDark}" CornerRadius="3" Padding="10,6" Margin="0,0,0,10"
+                    BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Icon Emblem -->
+                        <Border Width="26" Height="26" CornerRadius="4" Background="#180424" BorderBrush="{StaticResource CyberNeonPink}" BorderThickness="1.2" Margin="0,0,10,0">
+                            <TextBlock Text="CB" FontWeight="ExtraBold" FontSize="11" Foreground="{StaticResource CyberNeonYellow}" HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="Consolas" />
+                        </Border>
+                        <TextBlock Text="MODERNKEY // CLIPBOARD MANAGER HUD" FontWeight="Bold" FontSize="13" Foreground="{StaticResource CyberNeonCyan}" FontFamily="Consolas" VerticalAlignment="Center" />
+                        <TextBlock Text="[Win+Ins / Ctrl+Alt+V]" FontSize="11" Foreground="{StaticResource CyberTextSecondary}" FontFamily="Consolas" Margin="10,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- Nút đóng -->
+                    <Button Grid.Column="1" Click="BtnClose_Click" Width="30" Height="24" Padding="0"
+                            Background="#2B0914" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}"
+                            FontWeight="Bold" ToolTip="Đóng HUD (Esc)">
+                        <TextBlock Text="✕" FontSize="13" FontWeight="ExtraBold" Foreground="{StaticResource CyberNeonPink}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-1,0,0" FontFamily="Segoe UI, Consolas" />
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- 2. Search Box & Filter Toolbar -->
+            <Grid Grid.Row="1" Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Ô tìm kiếm tức thì -->
+                <Border Grid.Column="0" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Margin="0,0,10,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0" Text="🔍" VerticalAlignment="Center" Margin="8,0,4,0" FontSize="11" Foreground="{StaticResource CyberNeonCyan}" />
+                        <TextBox x:Name="TxtSearch" Grid.Column="1" Height="28" BorderThickness="0" Background="Transparent"
+                                 Foreground="{StaticResource CyberTextPrimary}" FontFamily="Consolas" FontSize="12" VerticalContentAlignment="Center"
+                                 TextChanged="TxtSearch_TextChanged" />
+                        <TextBlock Grid.Column="1" Text="Tìm kiếm nhanh clipboard... (Ctrl+F)" IsHitTestVisible="False" VerticalAlignment="Center"
+                                   FontFamily="Consolas" FontSize="11" Foreground="{StaticResource CyberTextSecondary}" Margin="4,0,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Text, ElementName=TxtSearch}" Value="">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <Button x:Name="BtnClearSearch" Grid.Column="2" Click="BtnClearSearch_Click" Width="24" Height="24" Padding="0"
+                                Background="Transparent" BorderThickness="0" Foreground="{StaticResource CyberTextSecondary}" ToolTip="Xóa tìm kiếm">
+                            <TextBlock Text="✕" FontSize="11" FontWeight="Bold" Foreground="{StaticResource CyberTextSecondary}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- Nút lọc danh mục & Đảo chiều sắp xếp -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <!-- Hai chế độ LỊCH SỬ & YÊU THÍCH độc lập chuẩn Comfort Keys Pro -->
+                    <RadioButton x:Name="RbModeHistory" Content="📋 LỊCH SỬ" IsChecked="True" Checked="Mode_Checked"
+                                 GroupName="ClipboardViewMode" Style="{StaticResource CyberFilterRadio}" />
+                    <RadioButton x:Name="RbModeFavorites" Content="★ YÊU THÍCH" Checked="Mode_Checked"
+                                 GroupName="ClipboardViewMode" Style="{StaticResource CyberFilterRadio}" />
+
+                    <!-- Dropdown Filter chuẩn Comfort Keys Pro -->
+                    <Button x:Name="BtnFilterMenu" Click="BtnFilterMenu_Click" Padding="8,4" Margin="4,0,5,0"
+                            Background="#10141E" BorderBrush="{StaticResource CyberNeonCyan}" BorderThickness="1"
+                            Cursor="Hand" ToolTip="Menu lọc chi tiết theo thời gian &amp; định dạng (Chuẩn Comfort Keys Pro)">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="⛛ " Foreground="{StaticResource CyberNeonYellow}" FontSize="10" VerticalAlignment="Center" />
+                            <TextBlock x:Name="TxtFilterCurrentLabel" Text="LỌC: TẤT CẢ" Foreground="{StaticResource CyberNeonCyan}" FontSize="11" FontFamily="Consolas" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <TextBlock Text=" ▼" Foreground="{StaticResource CyberNeonCyan}" FontSize="8" VerticalAlignment="Center" Margin="2,0,0,0" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Nút đảo chiều thứ tự (Mới nhất / Cũ nhất) -->
+                    <Button x:Name="BtnToggleSortOrder" Click="BtnToggleSortOrder_Click" Padding="8,4"
+                            Background="#10141E" BorderBrush="{StaticResource CyberNeonCyan}" BorderThickness="1"
+                            Cursor="Hand" ToolTip="Đảo chiều sắp xếp clipboard (Mới nhất ⇄ Cũ nhất)">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock x:Name="TxtSortIcon" Text="▼" Foreground="{StaticResource CyberNeonCyan}" FontSize="10" VerticalAlignment="Center" Margin="0,0,5,0" />
+                            <TextBlock x:Name="TxtSortLabel" Text="MỚI NHẤT" Foreground="{StaticResource CyberNeonCyan}" FontSize="11" FontFamily="Consolas" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- 3. Content Split View: Trái là List, Phải là Preview & Action -->
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="4*" MinWidth="260" />
+                    <ColumnDefinition Width="6" />
+                    <ColumnDefinition Width="5*" MinWidth="260" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Cột trái: Danh sách Clipboard Item -->
+                <Border Grid.Column="0" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2">
+                    <ListBox x:Name="LstClipboard" Background="Transparent" BorderThickness="0"
+                             SelectionMode="Extended"
+                             Foreground="{StaticResource CyberTextPrimary}" SelectionChanged="LstClipboard_SelectionChanged"
+                             MouseDoubleClick="LstClipboard_MouseDoubleClick" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ContextMenu>
+                            <ContextMenu Style="{StaticResource CyberContextMenu}">
+                                <MenuItem Header="Dán (Paste)" InputGestureText="Enter / Ins" Click="CtxMenuPaste_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem Header="Thêm / Bỏ Yêu thích" InputGestureText="Ctrl+D" Click="CtxMenuToggleFav_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem Header="Chỉnh sửa (Edit)" InputGestureText="Alt+Enter" Click="CtxMenuEdit_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem Header="Xem trước (Preview)" Click="CtxMenuPreview_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem Header="Lưu thành tệp... (Save As...)" InputGestureText="Ctrl+S" Click="CtxMenuSaveAs_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem Header="Xóa (Delete)" InputGestureText="Del" Click="CtxMenuDelete_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem Header="Xóa tất cả (Delete All)" Click="CtxMenuDeleteAll_Click" Style="{StaticResource CyberMenuItem}" />
+                                <Separator Style="{StaticResource CyberMenuSeparator}" />
+                                <MenuItem Header="Sao chép vào Clipboard" InputGestureText="Ctrl+C" Click="CtxMenuCopy_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem Header="Gộp các đoạn văn bản đã chọn" Click="CtxMenuMerge_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem Header="Chọn tất cả (Select All)" InputGestureText="Ctrl+A" Click="CtxMenuSelectAll_Click" Style="{StaticResource CyberMenuItem}" />
+                                <Separator Style="{StaticResource CyberMenuSeparator}" />
+                                <MenuItem Header="Di chuyển lên (Move Up)" InputGestureText="Ctrl+Up" Click="CtxMenuMoveUp_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem Header="Di chuyển xuống (Move Down)" InputGestureText="Ctrl+Down" Click="CtxMenuMoveDown_Click" Style="{StaticResource CyberMenuItem}" />
+                                <Separator Style="{StaticResource CyberMenuSeparator}" />
+                                <MenuItem Header="Sao lưu mục đã chọn (ZIP)..." Click="CtxMenuBackup_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem Header="Sao lưu toàn bộ Clipboard (ZIP)..." Click="CtxMenuBackupAll_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem Header="Khôi phục từ tệp sao lưu (ZIP / JSON)..." Click="CtxMenuRestore_Click" Style="{StaticResource CyberMenuItem}" />
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="0,0,0,1" Padding="8,6" Background="Transparent">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Nút Yêu thích ★ -->
+                                        <Button Grid.Column="0" Content="{Binding FavoriteIcon}" Click="BtnToggleFav_Click"
+                                                Foreground="{Binding FavoriteBrush}" Background="Transparent" BorderThickness="0" Padding="0"
+                                                FontWeight="Bold" FontSize="15" Width="26" Height="26" VerticalAlignment="Center" Margin="0,0,4,0"
+                                                ToolTip="Ghim / Bỏ ghim mục yêu thích" />
+
+                                        <!-- Icon ứng dụng nguồn (Notepad++, Chrome, Snipping Tool, ...) -->
+                                        <Border Grid.Column="1" Width="18" Height="18" Margin="0,0,6,0" VerticalAlignment="Center"
+                                                Visibility="{Binding AppIconVisibility}">
+                                            <Image Source="{Binding AppIconSource}" Width="16" Height="16" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
+                                        </Border>
+
+                                        <!-- Badge kiểu dữ liệu [TXT] / [IMG] -->
+                                        <Border Grid.Column="2" Background="#121D28" BorderBrush="{StaticResource CyberNeonCyan}" BorderThickness="1"
+                                                CornerRadius="2" Padding="4,1" Margin="0,0,8,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding TypeBadge}" FontSize="10" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" />
+                                        </Border>
+
+                                        <!-- Thông tin văn bản hoặc ảnh -->
+                                        <Grid Grid.Column="3" VerticalAlignment="Center">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Thumbnail nếu là ảnh -->
+                                            <Border Grid.Column="0" Width="44" Height="32" CornerRadius="2" Margin="0,0,8,0"
+                                                    Background="#0D0218" BorderBrush="{StaticResource CyberNeonPink}" BorderThickness="1"
+                                                    Visibility="{Binding ImageThumbnailVisibility}">
+                                                <Image Source="{Binding ThumbSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                            </Border>
+
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding PreviewText}" FontFamily="Consolas" FontWeight="SemiBold" FontSize="12"
+                                                           TextTrimming="CharacterEllipsis" Foreground="{StaticResource CyberTextPrimary}" />
+                                                <TextBlock Text="{Binding InfoDisplay}" FontFamily="Consolas" FontSize="10"
+                                                           Foreground="{StaticResource CyberTextSecondary}" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Margin" Value="0" />
+                                <Setter Property="BorderThickness" Value="0" />
+                                <Style.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="#1B2836" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+                </Border>
+
+                <!-- Splitter -->
+                <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Center" Background="Transparent" />
+
+                <!-- Cột phải: Khung Preview & Dán nhanh (Paste As) -->
+                <Grid Grid.Column="2">
+                    <Grid.RowDefinitions>
+                        <!-- Preview content -->
+                        <RowDefinition Height="*" />
+                        <!-- Meta Stats -->
+                        <RowDefinition Height="Auto" />
+                        <!-- Action Buttons -->
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Preview box -->
+                    <Border Grid.Row="0" Background="{StaticResource CyberInput}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2">
+                        <Grid>
+                            <!-- Text Preview -->
+                            <TextBox x:Name="TxtPreview" Background="Transparent" BorderThickness="0"
+                                     Foreground="{StaticResource CyberTextPrimary}" FontFamily="Consolas" FontSize="12"
+                                     IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Padding="8" />
+
+                            <!-- Image Preview -->
+                            <Image x:Name="ImgPreview" Stretch="Uniform" Margin="8" Visibility="Collapsed" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Meta info bar -->
+                    <Border Grid.Row="1" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="8,4" Margin="0,6,0,6">
+                        <TextBlock x:Name="TxtMetaInfo" Text="Chọn 1 mục để xem chi tiết" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource CyberNeonYellow}" />
+                    </Border>
+
+                    <!-- Action buttons (Paste Options) -->
+                    <Grid Grid.Row="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <!-- Hàng 1: Nút Dán chính & Sao chép -->
+                        <Grid Grid.Row="0" Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="1.2*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="BtnPasteDirect" Grid.Column="0" Content="[ENTER/CTRL+V] DÁN" Click="BtnPasteDirect_Click"
+                                    Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" FontWeight="Bold" Padding="8,6" Margin="0,0,4,0"
+                                    ToolTip="Dán nội dung vào ứng dụng đang làm việc (Enter hoặc Ctrl+V)" />
+                            <Button x:Name="BtnCopyDirect" Grid.Column="1" Content="[CTRL+C] CHÉP" Click="BtnCopyDirect_Click"
+                                    Background="#15212C" BorderBrush="{StaticResource CyberNeonCyan}" Foreground="{StaticResource CyberNeonCyan}"
+                                    FontWeight="Bold" Padding="6,6" Margin="0,0,4,0" ToolTip="Sao chép các mục được chọn vào Clipboard hệ thống (Ctrl+C)" />
+                            <Button x:Name="BtnPastePlainText" Grid.Column="2" Content="[0] THÔ" Click="BtnPastePlainText_Click"
+                                    Padding="4,6" ToolTip="Dán dưới dạng văn bản thô (Plain Text không định dạng)" />
+                        </Grid>
+
+                        <!-- Hàng 2: Nút Keystroke, Xóa mục, Ghim -->
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="BtnPasteKeystroke" Grid.Column="0" Content="[1] GÕ PHÍM" Click="BtnPasteKeystroke_Click"
+                                    Margin="0,0,4,0" Padding="4,4" ToolTip="Mô phỏng gõ từng phím (vượt qua form chặn paste)" />
+                            <Button x:Name="BtnToggleFavoriteAction" Grid.Column="1" Content="★ GHIM" Click="BtnToggleFavoriteAction_Click"
+                                    Margin="0,0,4,0" Padding="4,4" Background="#221E0A" BorderBrush="{StaticResource CyberNeonYellow}" Foreground="{StaticResource CyberNeonYellow}" />
+                            <Button x:Name="BtnDeleteItem" Grid.Column="2" Content="[DEL] XÓA" Click="BtnDeleteItem_Click"
+                                    Background="#2B0914" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}" Padding="4,4" />
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </Grid>
+
+            <!-- 4. Footer info bar -->
+            <Border Grid.Row="3" Margin="0,10,0,0" Padding="4,2">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="TxtStatus" Text="Phím tắt: Enter / Ctrl+V = Dán | Ctrl+C = Chép vào Clipboard | Shift/Ctrl+Click = Chọn nhiều | Del = Xóa | Esc = Đóng"
+                               FontSize="11" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" />
+                    <Button x:Name="BtnClearAllFooter" Grid.Column="1" Content="XÓA TOÀN BỘ LỊCH SỬ" Click="BtnClearAll_Click"
+                            Background="Transparent" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}"
+                            FontSize="10" Padding="6,2" ToolTip="Xóa tất cả mục" />
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

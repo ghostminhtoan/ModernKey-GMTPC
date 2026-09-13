@@ -177,6 +177,7 @@ namespace ModernKey.Hook
         public event Action OpenMacroTableRequested;
         public event Action ToggleMacroRequested;
         public event Action ResetHookRequested;
+        public event Action OpenClipboardRequested;
 
         [DllImport("user32.dll")]
         private static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventDelegate lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
@@ -529,6 +530,16 @@ namespace ModernKey.Hook
                     {
                         _engine.Reset();
                         return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
+                    }
+
+                    // 6.5. Phím tắt mở nhanh Clipboard Manager HUD: Win+Ins (chuẩn Comfort Keys) hoặc Ctrl+Alt+V
+                    if (((_modifierFlag & MASK_WIN) != 0 && vkCode == 0x2D) ||
+                        (((_modifierFlag & (MASK_CTRL | MASK_ALT)) == (MASK_CTRL | MASK_ALT)) && vkCode == 0x56))
+                    {
+                        KeySender.SuppressAltMenuActivation();
+                        _engine.Reset();
+                        OpenClipboardRequested?.Invoke();
+                        return (IntPtr)1;
                     }
 
                     // 7. Tab Phím tắt (F1-F12 kết hợp Modifier tùy chọn chuẩn OpenKey C++)

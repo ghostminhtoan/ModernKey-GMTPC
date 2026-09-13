@@ -14,6 +14,7 @@ namespace ModernKey.Tray
         private readonly NotifyIcon _notifyIcon;
         private readonly AppSettings _settings;
         private readonly Action _showMainWindowAction;
+        private readonly Action _showClipboardAction;
         private readonly Action _exitAction;
 
         private Icon _iconViet;
@@ -21,11 +22,12 @@ namespace ModernKey.Tray
 
         public event Action StateChanged;
 
-        public SystemTrayManager(AppSettings settings, Action showMainWindowAction, Action exitAction)
+        public SystemTrayManager(AppSettings settings, Action showMainWindowAction, Action exitAction, Action showClipboardAction = null)
         {
             _settings = settings;
             _showMainWindowAction = showMainWindowAction;
             _exitAction = exitAction;
+            _showClipboardAction = showClipboardAction;
 
             _notifyIcon = new NotifyIcon();
             LoadIcons();
@@ -160,6 +162,9 @@ namespace ModernKey.Tray
             var itemOpen = new ToolStripMenuItem("Bảng điều khiển ModernKey", null, (s, e) => _showMainWindowAction?.Invoke());
             itemOpen.Font = new Font(itemOpen.Font, FontStyle.Bold);
             menu.Items.Add(itemOpen);
+
+            var itemClipboard = new ToolStripMenuItem("Quản lý Clipboard (Win+Ins / Ctrl+Alt+V)", null, (s, e) => _showClipboardAction?.Invoke());
+            menu.Items.Add(itemClipboard);
 
             menu.Items.Add(new ToolStripSeparator());
 

@@ -147,6 +147,19 @@ namespace ModernKey
                 if (ChkStartAsAdmin != null) ChkStartAsAdmin.IsChecked = _settings.StartAsAdmin;
                 if (ChkOpenDialogOnStartup != null) ChkOpenDialogOnStartup.IsChecked = _settings.OpenDialogOnStartup;
 
+                // Tab Clipboard
+                if (ChkEnableClipboard != null) ChkEnableClipboard.IsChecked = _settings.EnableClipboardHistory;
+                if (ChkClipboardAutoHide != null) ChkClipboardAutoHide.IsChecked = _settings.ClipboardAutoHide;
+                if (ChkClipboardAlwaysOnTop != null) ChkClipboardAlwaysOnTop.IsChecked = _settings.ClipboardAlwaysOnTop;
+                if (ChkClipboardIgnoreDuplicates != null) ChkClipboardIgnoreDuplicates.IsChecked = _settings.ClipboardIgnoreDuplicates;
+                if (ChkClipboardPasteAsPlainText != null) ChkClipboardPasteAsPlainText.IsChecked = _settings.ClipboardPasteAsPlainText;
+                if (TxtClipboardMaxItems != null) TxtClipboardMaxItems.Text = _settings.ClipboardMaxItems.ToString();
+                if (TxtClipboardStoragePath != null)
+                {
+                    string cfgDir = SettingsManager.GetConfigDirectory();
+                    TxtClipboardStoragePath.Text = "Thư mục lưu trữ: " + System.IO.Path.Combine(cfgDir, "clipboard");
+                }
+
 
                 // Đồng bộ ComboBox Compact Mode
                 if (CmbCompactCharset != null)
@@ -241,6 +254,13 @@ namespace ModernKey
             if (ChkStartWithWindows != null) _settings.StartWithWindows = ChkStartWithWindows.IsChecked == true;
             if (ChkStartAsAdmin != null) _settings.StartAsAdmin = ChkStartAsAdmin.IsChecked == true;
             if (ChkOpenDialogOnStartup != null) _settings.OpenDialogOnStartup = ChkOpenDialogOnStartup.IsChecked == true;
+
+            // Tab Clipboard
+            if (ChkEnableClipboard != null) _settings.EnableClipboardHistory = ChkEnableClipboard.IsChecked == true;
+            if (ChkClipboardAutoHide != null) _settings.ClipboardAutoHide = ChkClipboardAutoHide.IsChecked == true;
+            if (ChkClipboardAlwaysOnTop != null) _settings.ClipboardAlwaysOnTop = ChkClipboardAlwaysOnTop.IsChecked == true;
+            if (ChkClipboardIgnoreDuplicates != null) _settings.ClipboardIgnoreDuplicates = ChkClipboardIgnoreDuplicates.IsChecked == true;
+            if (ChkClipboardPasteAsPlainText != null) _settings.ClipboardPasteAsPlainText = ChkClipboardPasteAsPlainText.IsChecked == true;
 
             // Tab Gõ tắt
             if (ChkUseMacro != null) _settings.UseMacro = ChkUseMacro.IsChecked == true;
@@ -745,6 +765,75 @@ namespace ModernKey
                 {
                     MessageBox.Show("Không thể đọc cấu hình từ file JSON đã chọn!", "Lỗi",
                                     MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private void TxtClipboardMaxItems_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isUpdatingUi) return;
+            if (int.TryParse(TxtClipboardMaxItems.Text.Trim(), out int val) && val >= 5 && val <= 99999)
+            {
+                _settings.ClipboardMaxItems = val;
+                if (Application.Current is App app && app.ClipboardHistory != null)
+                {
+                    app.ClipboardHistory.ApplyMaxLimit();
+                }
+            }
+        }
+
+        private void TxtClipboardMaxItems_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (_isUpdatingUi) return;
+            if (!int.TryParse(TxtClipboardMaxItems.Text.Trim(), out int val) || val < 5 || val > 99999)
+            {
+                int fallback = (_settings.ClipboardMaxItems >= 5 && _settings.ClipboardMaxItems <= 99999) ? _settings.ClipboardMaxItems : 200;
+                _settings.ClipboardMaxItems = fallback;
+                TxtClipboardMaxItems.Text = fallback.ToString();
+            }
+            else
+            {
+                _settings.ClipboardMaxItems = val;
+                TxtClipboardMaxItems.Text = val.ToString();
+            }
+            if (Application.Current is App app && app.ClipboardHistory != null)
+            {
+                app.ClipboardHistory.ApplyMaxLimit();
+            }
+        }
+
+        private void BtnOpenClipboardHud_Click(object sender, RoutedEventArgs e)
+        {
+            if (Application.Current is App app)
+            {
+                app.ShowClipboardWindow();
+            }
+        }
+
+        private void BtnClearClipboardHistory_Click(object sender, RoutedEventArgs e)
+        {
+            if (Application.Current is App app && app.ClipboardHistory != null)
+            {
+                var res = MessageBox.Show("Bạn có chắc chắn muốn xóa lịch sử clipboard (giữ lại các mục ghim yêu thích)?",
+                                          "Xác nhận", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (res == MessageBoxResult.Yes)
+                {
+                    app.ClipboardHistory.ClearAll(keepFavorites: true);
+                    MessageBox.Show("Đã làm sạch lịch sử clipboard!", "ModernKey HUD", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+        }
+
+        private void BtnClearAllClipboardHistory_Click(object sender, RoutedEventArgs e)
+        {
+            if (Application.Current is App app && app.ClipboardHistory != null)
+            {
+                var res = MessageBox.Show("Bạn có chắc chắn muốn xóa TOÀN BỘ lịch sử clipboard (kể cả mục yêu thích)?",
+                                          "Cảnh báo xóa sạch", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (res == MessageBoxResult.Yes)
+                {
+                    app.ClipboardHistory.ClearAll(keepFavorites: false);
+                    MessageBox.Show("Đã xóa toàn bộ dữ liệu clipboard!", "ModernKey HUD", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
         }

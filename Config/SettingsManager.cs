@@ -270,6 +270,24 @@ namespace ModernKey.Config
                         case "EscKeyUndo":
                             if (bool.TryParse(val, out var eku)) settings.EscKeyUndo = eku;
                             break;
+                        case "EnableClipboardHistory":
+                            if (bool.TryParse(val, out var ech)) settings.EnableClipboardHistory = ech;
+                            break;
+                        case "ClipboardAutoHide":
+                            if (bool.TryParse(val, out var cah)) settings.ClipboardAutoHide = cah;
+                            break;
+                        case "ClipboardAlwaysOnTop":
+                            if (bool.TryParse(val, out var caot)) settings.ClipboardAlwaysOnTop = caot;
+                            break;
+                        case "ClipboardIgnoreDuplicates":
+                            if (bool.TryParse(val, out var cid)) settings.ClipboardIgnoreDuplicates = cid;
+                            break;
+                        case "ClipboardPasteAsPlainText":
+                            if (bool.TryParse(val, out var cpp)) settings.ClipboardPasteAsPlainText = cpp;
+                            break;
+                        case "ClipboardMaxItems":
+                            if (int.TryParse(val, out var cmi)) settings.ClipboardMaxItems = (cmi >= 5 && cmi <= 99999) ? cmi : 200;
+                            break;
                         case "IsCompactMode":
                             if (bool.TryParse(val, out var icm)) settings.IsCompactMode = icm;
                             break;
@@ -346,6 +364,12 @@ namespace ModernKey.Config
                 sb.AppendLine("AutoExcludeEnabled=" + settings.AutoExcludeEnabled);
                 sb.AppendLine("ExcludedApps=" + (settings.ExcludedApps != null ? string.Join(";", settings.ExcludedApps) : ""));
                 sb.AppendLine("EnableStatusOsd=" + settings.EnableStatusOsd);
+                sb.AppendLine("EnableClipboardHistory=" + settings.EnableClipboardHistory);
+                sb.AppendLine("ClipboardAutoHide=" + settings.ClipboardAutoHide);
+                sb.AppendLine("ClipboardAlwaysOnTop=" + settings.ClipboardAlwaysOnTop);
+                sb.AppendLine("ClipboardIgnoreDuplicates=" + settings.ClipboardIgnoreDuplicates);
+                sb.AppendLine("ClipboardPasteAsPlainText=" + settings.ClipboardPasteAsPlainText);
+                sb.AppendLine("ClipboardMaxItems=" + settings.ClipboardMaxItems);
                 sb.AppendLine("SmartCodePassthrough=" + settings.SmartCodePassthrough);
                 sb.AppendLine("EscKeyUndo=" + settings.EscKeyUndo);
                 sb.AppendLine("IsCompactMode=" + settings.IsCompactMode);
