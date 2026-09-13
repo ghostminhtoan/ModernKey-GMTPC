@@ -34,9 +34,16 @@ namespace ModernKey.Core
                 System.Windows.Data.BindingOperations.EnableCollectionSynchronization(FavoriteItems, _lock);
             }
             catch { }
-            EnsureDirectoriesAndMigrate();
-            LoadHistory();
-            LoadFavorites();
+
+            // Nạp dữ liệu lịch sử và di chuyển thư mục bất đồng bộ trên luồng nền
+            // Tuyệt đối không đọc file/parse JSON trên Main/UI Thread để đảm bảo app mở lên tức thì (<10ms)
+            // không gây bất kỳ độ trễ hay giật lag chuột/phím nào khi đang chơi game!
+            System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+            {
+                EnsureDirectoriesAndMigrate();
+                LoadHistory();
+                LoadFavorites();
+            });
         }
 
         public string GetClipboardDirectory()
@@ -440,6 +447,90 @@ namespace ModernKey.Core
             }
         }
 
+        public void AddToFavoritesWithGroup(ClipboardItem item, string groupName)
+        {
+            if (item == null) return;
+            string cleanGroup = (groupName ?? "").Trim();
+            if (cleanGroup.Equals("-All-", StringComparison.OrdinalIgnoreCase) || cleanGroup.Equals("All", StringComparison.OrdinalIgnoreCase))
+            {
+                cleanGroup = string.Empty;
+            }
+
+            lock (_lock)
+            {
+                item.IsFavorite = true;
+                item.GroupName = cleanGroup;
+
+                var existing = FindMatchingItem(FavoriteItems, item);
+                if (existing != null)
+                {
+                    existing.GroupName = cleanGroup;
+                    existing.IsFavorite = true;
+                }
+                else
+                {
+                    var favClone = item.Clone();
+                    favClone.IsFavorite = true;
+                    favClone.GroupName = cleanGroup;
+                    DispatchSafe(() =>
+                    {
+                        FavoriteItems.Insert(0, favClone);
+                    });
+                }
+
+                var matchHist = FindMatchingItem(Items, item);
+                if (matchHist != null)
+                {
+                    matchHist.IsFavorite = true;
+                    matchHist.GroupName = cleanGroup;
+                }
+
+                SaveHistoryAsync();
+                SaveFavoritesAsync();
+            }
+        }
+
+        public void RemoveFromFavorites(ClipboardItem item)
+        {
+            if (item == null) return;
+            lock (_lock)
+            {
+                item.IsFavorite = false;
+                var existing = FindMatchingItem(FavoriteItems, item);
+                if (existing != null)
+                {
+                    DispatchSafe(() =>
+                    {
+                        FavoriteItems.Remove(existing);
+                    });
+                }
+                var matchHist = FindMatchingItem(Items, item);
+                if (matchHist != null)
+                {
+                    matchHist.IsFavorite = false;
+                }
+
+                SaveHistoryAsync();
+                SaveFavoritesAsync();
+            }
+        }
+
+        public Dictionary<string, int> GetFavoriteGroupsWithCount()
+        {
+            var dict = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            lock (_lock)
+            {
+                foreach (var it in FavoriteItems)
+                {
+                    string g = (it.GroupName ?? "").Trim();
+                    if (string.IsNullOrEmpty(g)) continue;
+                    if (dict.ContainsKey(g)) dict[g]++;
+                    else dict[g] = 1;
+                }
+            }
+            return dict;
+        }
+
         public void DeleteItem(ClipboardItem item, bool isFavoriteView = false)
         {
             if (item == null) return;
@@ -614,6 +705,7 @@ namespace ModernKey.Core
                 sb.Append($"\"CharCount\": {it.CharCount}, ");
                 sb.Append($"\"ByteSize\": {it.ByteSize}, ");
                 sb.Append($"\"IsFavorite\": {(it.IsFavorite ? "true" : "false")}, ");
+                sb.Append($"\"GroupName\": \"{Escape(it.GroupName ?? "")}\", ");
                 sb.Append($"\"ImagePath\": \"{Escape(it.ImagePath ?? "")}\", ");
                 sb.Append($"\"ThumbPath\": \"{Escape(it.ThumbPath ?? "")}\", ");
                 sb.Append($"\"SourceApp\": \"{Escape(it.SourceApp ?? "")}\", ");
@@ -1003,6 +1095,7 @@ namespace ModernKey.Core
                 item.CharCount = ExtractJsonInt(block, "CharCount", 0);
                 item.ByteSize = ExtractJsonLong(block, "ByteSize", 0);
                 item.IsFavorite = ExtractJsonBool(block, "IsFavorite", false);
+                item.GroupName = ExtractJsonString(block, "GroupName") ?? string.Empty;
                 item.ImagePath = ResolveCachePath(ExtractJsonString(block, "ImagePath"));
                 item.ThumbPath = ResolveCachePath(ExtractJsonString(block, "ThumbPath"));
                 item.SourceApp = ExtractJsonString(block, "SourceApp");

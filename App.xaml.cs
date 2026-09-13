@@ -172,12 +172,21 @@ namespace ModernKey
                 }));
             };
 
-            // Phím tắt mở Bảng quản lý Clipboard (Win+Ins / Ctrl+Alt+V)
+            // Phím tắt Toggle Bảng Lịch sử Clipboard (Win+Ins / Ctrl+Alt+V)
             _keyboardHook.OpenClipboardRequested += () =>
             {
                 Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
                 {
-                    ShowClipboardWindow();
+                    ToggleClipboardHistory();
+                }));
+            };
+
+            // Phím tắt Toggle Bảng Yêu thích Clipboard (Alt+Ins chuẩn Comfort Keys Pro)
+            _keyboardHook.OpenClipboardFavoriteRequested += () =>
+            {
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
+                {
+                    ToggleClipboardFavorites();
                 }));
             };
 
@@ -203,18 +212,13 @@ namespace ModernKey
             }
         }
 
-        [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
-        private static extern bool SetProcessWorkingSetSize(IntPtr hProcess, IntPtr dwMinimumWorkingSetSize, IntPtr dwMaximumWorkingSetSize);
-
         public static void TrimWorkingSet()
         {
+            // TUYỆT ĐỐI KHÔNG DÙNG SetProcessWorkingSetSize(-1, -1) vì nó ép bộ nhớ ra Pagefile trên HDD/SSD,
+            // gây hàng loạt Hard Page Fault khiến bàn phím và chuột bị đóng băng trong 10 giây khi chơi game!
             try
             {
                 GC.Collect(1, GCCollectionMode.Optimized);
-                using (var currentProcess = System.Diagnostics.Process.GetCurrentProcess())
-                {
-                    SetProcessWorkingSetSize(currentProcess.Handle, (IntPtr)(-1), (IntPtr)(-1));
-                }
             }
             catch { }
         }
@@ -238,13 +242,18 @@ namespace ModernKey
 
         public void ShowClipboardWindow()
         {
+            ShowClipboardWindow(null);
+        }
+
+        public void ShowClipboardWindow(string mode)
+        {
             try
             {
                 if (_clipboardWindow == null)
                 {
                     _clipboardWindow = new ClipboardWindow(_clipboardHistory, _settings);
                 }
-                _clipboardWindow.ShowHud(IntPtr.Zero);
+                _clipboardWindow.ShowHud(IntPtr.Zero, mode);
             }
             catch (Exception ex)
             {
@@ -252,12 +261,56 @@ namespace ModernKey
                 try
                 {
                     _clipboardWindow = new ClipboardWindow(_clipboardHistory, _settings);
-                    _clipboardWindow.ShowHud(IntPtr.Zero);
+                    _clipboardWindow.ShowHud(IntPtr.Zero, mode);
                 }
                 catch (Exception ex2)
                 {
                     Debug.WriteLine("ShowClipboardWindow retry error: " + ex2.Message);
                 }
+            }
+        }
+
+        public void ToggleClipboardHistory()
+        {
+            try
+            {
+                if (_clipboardWindow != null && _clipboardWindow.IsVisible && _clipboardWindow.WindowState != WindowState.Minimized && _clipboardWindow.CurrentMode == "HISTORY")
+                {
+                    _clipboardWindow.Hide();
+                    return;
+                }
+
+                if (_clipboardWindow == null)
+                {
+                    _clipboardWindow = new ClipboardWindow(_clipboardHistory, _settings);
+                }
+                _clipboardWindow.ShowHud(IntPtr.Zero, "HISTORY");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("ToggleClipboardHistory error: " + ex.Message);
+            }
+        }
+
+        public void ToggleClipboardFavorites()
+        {
+            try
+            {
+                if (_clipboardWindow != null && _clipboardWindow.IsVisible && _clipboardWindow.WindowState != WindowState.Minimized && _clipboardWindow.CurrentMode == "FAVORITES")
+                {
+                    _clipboardWindow.Hide();
+                    return;
+                }
+
+                if (_clipboardWindow == null)
+                {
+                    _clipboardWindow = new ClipboardWindow(_clipboardHistory, _settings);
+                }
+                _clipboardWindow.ShowHud(IntPtr.Zero, "FAVORITES");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("ToggleClipboardFavorites error: " + ex.Message);
             }
         }
 

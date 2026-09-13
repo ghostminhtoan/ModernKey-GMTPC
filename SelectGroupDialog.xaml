@@ -1,0 +1,112 @@
+<Window x:Class="ModernKey.SelectGroupDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Select Group..."
+        Height="440" Width="390" MinWidth="320" MinHeight="340"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource CyberBlack}"
+        Foreground="{StaticResource CyberTextPrimary}"
+        ShowInTaskbar="False"
+        ResizeMode="CanResizeWithGrip"
+        Icon="Resources/AppIcon.ico"
+        PreviewKeyDown="Window_PreviewKeyDown">
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <!-- Header -->
+            <RowDefinition Height="Auto" />
+            <!-- Group List -->
+            <RowDefinition Height="*" />
+            <!-- Input Name -->
+            <RowDefinition Height="Auto" />
+            <!-- Action Buttons -->
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Grid.Row="0" Background="{StaticResource CyberDark}" CornerRadius="2" Padding="8,6" Margin="0,0,0,8"
+                BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="📁" FontSize="13" Foreground="{StaticResource CyberNeonYellow}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                <TextBlock Text="SELECT GROUP // CHỌN NHÓM YÊU THÍCH" FontSize="11" FontWeight="Bold" FontFamily="Consolas"
+                           Foreground="{StaticResource CyberNeonCyan}" VerticalAlignment="Center" />
+            </StackPanel>
+        </Border>
+
+        <!-- List Groups -->
+        <Border Grid.Row="1" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}"
+                BorderThickness="1" CornerRadius="2" Margin="0,0,0,8">
+            <ListBox x:Name="LstGroups" Background="Transparent" BorderThickness="0"
+                     Foreground="{StaticResource CyberTextPrimary}" FontFamily="Consolas" FontSize="12"
+                     SelectionChanged="LstGroups_SelectionChanged"
+                     MouseDoubleClick="LstGroups_MouseDoubleClick">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="4,3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="📁 " Foreground="{StaticResource CyberNeonYellow}" FontSize="11" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text="{Binding DisplayName}" FontWeight="SemiBold"
+                                       Foreground="{StaticResource CyberTextPrimary}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="2" Text="{Binding CountText}" Foreground="{StaticResource CyberNeonCyan}"
+                                       FontWeight="Bold" Margin="8,0,4,0" VerticalAlignment="Center" />
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="Padding" Value="2" />
+                        <Setter Property="Cursor" Value="Hand" />
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#1A334B" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+            </ListBox>
+        </Border>
+
+        <!-- Input Name -->
+        <Grid Grid.Row="2" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Name:" FontFamily="Consolas" FontSize="12" FontWeight="Bold"
+                       Foreground="{StaticResource CyberNeonCyan}" VerticalAlignment="Center" Margin="0,0,8,0" />
+            <Border Grid.Column="1" Background="{StaticResource CyberInput}" BorderBrush="{StaticResource CyberBorderDim}"
+                    BorderThickness="1" CornerRadius="2">
+                <TextBox x:Name="TxtGroupName" Height="26" BorderThickness="0" Background="Transparent"
+                         Foreground="{StaticResource CyberTextPrimary}" FontFamily="Consolas" FontSize="12"
+                         VerticalContentAlignment="Center" Padding="4,0" KeyDown="TxtGroupName_KeyDown" />
+            </Border>
+        </Grid>
+
+        <!-- Actions OK & Cancel -->
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0" Text="[Enter = OK | Esc = Cancel]" FontFamily="Consolas" FontSize="10"
+                       Foreground="{StaticResource CyberTextSecondary}" VerticalAlignment="Center" />
+
+            <Button x:Name="BtnOk" Grid.Column="1" Content="OK" Width="75" Height="26" Margin="0,0,6,0"
+                    IsDefault="True" Click="BtnOk_Click"
+                    Background="#152839" BorderBrush="{StaticResource CyberNeonCyan}" Foreground="{StaticResource CyberNeonCyan}"
+                    FontFamily="Consolas" FontWeight="Bold" FontSize="11" Cursor="Hand" />
+
+            <Button x:Name="BtnCancel" Grid.Column="2" Content="Cancel" Width="75" Height="26"
+                    IsCancel="True" Click="BtnCancel_Click"
+                    Background="#25101A" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}"
+                    FontFamily="Consolas" FontWeight="Bold" FontSize="11" Cursor="Hand" />
+        </Grid>
+    </Grid>
+</Window>

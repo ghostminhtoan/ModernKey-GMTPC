@@ -34,6 +34,8 @@ namespace ModernKey
         private ICollectionView _itemsView;
         private string _activeFilter = "ALL";
         private string _currentMode = "HISTORY";
+        public string CurrentMode => _currentMode;
+        private string _activeGroupFilter = null;
         private bool _isSortDescending = true;
         private string _lastActiveItemId = null;
         private readonly DateTime _sessionStartTime = DateTime.Now;
@@ -189,7 +191,7 @@ namespace ModernKey
             }
         }
 
-        public void ShowHud(IntPtr targetHwnd)
+        public void ShowHud(IntPtr targetHwnd, string targetMode = null)
         {
             _showTime = DateTime.Now;
             _lastTargetHwnd = (targetHwnd != IntPtr.Zero && targetHwnd != new System.Windows.Interop.WindowInteropHelper(this).Handle)
@@ -198,6 +200,24 @@ namespace ModernKey
 
             Topmost = _settings != null && _settings.ClipboardAlwaysOnTop;
             UpdateMergeOptionsButtonLabel();
+
+            if (!string.IsNullOrEmpty(targetMode))
+            {
+                if (string.Equals(targetMode, "FAVORITES", StringComparison.OrdinalIgnoreCase))
+                {
+                    _currentMode = "FAVORITES";
+                    if (RbModeFavorites != null) RbModeFavorites.IsChecked = true;
+                    if (BtnClearAllFooter != null) BtnClearAllFooter.Content = "XÓA TOÀN BỘ YÊU THÍCH";
+                }
+                else if (string.Equals(targetMode, "HISTORY", StringComparison.OrdinalIgnoreCase))
+                {
+                    _currentMode = "HISTORY";
+                    if (RbModeHistory != null) RbModeHistory.IsChecked = true;
+                    if (BtnClearAllFooter != null) BtnClearAllFooter.Content = "XÓA TOÀN BỘ LỊCH SỬ";
+                }
+            }
+
+            UpdateGroupFilterButtonLabel();
 
             if (LstClipboard != null && (LstClipboard.ItemsSource == null || LstClipboard.ItemsSource != _itemsView || _itemsView == null))
             {
@@ -266,6 +286,15 @@ namespace ModernKey
             if (_activeFilter == "WEEK" && item.Timestamp < DateTime.Now.AddDays(-7)) return false;
             if (_activeFilter == "MONTH" && (item.Timestamp.Year != DateTime.Now.Year || item.Timestamp.Month != DateTime.Now.Month)) return false;
 
+            // 1.1. Lọc theo Group Yêu thích (Chuẩn Comfort Keys Pro)
+            if (_currentMode == "FAVORITES" && !string.IsNullOrEmpty(_activeGroupFilter) && _activeGroupFilter != "-All-")
+            {
+                if (!string.Equals(item.GroupName ?? string.Empty, _activeGroupFilter, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+            }
+
             // 2. Lọc theo từ khóa tìm kiếm
             string query = TxtSearch.Text?.Trim();
             if (!string.IsNullOrEmpty(query))
@@ -311,8 +340,117 @@ namespace ModernKey
                 if (BtnClearAllFooter != null) BtnClearAllFooter.Content = "XÓA TOÀN BỘ LỊCH SỬ";
             }
 
+            UpdateGroupFilterButtonLabel();
             InitCollectionView();
             EnsureAppropriateSelection();
+        }
+
+        public void UpdateGroupFilterButtonLabel()
+        {
+            if (TxtGroupFilterCurrentLabel == null) return;
+
+            if (_currentMode != "FAVORITES")
+            {
+                if (BtnGroupFilterMenu != null) BtnGroupFilterMenu.Opacity = 0.5;
+                TxtGroupFilterCurrentLabel.Text = "GROUP: -ALL-";
+                return;
+            }
+
+            if (BtnGroupFilterMenu != null) BtnGroupFilterMenu.Opacity = 1.0;
+
+            if (string.IsNullOrEmpty(_activeGroupFilter) || _activeGroupFilter == "-All-")
+            {
+                int total = _historyManager?.FavoriteItems?.Count ?? 0;
+                TxtGroupFilterCurrentLabel.Text = total > 0 ? $"GROUP: -ALL- ({total})" : "GROUP: -ALL-";
+            }
+            else
+            {
+                int count = _historyManager?.FavoriteItems?.Count(x => string.Equals(x.GroupName, _activeGroupFilter, StringComparison.OrdinalIgnoreCase)) ?? 0;
+                TxtGroupFilterCurrentLabel.Text = $"📁 {_activeGroupFilter} ({count})";
+            }
+        }
+
+        private void BtnGroupFilterMenu_Click(object sender, RoutedEventArgs e)
+        {
+            if (_historyManager == null) return;
+
+            // Tự động chuyển sang tab Favorites nếu đang ở History
+            if (_currentMode != "FAVORITES")
+            {
+                if (RbModeFavorites != null) RbModeFavorites.IsChecked = true;
+            }
+
+            var favList = _historyManager.FavoriteItems.ToList();
+            int totalFavorites = favList.Count;
+
+            var groupCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var it in favList)
+            {
+                string g = (it.GroupName ?? "").Trim();
+                if (!string.IsNullOrEmpty(g))
+                {
+                    if (groupCounts.ContainsKey(g)) groupCounts[g]++;
+                    else groupCounts[g] = 1;
+                }
+            }
+
+            var cm = new ContextMenu { Style = (Style)FindResource("CyberContextMenu") };
+
+            // 1. Dòng -All-
+            var miAll = new MenuItem
+            {
+                Header = $"-All- ({totalFavorites})",
+                Style = (Style)FindResource("CyberMenuItem")
+            };
+            if (string.IsNullOrEmpty(_activeGroupFilter) || _activeGroupFilter == "-All-")
+            {
+                miAll.FontWeight = FontWeights.Bold;
+                miAll.Foreground = (System.Windows.Media.Brush)FindResource("CyberNeonYellow");
+            }
+            miAll.Click += (s, ev) =>
+            {
+                _activeGroupFilter = null;
+                UpdateGroupFilterButtonLabel();
+                _itemsView?.Refresh();
+                EnsureAppropriateSelection();
+            };
+            cm.Items.Add(miAll);
+
+            if (groupCounts.Count > 0)
+            {
+                cm.Items.Add(new Separator { Style = (Style)FindResource("CyberMenuSeparator") });
+
+                // 2. Từng Group sắp xếp theo Alphabet A-Z (Chuẩn Comfort Keys Pro - Ảnh 2)
+                var sorted = groupCounts.OrderBy(k => k.Key, StringComparer.OrdinalIgnoreCase);
+                foreach (var kvp in sorted)
+                {
+                    string gName = kvp.Key;
+                    int gCount = kvp.Value;
+
+                    var miGroup = new MenuItem
+                    {
+                        Header = $"{gName} ({gCount})",
+                        Style = (Style)FindResource("CyberMenuItem")
+                    };
+                    if (string.Equals(_activeGroupFilter, gName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        miGroup.FontWeight = FontWeights.Bold;
+                        miGroup.Foreground = (System.Windows.Media.Brush)FindResource("CyberNeonYellow");
+                    }
+                    miGroup.Click += (s, ev) =>
+                    {
+                        _activeGroupFilter = gName;
+                        UpdateGroupFilterButtonLabel();
+                        _itemsView?.Refresh();
+                        EnsureAppropriateSelection();
+                    };
+                    cm.Items.Add(miGroup);
+                }
+            }
+
+            cm.PlacementTarget = BtnGroupFilterMenu;
+            cm.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            cm.IsOpen = true;
         }
 
         private void BtnFilterMenu_Click(object sender, RoutedEventArgs e)
@@ -1352,36 +1490,50 @@ namespace ModernKey
             });
         }
 
+        public void PromptSelectGroupForSelectedItems(IEnumerable<ClipboardItem> targetItems = null)
+        {
+            var selected = (targetItems ?? LstClipboard?.SelectedItems?.Cast<ClipboardItem>())?.ToList();
+            if (selected == null || selected.Count == 0) return;
+
+            string defaultGroup = selected.FirstOrDefault(x => !string.IsNullOrEmpty(x.GroupName))?.GroupName;
+
+            var dlg = new SelectGroupDialog(_historyManager?.FavoriteItems, defaultGroup)
+            {
+                Owner = this
+            };
+
+            if (dlg.ShowDialog() == true)
+            {
+                string groupName = dlg.SelectedGroupName;
+                foreach (var item in selected)
+                {
+                    _historyManager?.AddToFavoritesWithGroup(item, groupName);
+                }
+
+                _itemsView?.Refresh();
+                UpdateGroupFilterButtonLabel();
+
+                string groupLabel = string.IsNullOrEmpty(groupName) ? "-All-" : groupName;
+                if (TxtStatus != null)
+                {
+                    TxtStatus.Text = selected.Count == 1
+                        ? $"★ Đã thêm vào Yêu thích [Group: {groupLabel}]!"
+                        : $"★ Đã thêm {selected.Count} mục vào Yêu thích [Group: {groupLabel}]!";
+                }
+            }
+        }
+
         private void BtnToggleFav_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.DataContext is ClipboardItem item)
             {
-                _historyManager?.ToggleFavorite(item);
-                _itemsView?.Refresh();
-                if (TxtStatus != null)
-                {
-                    TxtStatus.Text = item.IsFavorite ? "★ Đã thêm vào mục Yêu thích!" : "☆ Đã bỏ khỏi mục Yêu thích!";
-                }
+                PromptSelectGroupForSelectedItems(new[] { item });
             }
         }
 
         private void BtnToggleFavoriteAction_Click(object sender, RoutedEventArgs e)
         {
-            var selected = LstClipboard?.SelectedItems?.Cast<ClipboardItem>().ToList();
-            if (selected != null && selected.Count > 0)
-            {
-                foreach (var item in selected)
-                {
-                    _historyManager?.ToggleFavorite(item);
-                }
-                _itemsView?.Refresh();
-                if (TxtStatus != null)
-                {
-                    TxtStatus.Text = selected.Count == 1
-                        ? (selected[0].IsFavorite ? "★ Đã thêm vào mục Yêu thích!" : "☆ Đã bỏ khỏi mục Yêu thích!")
-                        : $"✓ Đã cập nhật trạng thái Yêu thích cho {selected.Count} mục!";
-                }
-            }
+            PromptSelectGroupForSelectedItems();
         }
 
         private void BtnDeleteItem_Click(object sender, RoutedEventArgs e)
@@ -1460,14 +1612,26 @@ namespace ModernKey
 
         private void CtxMenuToggleFav_Click(object sender, RoutedEventArgs e)
         {
+            PromptSelectGroupForSelectedItems();
+        }
+
+        private void CtxMenuRemoveFav_Click(object sender, RoutedEventArgs e)
+        {
             var selected = LstClipboard?.SelectedItems?.Cast<ClipboardItem>().ToList();
             if (selected != null && selected.Count > 0)
             {
                 foreach (var it in selected)
                 {
-                    _historyManager?.ToggleFavorite(it);
+                    _historyManager?.RemoveFromFavorites(it);
                 }
                 _itemsView?.Refresh();
+                UpdateGroupFilterButtonLabel();
+                if (TxtStatus != null)
+                {
+                    TxtStatus.Text = selected.Count == 1
+                        ? "☆ Đã bỏ khỏi mục Yêu thích!"
+                        : $"☆ Đã bỏ {selected.Count} mục khỏi Yêu thích!";
+                }
             }
         }
 
@@ -2272,9 +2436,22 @@ namespace ModernKey
             }
             else if (e.Key == Key.D && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
             {
-                if (!TxtSearch.IsFocused)
+                BtnToggleFavoriteAction_Click(sender, null);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Insert && (Keyboard.Modifiers & ModifierKeys.Alt) != 0)
+            {
+                if (Application.Current is App app)
                 {
-                    BtnToggleFavoriteAction_Click(sender, null);
+                    app.ToggleClipboardFavorites();
+                    e.Handled = true;
+                }
+            }
+            else if (e.Key == Key.Insert && (Keyboard.Modifiers & ModifierKeys.Windows) != 0)
+            {
+                if (Application.Current is App app)
+                {
+                    app.ToggleClipboardHistory();
                     e.Handled = true;
                 }
             }

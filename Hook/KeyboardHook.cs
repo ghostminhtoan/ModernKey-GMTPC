@@ -178,6 +178,7 @@ namespace ModernKey.Hook
         public event Action ToggleMacroRequested;
         public event Action ResetHookRequested;
         public event Action OpenClipboardRequested;
+        public event Action OpenClipboardFavoriteRequested;
 
         [DllImport("user32.dll")]
         private static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventDelegate lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
@@ -236,7 +237,7 @@ namespace ModernKey.Hook
                             string fileName = System.IO.Path.GetFileName(fullPath)?.ToLowerInvariant() ?? string.Empty;
                             if (!string.IsNullOrEmpty(fileName))
                             {
-                                if (_pidExeNameCache.Count > 100) _pidExeNameCache.Clear();
+                                if (_pidExeNameCache.Count > 200) _pidExeNameCache.Clear();
                                 _pidExeNameCache[pid] = fileName;
                                 return fileName;
                             }
@@ -248,16 +249,10 @@ namespace ModernKey.Hook
                     }
                 }
 
-                // Fallback an toàn nếu không mở được process bằng Native API
-                using (var proc = Process.GetProcessById((int)pid))
-                {
-                    string pName = proc.ProcessName.ToLowerInvariant();
-                    if (!pName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                        pName += ".exe";
-                    if (_pidExeNameCache.Count > 100) _pidExeNameCache.Clear();
-                    _pidExeNameCache[pid] = pName;
-                    return pName;
-                }
+                // Nếu không mở được process (tiến trình Game có Anti-Cheat hoặc elevated),
+                // TUYỆT ĐỐI KHÔNG DÙNG Process.GetProcessById vì nó quét toàn bộ hệ thống làm treo máy/lag game!
+                _pidExeNameCache[pid] = "unknown.exe";
+                return "unknown.exe";
             }
             catch
             {
@@ -393,11 +388,21 @@ namespace ModernKey.Hook
             if (nCode >= 0)
             {
                 int msg = (int)wParam;
+                // Bỏ qua ngay lập tức mọi thông điệp di chuyển và cuộn chuột (chiếm 99.999% sự kiện chuột trong game)
+                if (msg == 0x0200 /* WM_MOUSEMOVE */ || msg == 0x020A /* WM_MOUSEWHEEL */ || msg == 0x020E /* WM_MOUSEHWHEEL */)
+                {
+                    return CallNextHookEx(_mouseHookId, nCode, wParam, lParam);
+                }
+
                 if (msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN || msg == WM_MBUTTONDOWN)
                 {
                     try
                     {
-                        _engine?.Reset();
+                        // Chỉ cần reset bộ gõ khi đang có ký tự gõ dở dang
+                        if (_engine != null && _engine.HasPendingWord)
+                        {
+                            _engine.Reset();
+                        }
                         ResetModifierState();
                     }
                     catch { }
@@ -405,10 +410,6 @@ namespace ModernKey.Hook
             }
             return CallNextHookEx(_mouseHookId, nCode, wParam, lParam);
         }
-
-        private IntPtr _lastForegroundWindow = IntPtr.Zero;
-
-
 
         private IntPtr KeyboardHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
@@ -422,14 +423,8 @@ namespace ModernKey.Hook
                     return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
                 }
 
-                // 2. Tự động chuyển đổi ngôn ngữ gõ thông minh (Smart Switch Key) theo từng cửa sổ ứng dụng
-                IntPtr currentForeground = GetForegroundWindow();
-                if (currentForeground != _lastForegroundWindow)
-                {
-                    _lastForegroundWindow = currentForeground;
-                    _engine.Reset();
-                    OnForegroundWindowChanged(currentForeground);
-                }
+                // LƯU Ý: WinEventHook (EVENT_SYSTEM_FOREGROUND) đã tự động theo dõi việc đổi cửa sổ ứng dụng
+                // một cách chuẩn xác từ hệ điều hành. KHÔNG gọi GetForegroundWindow() trên mọi lần bấm phím để tránh làm chậm game!
 
                 int msg = wParam.ToInt32();
                 if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN)
@@ -532,13 +527,22 @@ namespace ModernKey.Hook
                         return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
                     }
 
-                    // 6.5. Phím tắt mở nhanh Clipboard Manager HUD: Win+Ins (chuẩn Comfort Keys) hoặc Ctrl+Alt+V
+                    // 6.5. Phím tắt mở/toggle nhanh Clipboard History HUD: Win+Ins (chuẩn Comfort Keys) hoặc Ctrl+Alt+V
                     if (((_modifierFlag & MASK_WIN) != 0 && vkCode == 0x2D) ||
                         (((_modifierFlag & (MASK_CTRL | MASK_ALT)) == (MASK_CTRL | MASK_ALT)) && vkCode == 0x56))
                     {
                         KeySender.SuppressAltMenuActivation();
                         _engine.Reset();
                         OpenClipboardRequested?.Invoke();
+                        return (IntPtr)1;
+                    }
+
+                    // 6.6. Phím tắt mở/toggle nhanh Clipboard Favorite HUD: Alt+Insert (chuẩn Comfort Keys Pro)
+                    if ((_modifierFlag & MASK_ALT) != 0 && (_modifierFlag & (MASK_CTRL | MASK_WIN | MASK_SHIFT)) == 0 && vkCode == 0x2D)
+                    {
+                        KeySender.SuppressAltMenuActivation();
+                        _engine.Reset();
+                        OpenClipboardFavoriteRequested?.Invoke();
                         return (IntPtr)1;
                     }
 

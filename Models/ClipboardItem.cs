@@ -60,6 +60,27 @@ namespace ModernKey.Models
             }
         }
 
+        private string _groupName = string.Empty;
+        public string GroupName
+        {
+            get => _groupName;
+            set
+            {
+                if (_groupName != value)
+                {
+                    _groupName = value;
+                    OnPropertyChanged(nameof(GroupName));
+                    OnPropertyChanged(nameof(GroupDisplay));
+                    OnPropertyChanged(nameof(GroupBadgeVisibility));
+                    OnPropertyChanged(nameof(GroupBadgeText));
+                }
+            }
+        }
+
+        public string GroupDisplay => string.IsNullOrEmpty(_groupName) ? "-All-" : _groupName;
+        public Visibility GroupBadgeVisibility => !string.IsNullOrEmpty(_groupName) ? Visibility.Visible : Visibility.Collapsed;
+        public string GroupBadgeText => !string.IsNullOrEmpty(_groupName) ? $"[{_groupName}]" : string.Empty;
+
         public string TimeDisplay => Timestamp.ToString("HH:mm:ss dd/MM");
 
         public string InfoDisplay
@@ -131,7 +152,8 @@ namespace ModernKey.Models
                 Timestamp = this.Timestamp,
                 CharCount = this.CharCount,
                 ByteSize = this.ByteSize,
-                IsFavorite = this.IsFavorite
+                IsFavorite = this.IsFavorite,
+                GroupName = this.GroupName
             };
         }
 

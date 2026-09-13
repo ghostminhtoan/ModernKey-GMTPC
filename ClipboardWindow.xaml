@@ -221,8 +221,19 @@
                     <RadioButton x:Name="RbModeFavorites" Content="★ YÊU THÍCH" Checked="Mode_Checked"
                                  GroupName="ClipboardViewMode" Style="{StaticResource CyberFilterRadio}" />
 
+                    <!-- Nút lọc Group cho Favorites chuẩn Comfort Keys Pro (Ảnh 2) -->
+                    <Button x:Name="BtnGroupFilterMenu" Click="BtnGroupFilterMenu_Click" Padding="8,4" Margin="4,0,5,0"
+                            Background="#10141E" BorderBrush="{StaticResource CyberNeonYellow}" BorderThickness="1"
+                            Cursor="Hand" ToolTip="Lọc theo Group / Thư mục Yêu thích (Chuẩn Comfort Keys Pro)">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="📁 " Foreground="{StaticResource CyberNeonYellow}" FontSize="10" VerticalAlignment="Center" />
+                            <TextBlock x:Name="TxtGroupFilterCurrentLabel" Text="GROUP: -ALL-" Foreground="{StaticResource CyberNeonYellow}" FontSize="11" FontFamily="Consolas" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <TextBlock Text=" ▼" Foreground="{StaticResource CyberNeonYellow}" FontSize="8" VerticalAlignment="Center" Margin="2,0,0,0" />
+                        </StackPanel>
+                    </Button>
+
                     <!-- Dropdown Filter chuẩn Comfort Keys Pro -->
-                    <Button x:Name="BtnFilterMenu" Click="BtnFilterMenu_Click" Padding="8,4" Margin="4,0,5,0"
+                    <Button x:Name="BtnFilterMenu" Click="BtnFilterMenu_Click" Padding="8,4" Margin="0,0,5,0"
                             Background="#10141E" BorderBrush="{StaticResource CyberNeonCyan}" BorderThickness="1"
                             Cursor="Hand" ToolTip="Menu lọc chi tiết theo thời gian &amp; định dạng (Chuẩn Comfort Keys Pro)">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -274,7 +285,8 @@
                         <ListBox.ContextMenu>
                             <ContextMenu Style="{StaticResource CyberContextMenu}">
                                 <MenuItem Header="Dán (Paste)" InputGestureText="Enter / Ins" Click="CtxMenuPaste_Click" Style="{StaticResource CyberMenuItem}" />
-                                <MenuItem Header="Thêm / Bỏ Yêu thích" InputGestureText="Ctrl+D" Click="CtxMenuToggleFav_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem Header="Thêm / Chọn Group Yêu thích..." InputGestureText="Ctrl+D" Click="CtxMenuToggleFav_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem Header="Bỏ khỏi Yêu thích" Click="CtxMenuRemoveFav_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="Chỉnh sửa (Edit)" InputGestureText="Alt+Enter" Click="CtxMenuEdit_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="Xem trước (Preview)" Click="CtxMenuPreview_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="Lưu thành tệp... (Save As...)" InputGestureText="Ctrl+S" Click="CtxMenuSaveAs_Click" Style="{StaticResource CyberMenuItem}" />
@@ -306,6 +318,7 @@
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
 
@@ -313,7 +326,7 @@
                                         <Button Grid.Column="0" Content="{Binding FavoriteIcon}" Click="BtnToggleFav_Click"
                                                 Foreground="{Binding FavoriteBrush}" Background="Transparent" BorderThickness="0" Padding="0"
                                                 FontWeight="Bold" FontSize="15" Width="26" Height="26" VerticalAlignment="Center" Margin="0,0,4,0"
-                                                ToolTip="Ghim / Bỏ ghim mục yêu thích" />
+                                                ToolTip="Thêm vào / Chọn Group Yêu thích (Ctrl+D)" />
 
                                         <!-- Icon ứng dụng nguồn (Notepad++, Chrome, Snipping Tool, ...) -->
                                         <Border Grid.Column="1" Width="18" Height="18" Margin="0,0,6,0" VerticalAlignment="Center"
@@ -323,12 +336,19 @@
 
                                         <!-- Badge kiểu dữ liệu [TXT] / [IMG] -->
                                         <Border Grid.Column="2" Background="#121D28" BorderBrush="{StaticResource CyberNeonCyan}" BorderThickness="1"
-                                                CornerRadius="2" Padding="4,1" Margin="0,0,8,0" VerticalAlignment="Center">
+                                                CornerRadius="2" Padding="4,1" Margin="0,0,6,0" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding TypeBadge}" FontSize="10" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" />
                                         </Border>
 
+                                        <!-- Badge Group nếu có -->
+                                        <Border Grid.Column="3" Background="#261E0A" BorderBrush="{StaticResource CyberNeonYellow}" BorderThickness="1"
+                                                CornerRadius="2" Padding="4,1" Margin="0,0,8,0" VerticalAlignment="Center"
+                                                Visibility="{Binding GroupBadgeVisibility}">
+                                            <TextBlock Text="{Binding GroupBadgeText}" FontSize="10" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonYellow}" />
+                                        </Border>
+
                                         <!-- Thông tin văn bản hoặc ảnh -->
-                                        <Grid Grid.Column="3" VerticalAlignment="Center">
+                                        <Grid Grid.Column="4" VerticalAlignment="Center">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="*" />

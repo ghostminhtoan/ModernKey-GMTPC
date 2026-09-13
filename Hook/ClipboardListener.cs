@@ -25,6 +25,7 @@ namespace ModernKey.Hook
         private const uint MOD_NOREPEAT = 0x4000;
         private const int HOTKEY_ID_WIN_INS = 0xCB01;
         private const int HOTKEY_ID_CTRL_ALT_V = 0xCB02;
+        private const int HOTKEY_ID_ALT_INS = 0xCB03;
 
         private const uint CF_BITMAP = 2;
         private const uint CF_DIB = 8;
@@ -133,11 +134,12 @@ namespace ModernKey.Hook
                     {
                         AddClipboardFormatListener(_hwnd);
 
-                        // Đăng ký phím tắt cấp OS: Win+Insert và Ctrl+Alt+V
+                        // Đăng ký phím tắt cấp OS: Win+Insert (History), Ctrl+Alt+V (History), Alt+Insert (Favorites)
                         try
                         {
                             RegisterHotKey(_hwnd, HOTKEY_ID_WIN_INS, MOD_WIN | MOD_NOREPEAT, 0x2D);
                             RegisterHotKey(_hwnd, HOTKEY_ID_CTRL_ALT_V, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, 0x56);
+                            RegisterHotKey(_hwnd, HOTKEY_ID_ALT_INS, MOD_ALT | MOD_NOREPEAT, 0x2D);
                         }
                         catch { }
                     }
@@ -161,7 +163,18 @@ namespace ModernKey.Hook
                     {
                         if (Application.Current is App app)
                         {
-                            app.ShowClipboardWindow();
+                            app.ToggleClipboardHistory();
+                        }
+                    }));
+                    handled = true;
+                }
+                else if (id == HOTKEY_ID_ALT_INS)
+                {
+                    Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                    {
+                        if (Application.Current is App app)
+                        {
+                            app.ToggleClipboardFavorites();
                         }
                     }));
                     handled = true;
@@ -450,15 +463,30 @@ namespace ModernKey.Hook
                 GetWindowThreadProcessId(fgHwnd, out uint pid);
                 if (pid == 0 || pid == (uint)Process.GetCurrentProcess().Id) return default;
 
+                string exePath = null;
                 string procName = null;
-                try
+
+                // Sử dụng Win32 API nhẹ với PROCESS_QUERY_LIMITED_INFORMATION (0x1000)
+                // Tuyệt đối KHÔNG gọi Process.GetProcessById hoặc proc.MainModule vì nó quét toàn bộ process list hệ thống
+                // và ném Access Denied trên game có Anti-Cheat hoặc elevated app, gây đứng máy 1-2 giây!
+                IntPtr hProc = OpenProcess(0x1000 /* PROCESS_QUERY_LIMITED_INFORMATION */, false, pid);
+                if (hProc != IntPtr.Zero)
                 {
-                    using (var proc = Process.GetProcessById((int)pid))
+                    try
                     {
-                        procName = proc.ProcessName;
+                        var sb = new StringBuilder(1024);
+                        int size = sb.Capacity;
+                        if (QueryFullProcessImageName(hProc, 0, sb, ref size))
+                        {
+                            exePath = sb.ToString();
+                            procName = Path.GetFileNameWithoutExtension(exePath);
+                        }
+                    }
+                    finally
+                    {
+                        CloseHandle(hProc);
                     }
                 }
-                catch { }
 
                 if (string.IsNullOrEmpty(procName)) return default;
 
@@ -471,59 +499,25 @@ namespace ModernKey.Hook
                 string safeName = string.Join("_", procName.Split(Path.GetInvalidFileNameChars())).ToLowerInvariant();
                 string iconPath = Path.Combine(iconDir, safeName + ".png");
 
-                if (!File.Exists(iconPath))
+                if (!File.Exists(iconPath) && !string.IsNullOrEmpty(exePath) && File.Exists(exePath))
                 {
-                    string exePath = null;
-                    IntPtr hProc = OpenProcess(0x1000 /* PROCESS_QUERY_LIMITED_INFORMATION */, false, pid);
-                    if (hProc != IntPtr.Zero)
+                    try
                     {
-                        try
+                        using (var sysIcon = System.Drawing.Icon.ExtractAssociatedIcon(exePath))
                         {
-                            var sb = new StringBuilder(1024);
-                            int size = sb.Capacity;
-                            if (QueryFullProcessImageName(hProc, 0, sb, ref size))
+                            if (sysIcon != null)
                             {
-                                exePath = sb.ToString();
-                            }
-                        }
-                        finally
-                        {
-                            CloseHandle(hProc);
-                        }
-                    }
-
-                    if (string.IsNullOrEmpty(exePath))
-                    {
-                        try
-                        {
-                            using (var proc = Process.GetProcessById((int)pid))
-                            {
-                                exePath = proc.MainModule?.FileName;
-                            }
-                        }
-                        catch { }
-                    }
-
-                    if (!string.IsNullOrEmpty(exePath) && File.Exists(exePath))
-                    {
-                        try
-                        {
-                            using (var sysIcon = System.Drawing.Icon.ExtractAssociatedIcon(exePath))
-                            {
-                                if (sysIcon != null)
+                                using (var bmp = new System.Drawing.Bitmap(16, 16))
+                                using (var g = System.Drawing.Graphics.FromImage(bmp))
                                 {
-                                    using (var bmp = new System.Drawing.Bitmap(16, 16))
-                                    using (var g = System.Drawing.Graphics.FromImage(bmp))
-                                    {
-                                        g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-                                        g.DrawIcon(sysIcon, new System.Drawing.Rectangle(0, 0, 16, 16));
-                                        bmp.Save(iconPath, System.Drawing.Imaging.ImageFormat.Png);
-                                    }
+                                    g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                                    g.DrawIcon(sysIcon, new System.Drawing.Rectangle(0, 0, 16, 16));
+                                    bmp.Save(iconPath, System.Drawing.Imaging.ImageFormat.Png);
                                 }
                             }
                         }
-                        catch { }
                     }
+                    catch { }
                 }
 
                 return new SourceAppInfo
@@ -549,6 +543,7 @@ namespace ModernKey.Hook
                 {
                     UnregisterHotKey(_hwnd, HOTKEY_ID_WIN_INS);
                     UnregisterHotKey(_hwnd, HOTKEY_ID_CTRL_ALT_V);
+                    UnregisterHotKey(_hwnd, HOTKEY_ID_ALT_INS);
                     RemoveClipboardFormatListener(_hwnd);
                 }
                 catch { }
