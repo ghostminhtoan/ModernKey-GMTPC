@@ -1651,20 +1651,21 @@ namespace ModernKey
         {
             if (LstClipboard.SelectedItem is ClipboardItem item)
             {
-                if (item.ContentType != ClipboardContentType.Text)
+                var dlg = new EditClipboardDialog(item)
                 {
-                    MessageBox.Show("Chỉ có thể chỉnh sửa nội dung văn bản.", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
-                    return;
-                }
+                    Owner = this
+                };
 
-                if (TxtPreview != null)
+                if (dlg.ShowDialog() == true)
                 {
-                    TxtPreview.IsReadOnly = false;
-                    TxtPreview.Focus();
-                    TxtPreview.SelectAll();
+                    _historyManager?.SaveHistoryNow();
+                    _historyManager?.SaveFavoritesNow();
+                    _itemsView?.Refresh();
+                    UpdatePreview(item);
+
                     if (TxtStatus != null)
                     {
-                        TxtStatus.Text = "✏ Đang chỉnh sửa văn bản. Nhấn Ctrl+S hoặc click ra ngoài để lưu!";
+                        TxtStatus.Text = $"✓ Đã cập nhật mục: {item.DisplayTitle}";
                     }
                 }
             }

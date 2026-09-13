@@ -136,6 +136,134 @@ namespace ModernKey.Models
 
         public Visibility AppIconVisibility => !string.IsNullOrEmpty(SourceIconPath) && File.Exists(SourceIconPath) ? Visibility.Visible : Visibility.Collapsed;
 
+        private string _customTitle = string.Empty;
+        public string CustomTitle
+        {
+            get => _customTitle;
+            set
+            {
+                if (_customTitle != value)
+                {
+                    _customTitle = value ?? string.Empty;
+                    OnPropertyChanged(nameof(CustomTitle));
+                    OnPropertyChanged(nameof(HasCustomTitle));
+                    OnPropertyChanged(nameof(CustomTitleVisibility));
+                    OnPropertyChanged(nameof(DefaultTitleVisibility));
+                    OnPropertyChanged(nameof(DisplayTitle));
+                }
+            }
+        }
+        public bool HasCustomTitle => !string.IsNullOrWhiteSpace(_customTitle);
+        public Visibility CustomTitleVisibility => HasCustomTitle ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility DefaultTitleVisibility => HasCustomTitle ? Visibility.Collapsed : Visibility.Visible;
+        public string DisplayTitle => HasCustomTitle ? _customTitle : PreviewText;
+
+        private string _shortcutKey = string.Empty;
+        public string ShortcutKey
+        {
+            get => _shortcutKey;
+            set
+            {
+                if (_shortcutKey != value)
+                {
+                    _shortcutKey = value ?? string.Empty;
+                    OnPropertyChanged(nameof(ShortcutKey));
+                    OnPropertyChanged(nameof(ShortcutText));
+                    OnPropertyChanged(nameof(HasShortcut));
+                    OnPropertyChanged(nameof(ShortcutVisibility));
+                }
+            }
+        }
+
+        private uint _shortcutVk = 0;
+        public uint ShortcutVk
+        {
+            get => _shortcutVk;
+            set
+            {
+                if (_shortcutVk != value)
+                {
+                    _shortcutVk = value;
+                    OnPropertyChanged(nameof(ShortcutVk));
+                }
+            }
+        }
+
+        private int _shortcutModifiers = 0; // 1 = Alt, 2 = Ctrl, 4 = Shift, 8 = Win
+        public int ShortcutModifiers
+        {
+            get => _shortcutModifiers;
+            set
+            {
+                if (_shortcutModifiers != value)
+                {
+                    _shortcutModifiers = value;
+                    OnPropertyChanged(nameof(ShortcutModifiers));
+                    OnPropertyChanged(nameof(ShortcutText));
+                    OnPropertyChanged(nameof(HasShortcut));
+                    OnPropertyChanged(nameof(ShortcutVisibility));
+                }
+            }
+        }
+
+        public string ShortcutText
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(_shortcutKey)) return string.Empty;
+                var parts = new List<string>();
+                if ((_shortcutModifiers & 2) != 0) parts.Add("Ctrl");
+                if ((_shortcutModifiers & 1) != 0) parts.Add("Alt");
+                if ((_shortcutModifiers & 4) != 0) parts.Add("Shift");
+                if ((_shortcutModifiers & 8) != 0) parts.Add("Win");
+                parts.Add(_shortcutKey.ToUpperInvariant());
+                return string.Join("+", parts);
+            }
+        }
+        public bool HasShortcut => !string.IsNullOrEmpty(ShortcutText);
+        public Visibility ShortcutVisibility => HasShortcut ? Visibility.Visible : Visibility.Collapsed;
+
+        private string _backgroundColorHex = string.Empty;
+        public string BackgroundColorHex
+        {
+            get => _backgroundColorHex;
+            set
+            {
+                if (_backgroundColorHex != value)
+                {
+                    _backgroundColorHex = value ?? string.Empty;
+                    OnPropertyChanged(nameof(BackgroundColorHex));
+                    OnPropertyChanged(nameof(HasCustomBackground));
+                    OnPropertyChanged(nameof(ItemBackgroundBrush));
+                }
+            }
+        }
+        public bool HasCustomBackground => !string.IsNullOrWhiteSpace(_backgroundColorHex) && !_backgroundColorHex.Equals("Default", StringComparison.OrdinalIgnoreCase);
+
+        public System.Windows.Media.Brush ItemBackgroundBrush
+        {
+            get
+            {
+                if (HasCustomBackground)
+                {
+                    try
+                    {
+                        var color = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(_backgroundColorHex);
+                        // Đảm bảo alpha để hòa trộn mượt mà với giao diện
+                        if (color.A == 255)
+                        {
+                            color = System.Windows.Media.Color.FromArgb(200, color.R, color.G, color.B);
+                        }
+                        var brush = new System.Windows.Media.SolidColorBrush(color);
+                        brush.Freeze();
+                        return brush;
+                    }
+                    catch { }
+                }
+                return System.Windows.Media.Brushes.Transparent;
+            }
+        }
+
         public ClipboardItem Clone()
         {
             return new ClipboardItem
@@ -153,7 +281,12 @@ namespace ModernKey.Models
                 CharCount = this.CharCount,
                 ByteSize = this.ByteSize,
                 IsFavorite = this.IsFavorite,
-                GroupName = this.GroupName
+                GroupName = this.GroupName,
+                CustomTitle = this.CustomTitle,
+                ShortcutKey = this.ShortcutKey,
+                ShortcutVk = this.ShortcutVk,
+                ShortcutModifiers = this.ShortcutModifiers,
+                BackgroundColorHex = this.BackgroundColorHex
             };
         }
 

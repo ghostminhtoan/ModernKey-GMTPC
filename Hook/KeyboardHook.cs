@@ -179,6 +179,7 @@ namespace ModernKey.Hook
         public event Action ResetHookRequested;
         public event Action OpenClipboardRequested;
         public event Action OpenClipboardFavoriteRequested;
+        public Func<int, uint, bool> CheckClipboardShortcutRequested;
 
         [DllImport("user32.dll")]
         private static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventDelegate lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
@@ -544,6 +545,23 @@ namespace ModernKey.Hook
                         _engine.Reset();
                         OpenClipboardFavoriteRequested?.Invoke();
                         return (IntPtr)1;
+                    }
+
+                    // 6.7. Kiểm tra phím tắt dán nhanh cho các mục Clipboard cá nhân hóa (Chuẩn Comfort Keys Pro)
+                    if (CheckClipboardShortcutRequested != null && ((_modifierFlag & (MASK_CTRL | MASK_ALT | MASK_WIN)) != 0 || (vkCode >= 0x70 && vkCode <= 0x7B)))
+                    {
+                        int winMod = 0;
+                        if ((_modifierFlag & MASK_ALT) != 0) winMod |= 1;
+                        if ((_modifierFlag & MASK_CTRL) != 0) winMod |= 2;
+                        if ((_modifierFlag & MASK_SHIFT) != 0) winMod |= 4;
+                        if ((_modifierFlag & MASK_WIN) != 0) winMod |= 8;
+
+                        if (CheckClipboardShortcutRequested(winMod, vkCode))
+                        {
+                            KeySender.SuppressAltMenuActivation();
+                            _engine.Reset();
+                            return (IntPtr)1; // Nuốt phím khi đã thực hiện dán mục clipboard
+                        }
                     }
 
                     // 7. Tab Phím tắt (F1-F12 kết hợp Modifier tùy chọn chuẩn OpenKey C++)

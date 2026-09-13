@@ -1,5 +1,7 @@
 using System;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -198,6 +200,12 @@ namespace ModernKey
                 }));
             };
 
+            // Phím tắt dán nhanh mục Clipboard cá nhân hóa (Chuẩn Comfort Keys Pro)
+            _keyboardHook.CheckClipboardShortcutRequested = (mod, vk) =>
+            {
+                return TryPasteClipboardItemByShortcut(mod, vk);
+            };
+
             _trayManager.StateChanged += () =>
             {
                 Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
@@ -365,6 +373,123 @@ namespace ModernKey
             {
                 _statusOsdWindow?.ShowStatus(isVietnamese);
             }
+        }
+
+        private bool TryPasteClipboardItemByShortcut(int mod, uint vk)
+        {
+            if (_clipboardHistory == null) return false;
+
+            ClipboardItem match = null;
+            lock (_clipboardHistory)
+            {
+                // 1. Ưu tiên tìm trong danh sách Yêu thích
+                match = _clipboardHistory.FavoriteItems.FirstOrDefault(x => x.ShortcutModifiers == mod && x.ShortcutVk == vk);
+                // 2. Nếu không có trong Yêu thích, tìm trong Lịch sử
+                if (match == null)
+                {
+                    match = _clipboardHistory.Items.FirstOrDefault(x => x.ShortcutModifiers == mod && x.ShortcutVk == vk);
+                }
+            }
+
+            if (match != null)
+            {
+                PasteItemDirectly(match);
+                return true;
+            }
+
+            return false;
+        }
+
+        public void PasteItemDirectly(ClipboardItem item)
+        {
+            if (item == null) return;
+
+            ThreadPool.QueueUserWorkItem(_ =>
+            {
+                Thread.Sleep(30);
+
+                if (item.ContentType == ClipboardContentType.Text)
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        try
+                        {
+                            KeySender.SuppressClipboardMonitoring = true;
+                            Clipboard.SetText(item.TextContent ?? string.Empty);
+                        }
+                        catch { }
+                    });
+
+                    Thread.Sleep(40);
+                    KeySender.SendCtrlVPaste();
+
+                    ThreadPool.QueueUserWorkItem(__ =>
+                    {
+                        Thread.Sleep(500);
+                        KeySender.SuppressClipboardMonitoring = false;
+                    });
+                    return;
+                }
+
+                if (item.ContentType == ClipboardContentType.Image)
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        try
+                        {
+                            KeySender.SuppressClipboardMonitoring = true;
+                            string path = ClipboardItem.ResolvePath(item.ImagePath);
+                            if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                            {
+                                using (var img = System.Drawing.Image.FromFile(path))
+                                {
+                                    System.Windows.Forms.Clipboard.SetImage(img);
+                                }
+                            }
+                        }
+                        catch { }
+                    });
+
+                    Thread.Sleep(50);
+                    KeySender.SendCtrlVPaste();
+
+                    ThreadPool.QueueUserWorkItem(__ =>
+                    {
+                        Thread.Sleep(500);
+                        KeySender.SuppressClipboardMonitoring = false;
+                    });
+                    return;
+                }
+
+                if (item.ContentType == ClipboardContentType.Files)
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        try
+                        {
+                            KeySender.SuppressClipboardMonitoring = true;
+                            var files = item.FilePaths;
+                            if (files.Count > 0)
+                            {
+                                var coll = new System.Collections.Specialized.StringCollection();
+                                coll.AddRange(files.ToArray());
+                                Clipboard.SetFileDropList(coll);
+                            }
+                        }
+                        catch { }
+                    });
+
+                    Thread.Sleep(50);
+                    KeySender.SendCtrlVPaste();
+
+                    ThreadPool.QueueUserWorkItem(__ =>
+                    {
+                        Thread.Sleep(500);
+                        KeySender.SuppressClipboardMonitoring = false;
+                    });
+                    return;
+                }
+            });
         }
 
         public void ExitApplication()

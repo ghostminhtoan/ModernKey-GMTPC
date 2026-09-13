@@ -318,7 +318,7 @@
                         </ListBox.ContextMenu>
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Border BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="0,0,0,1" Padding="8,6" Background="Transparent">
+                                <Border BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="0,0,0,1" Padding="8,6" Background="{Binding ItemBackgroundBrush}">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
@@ -368,8 +368,33 @@
                                             </Border>
 
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding PreviewText}" FontFamily="Consolas" FontWeight="SemiBold" FontSize="12"
-                                                           TextTrimming="CharacterEllipsis" Foreground="{StaticResource CyberTextPrimary}" />
+                                                <!-- Tiêu đề / Tên Name kèm Phím tắt nếu có -->
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <TextBlock Grid.Column="0" Text="{Binding DisplayTitle}" FontFamily="Consolas" FontWeight="Bold" FontSize="12"
+                                                               TextTrimming="CharacterEllipsis" Foreground="{StaticResource CyberNeonYellow}"
+                                                               Visibility="{Binding CustomTitleVisibility}" />
+                                                    <TextBlock Grid.Column="0" Text="{Binding PreviewText}" FontFamily="Consolas" FontWeight="SemiBold" FontSize="12"
+                                                               TextTrimming="CharacterEllipsis" Foreground="{StaticResource CyberTextPrimary}"
+                                                               Visibility="{Binding DefaultTitleVisibility}" />
+
+                                                    <!-- Badge Phím tắt (Shortcut) -->
+                                                    <Border Grid.Column="1" Background="#2A1B04" BorderBrush="{StaticResource CyberNeonYellow}" BorderThickness="1"
+                                                            CornerRadius="2" Padding="4,1" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                            Visibility="{Binding ShortcutVisibility}">
+                                                        <TextBlock Text="{Binding ShortcutText}" FontSize="10" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonYellow}" />
+                                                    </Border>
+                                                </Grid>
+
+                                                <!-- Dòng Preview phụ khi có Custom Title -->
+                                                <TextBlock Text="{Binding PreviewText}" FontFamily="Consolas" FontSize="11"
+                                                           TextTrimming="CharacterEllipsis" Foreground="{StaticResource CyberTextSecondary}" Margin="0,2,0,0"
+                                                           Visibility="{Binding CustomTitleVisibility}" />
+
                                                 <TextBlock Text="{Binding InfoDisplay}" FontFamily="Consolas" FontSize="10"
                                                            Foreground="{StaticResource CyberTextSecondary}" Margin="0,2,0,0" />
                                             </StackPanel>
