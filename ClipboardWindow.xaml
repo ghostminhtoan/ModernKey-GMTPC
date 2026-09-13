@@ -241,6 +241,17 @@
                             <TextBlock x:Name="TxtSortLabel" Text="MỚI NHẤT" Foreground="{StaticResource CyberNeonCyan}" FontSize="11" FontFamily="Consolas" FontWeight="SemiBold" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
+
+                    <!-- Dropdown Tùy chọn gộp Clipboard khi chọn nhiều (Ctrl+C / Paste) -->
+                    <Button x:Name="BtnMergeOptionsMenu" Click="BtnMergeOptionsMenu_Click" Padding="8,4" Margin="4,0,0,0"
+                            Background="#10141E" BorderBrush="{StaticResource CyberNeonYellow}" BorderThickness="1"
+                            Cursor="Hand" ToolTip="Tùy chọn định dạng khi gộp nhiều mục clipboard (Ctrl+C / Enter / Dán)">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="🔗 " Foreground="{StaticResource CyberNeonYellow}" FontSize="10" VerticalAlignment="Center" />
+                            <TextBlock x:Name="TxtMergeOptionsLabel" Text="GỘP: MẶC ĐỊNH" Foreground="{StaticResource CyberNeonYellow}" FontSize="11" FontFamily="Consolas" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <TextBlock Text=" ▼" Foreground="{StaticResource CyberNeonYellow}" FontSize="8" VerticalAlignment="Center" Margin="2,0,0,0" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Grid>
 
@@ -257,7 +268,9 @@
                     <ListBox x:Name="LstClipboard" Background="Transparent" BorderThickness="0"
                              SelectionMode="Extended"
                              Foreground="{StaticResource CyberTextPrimary}" SelectionChanged="LstClipboard_SelectionChanged"
-                             MouseDoubleClick="LstClipboard_MouseDoubleClick" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                             MouseDoubleClick="LstClipboard_MouseDoubleClick" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             PreviewMouseLeftButtonDown="LstClipboard_PreviewMouseLeftButtonDown"
+                             PreviewMouseMove="LstClipboard_PreviewMouseMove">
                         <ListBox.ContextMenu>
                             <ContextMenu Style="{StaticResource CyberContextMenu}">
                                 <MenuItem Header="Dán (Paste)" InputGestureText="Enter / Ins" Click="CtxMenuPaste_Click" Style="{StaticResource CyberMenuItem}" />
@@ -270,6 +283,11 @@
                                 <Separator Style="{StaticResource CyberMenuSeparator}" />
                                 <MenuItem Header="Sao chép vào Clipboard" InputGestureText="Ctrl+C" Click="CtxMenuCopy_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="Gộp các đoạn văn bản đã chọn" Click="CtxMenuMerge_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem Header="Tùy chọn định dạng gộp..." Click="BtnMergeOptionsMenu_Click" Style="{StaticResource CyberMenuItem}" />
+                                <Separator Style="{StaticResource CyberMenuSeparator}" />
+                                <MenuItem x:Name="CtxMenuMergeImagesVertical" Header="Gộp ảnh đã chọn: Ghép dọc (↕ Trên - Dưới)" Click="CtxMenuMergeImagesVertical_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem x:Name="CtxMenuMergeImagesHorizontal" Header="Gộp ảnh đã chọn: Ghép ngang (↔ Trái - Phải)" Click="CtxMenuMergeImagesHorizontal_Click" Style="{StaticResource CyberMenuItem}" />
+                                <Separator Style="{StaticResource CyberMenuSeparator}" />
                                 <MenuItem Header="Chọn tất cả (Select All)" InputGestureText="Ctrl+A" Click="CtxMenuSelectAll_Click" Style="{StaticResource CyberMenuItem}" />
                                 <Separator Style="{StaticResource CyberMenuSeparator}" />
                                 <MenuItem Header="Di chuyển lên (Move Up)" InputGestureText="Ctrl+Up" Click="CtxMenuMoveUp_Click" Style="{StaticResource CyberMenuItem}" />
@@ -372,8 +390,11 @@
                                      Foreground="{StaticResource CyberTextPrimary}" FontFamily="Consolas" FontSize="12"
                                      IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Padding="8" />
 
-                            <!-- Image Preview -->
-                            <Image x:Name="ImgPreview" Stretch="Uniform" Margin="8" Visibility="Collapsed" />
+                            <!-- Image Preview (hỗ trợ kéo thả trực tiếp sang ứng dụng khác) -->
+                            <Image x:Name="ImgPreview" Stretch="Uniform" Margin="8" Visibility="Collapsed"
+                                   Cursor="Hand" ToolTip="Kéo và thả ảnh này vào Word, Photoshop, File Explorer, Browser..."
+                                   PreviewMouseLeftButtonDown="ImgPreview_PreviewMouseLeftButtonDown"
+                                   PreviewMouseMove="ImgPreview_PreviewMouseMove" />
                         </Grid>
                     </Border>
 
@@ -431,7 +452,7 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock x:Name="TxtStatus" Text="Phím tắt: Enter / Ctrl+V = Dán | Ctrl+C = Chép vào Clipboard | Shift/Ctrl+Click = Chọn nhiều | Del = Xóa | Esc = Đóng"
+                    <TextBlock x:Name="TxtStatus" Text="💡 Kéo &amp; Thả (Drag &amp; Drop) ra app khác | Enter/Ctrl+V = Dán | Ctrl+C = Chép | Del = Xóa"
                                FontSize="11" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" />
                     <Button x:Name="BtnClearAllFooter" Grid.Column="1" Content="XÓA TOÀN BỘ LỊCH SỬ" Click="BtnClearAll_Click"
                             Background="Transparent" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}"

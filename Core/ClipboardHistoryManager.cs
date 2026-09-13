@@ -28,6 +28,12 @@ namespace ModernKey.Core
         public ClipboardHistoryManager(AppSettings settings)
         {
             _settings = settings;
+            try
+            {
+                System.Windows.Data.BindingOperations.EnableCollectionSynchronization(Items, _lock);
+                System.Windows.Data.BindingOperations.EnableCollectionSynchronization(FavoriteItems, _lock);
+            }
+            catch { }
             EnsureDirectoriesAndMigrate();
             LoadHistory();
             LoadFavorites();
@@ -244,9 +250,9 @@ namespace ModernKey.Core
             }
         }
 
-        public void AddImage(byte[] pngBytes, int width, int height, string sourceApp = null, string sourceIconPath = null)
+        public ClipboardItem AddImage(byte[] pngBytes, int width, int height, string sourceApp = null, string sourceIconPath = null, string customPreviewText = null)
         {
-            if (pngBytes == null || pngBytes.Length == 0) return;
+            if (pngBytes == null || pngBytes.Length == 0) return null;
 
             lock (_lock)
             {
@@ -263,7 +269,7 @@ namespace ModernKey.Core
                 catch (Exception ex)
                 {
                     Debug.WriteLine("Error saving clipboard image: " + ex.Message);
-                    return;
+                    return null;
                 }
 
                 // Tạo ảnh thumbnail siêu nhẹ giống Comfort Keys Pro (.bm2)
@@ -304,8 +310,8 @@ namespace ModernKey.Core
                 {
                     Id = id,
                     ContentType = ClipboardContentType.Image,
-                    TextContent = "[Hình ảnh chụp / sao chép]",
-                    PreviewText = $"[Hình ảnh {width}x{height}]",
+                    TextContent = customPreviewText ?? "[Hình ảnh chụp / sao chép]",
+                    PreviewText = customPreviewText ?? $"[Hình ảnh {width}x{height}]",
                     ImagePath = fullPath,
                     ThumbPath = thumbFullPath,
                     SourceApp = sourceApp ?? string.Empty,
@@ -317,12 +323,13 @@ namespace ModernKey.Core
                 };
 
                 InsertItem(item);
+                return item;
             }
         }
 
-        public void AddImage(byte[] pngBytes, BitmapSource bmpSource, string sourceApp = null, string sourceIconPath = null)
+        public ClipboardItem AddImage(byte[] pngBytes, BitmapSource bmpSource, string sourceApp = null, string sourceIconPath = null)
         {
-            AddImage(pngBytes, bmpSource?.PixelWidth ?? 0, bmpSource?.PixelHeight ?? 0, sourceApp, sourceIconPath);
+            return AddImage(pngBytes, bmpSource?.PixelWidth ?? 0, bmpSource?.PixelHeight ?? 0, sourceApp, sourceIconPath);
         }
 
         private static void DispatchSafe(Action action)

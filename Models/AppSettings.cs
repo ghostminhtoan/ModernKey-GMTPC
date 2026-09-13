@@ -67,6 +67,15 @@ namespace ModernKey.Models
         public bool ClipboardPasteAsPlainText { get; set; } = false;
         public int ClipboardMaxItems { get; set; } = 200;
 
+        // Tùy chọn gộp Clipboard khi chọn nhiều mục (Ctrl+C / Paste)
+        // 0: Không đánh số, 1: Số thường (1. 2. 3.), 2: Số La Mã (I. II. III.), 3: Alphabet thường (a. b. c.), 4: Alphabet hoa (A. B. C.)
+        public int ClipboardMergeNumbering { get; set; } = 0;
+        public bool ClipboardMergePrefixDash { get; set; } = false;      // Dấu gạch nối: - 
+        public bool ClipboardMergePrefixArrow { get; set; } = false;     // Dấu mũi tên: -> 
+        public bool ClipboardMergePrefixImplies { get; set; } = false;   // Dấu suy ra: => 
+        public bool ClipboardMergePrefixAsterisk { get; set; } = false;  // Dấu hoa thị: * 
+        public bool ClipboardMergeDoubleSpacing { get; set; } = false;   // Xuống dòng đúp (\n\n) thay vì đơn (\n)
+
         // Tạm dừng thông minh cho lập trình viên (Smart Passthrough & Esc Undo)
         public bool SmartCodePassthrough { get; set; } = true;
         public bool EscKeyUndo { get; set; } = true;

@@ -288,6 +288,24 @@ namespace ModernKey.Config
                         case "ClipboardMaxItems":
                             if (int.TryParse(val, out var cmi)) settings.ClipboardMaxItems = (cmi >= 5 && cmi <= 99999) ? cmi : 200;
                             break;
+                        case "ClipboardMergeNumbering":
+                            if (int.TryParse(val, out var cmn)) settings.ClipboardMergeNumbering = cmn;
+                            break;
+                        case "ClipboardMergePrefixDash":
+                            if (bool.TryParse(val, out var cmpd)) settings.ClipboardMergePrefixDash = cmpd;
+                            break;
+                        case "ClipboardMergePrefixArrow":
+                            if (bool.TryParse(val, out var cmpa)) settings.ClipboardMergePrefixArrow = cmpa;
+                            break;
+                        case "ClipboardMergePrefixImplies":
+                            if (bool.TryParse(val, out var cmpi)) settings.ClipboardMergePrefixImplies = cmpi;
+                            break;
+                        case "ClipboardMergePrefixAsterisk":
+                            if (bool.TryParse(val, out var cmpas)) settings.ClipboardMergePrefixAsterisk = cmpas;
+                            break;
+                        case "ClipboardMergeDoubleSpacing":
+                            if (bool.TryParse(val, out var cmds)) settings.ClipboardMergeDoubleSpacing = cmds;
+                            break;
                         case "IsCompactMode":
                             if (bool.TryParse(val, out var icm)) settings.IsCompactMode = icm;
                             break;
@@ -370,6 +388,12 @@ namespace ModernKey.Config
                 sb.AppendLine("ClipboardIgnoreDuplicates=" + settings.ClipboardIgnoreDuplicates);
                 sb.AppendLine("ClipboardPasteAsPlainText=" + settings.ClipboardPasteAsPlainText);
                 sb.AppendLine("ClipboardMaxItems=" + settings.ClipboardMaxItems);
+                sb.AppendLine("ClipboardMergeNumbering=" + settings.ClipboardMergeNumbering);
+                sb.AppendLine("ClipboardMergePrefixDash=" + settings.ClipboardMergePrefixDash);
+                sb.AppendLine("ClipboardMergePrefixArrow=" + settings.ClipboardMergePrefixArrow);
+                sb.AppendLine("ClipboardMergePrefixImplies=" + settings.ClipboardMergePrefixImplies);
+                sb.AppendLine("ClipboardMergePrefixAsterisk=" + settings.ClipboardMergePrefixAsterisk);
+                sb.AppendLine("ClipboardMergeDoubleSpacing=" + settings.ClipboardMergeDoubleSpacing);
                 sb.AppendLine("SmartCodePassthrough=" + settings.SmartCodePassthrough);
                 sb.AppendLine("EscKeyUndo=" + settings.EscKeyUndo);
                 sb.AppendLine("IsCompactMode=" + settings.IsCompactMode);

@@ -11,6 +11,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using ModernKey.Core;
 using ModernKey.Hook;
@@ -45,12 +46,95 @@ namespace ModernKey
             _settings = settings;
             InitializeComponent();
 
+            InitCollectionView();
+
+            if (_historyManager != null)
+            {
+                _historyManager.Items.CollectionChanged += HistoryItems_CollectionChanged;
+                _historyManager.FavoriteItems.CollectionChanged += FavoriteItems_CollectionChanged;
+            }
+
             Loaded += ClipboardWindow_Loaded;
             Deactivated += ClipboardWindow_Deactivated;
             if (TxtPreview != null)
             {
                 TxtPreview.LostFocus += TxtPreview_LostFocus;
             }
+        }
+
+        private void InitCollectionView()
+        {
+            if (_historyManager == null) return;
+
+            var targetCollection = _currentMode == "FAVORITES" ? _historyManager.FavoriteItems : _historyManager.Items;
+            _itemsView = CollectionViewSource.GetDefaultView(targetCollection);
+
+            if (_itemsView != null)
+            {
+                _itemsView.Filter = FilterClipboardItem;
+                ApplySortOrder();
+            }
+
+            if (LstClipboard != null)
+            {
+                LstClipboard.ItemsSource = _itemsView;
+            }
+        }
+
+        private void HistoryItems_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (_currentMode == "HISTORY")
+                {
+                    if (LstClipboard != null && LstClipboard.ItemsSource != _itemsView)
+                    {
+                        InitCollectionView();
+                    }
+                    else
+                    {
+                        _itemsView?.Refresh();
+                    }
+
+                    if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add && e.NewItems != null && e.NewItems.Count > 0)
+                    {
+                        if (e.NewItems[0] is ClipboardItem newItem)
+                        {
+                            _lastActiveItemId = newItem.Id;
+                        }
+                    }
+
+                    EnsureAppropriateSelection();
+                }
+            }));
+        }
+
+        private void FavoriteItems_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (_currentMode == "FAVORITES")
+                {
+                    if (LstClipboard != null && LstClipboard.ItemsSource != _itemsView)
+                    {
+                        InitCollectionView();
+                    }
+                    else
+                    {
+                        _itemsView?.Refresh();
+                    }
+
+                    if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add && e.NewItems != null && e.NewItems.Count > 0)
+                    {
+                        if (e.NewItems[0] is ClipboardItem newItem)
+                        {
+                            _lastActiveItemId = newItem.Id;
+                        }
+                    }
+
+                    EnsureAppropriateSelection();
+                }
+            }));
         }
 
         private void TxtPreview_LostFocus(object sender, RoutedEventArgs e)
@@ -80,21 +164,17 @@ namespace ModernKey
 
         private void ClipboardWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            if (_historyManager != null)
+            UpdateMergeOptionsButtonLabel();
+            if (LstClipboard != null && (LstClipboard.ItemsSource == null || LstClipboard.ItemsSource != _itemsView || _itemsView == null))
             {
-                if (_itemsView == null)
-                {
-                    _itemsView = CollectionViewSource.GetDefaultView(_currentMode == "FAVORITES" ? _historyManager.FavoriteItems : _historyManager.Items);
-                    if (_itemsView != null)
-                    {
-                        _itemsView.Filter = FilterClipboardItem;
-                        ApplySortOrder();
-                    }
-                    if (LstClipboard != null) LstClipboard.ItemsSource = _itemsView;
-                }
-
-                EnsureAppropriateSelection();
+                InitCollectionView();
             }
+            else
+            {
+                _itemsView?.Refresh();
+            }
+
+            EnsureAppropriateSelection();
         }
 
         private void ClipboardWindow_Deactivated(object sender, EventArgs e)
@@ -117,16 +197,11 @@ namespace ModernKey
                 : GetForegroundWindow();
 
             Topmost = _settings != null && _settings.ClipboardAlwaysOnTop;
+            UpdateMergeOptionsButtonLabel();
 
-            if (_itemsView == null && _historyManager != null)
+            if (LstClipboard != null && (LstClipboard.ItemsSource == null || LstClipboard.ItemsSource != _itemsView || _itemsView == null))
             {
-                _itemsView = CollectionViewSource.GetDefaultView(_currentMode == "FAVORITES" ? _historyManager.FavoriteItems : _historyManager.Items);
-                if (_itemsView != null)
-                {
-                    _itemsView.Filter = FilterClipboardItem;
-                    ApplySortOrder();
-                }
-                if (LstClipboard != null) LstClipboard.ItemsSource = _itemsView;
+                InitCollectionView();
             }
             else if (_itemsView != null)
             {
@@ -229,24 +304,14 @@ namespace ModernKey
             {
                 _currentMode = "FAVORITES";
                 if (BtnClearAllFooter != null) BtnClearAllFooter.Content = "XÓA TOÀN BỘ YÊU THÍCH";
-                _itemsView = CollectionViewSource.GetDefaultView(_historyManager.FavoriteItems);
             }
             else
             {
                 _currentMode = "HISTORY";
                 if (BtnClearAllFooter != null) BtnClearAllFooter.Content = "XÓA TOÀN BỘ LỊCH SỬ";
-                _itemsView = CollectionViewSource.GetDefaultView(_historyManager.Items);
             }
 
-            if (_itemsView != null)
-            {
-                _itemsView.Filter = FilterClipboardItem;
-                ApplySortOrder();
-            }
-            if (LstClipboard != null)
-            {
-                LstClipboard.ItemsSource = _itemsView;
-            }
+            InitCollectionView();
             EnsureAppropriateSelection();
         }
 
@@ -354,6 +419,385 @@ namespace ModernKey
             ApplySortOrder();
         }
 
+        #region Clipboard Merge Options (Tùy chọn gộp Clipboard khi chọn nhiều mục)
+
+        public static string ToRoman(int number)
+        {
+            if (number < 1) return number.ToString();
+            string[] thousands = { "", "M", "MM", "MMM" };
+            string[] hundreds = { "", "C", "CC", "CCC", "CD", "D", "DC", "DCC", "DCCC", "CM" };
+            string[] tens = { "", "X", "XX", "XXX", "XL", "L", "LX", "LXX", "LXXX", "XC" };
+            string[] ones = { "", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX" };
+            if (number >= 4000) return number.ToString();
+            return thousands[number / 1000] +
+                   hundreds[(number % 1000) / 100] +
+                   tens[(number % 100) / 10] +
+                   ones[number % 10];
+        }
+
+        public static string ToAlpha(int number, bool uppercase)
+        {
+            if (number < 1) return number.ToString();
+            string result = "";
+            while (number > 0)
+            {
+                number--;
+                char c = (char)((uppercase ? 'A' : 'a') + (number % 26));
+                result = c + result;
+                number /= 26;
+            }
+            return result;
+        }
+
+        public string GetLinePrefix(int index)
+        {
+            if (_settings == null) return string.Empty;
+            var sb = new StringBuilder();
+
+            // 1. Số thứ tự / Số La Mã / Alphabet thường / Alphabet hoa
+            switch (_settings.ClipboardMergeNumbering)
+            {
+                case 1: // 1. 2. 3.
+                    sb.Append($"{index}. ");
+                    break;
+                case 2: // I. II. III.
+                    sb.Append($"{ToRoman(index)}. ");
+                    break;
+                case 3: // a. b. c.
+                    sb.Append($"{ToAlpha(index, false)}. ");
+                    break;
+                case 4: // A. B. C.
+                    sb.Append($"{ToAlpha(index, true)}. ");
+                    break;
+            }
+
+            // 2. Ký hiệu đầu dòng (Bullets / Markers)
+            if (_settings.ClipboardMergePrefixDash)
+            {
+                sb.Append("- ");
+            }
+            if (_settings.ClipboardMergePrefixArrow)
+            {
+                sb.Append("-> ");
+            }
+            if (_settings.ClipboardMergePrefixImplies)
+            {
+                sb.Append("=> ");
+            }
+            if (_settings.ClipboardMergePrefixAsterisk)
+            {
+                sb.Append("* ");
+            }
+
+            return sb.ToString();
+        }
+
+        public string FormatMergedText(IEnumerable<string> textItems)
+        {
+            if (textItems == null) return string.Empty;
+            var list = textItems.Where(x => !string.IsNullOrEmpty(x)).ToList();
+            if (list.Count == 0) return string.Empty;
+
+            var formatted = new List<string>();
+            for (int i = 0; i < list.Count; i++)
+            {
+                string pfx = GetLinePrefix(i + 1);
+                formatted.Add(pfx + list[i]);
+            }
+
+            string sep = (_settings != null && _settings.ClipboardMergeDoubleSpacing)
+                ? (Environment.NewLine + Environment.NewLine)
+                : Environment.NewLine;
+
+            return string.Join(sep, formatted);
+        }
+
+        private string GetMergeFormatSummary()
+        {
+            if (_settings == null) return "Mặc định (Xuống dòng)";
+            var parts = new List<string>();
+
+            switch (_settings.ClipboardMergeNumbering)
+            {
+                case 1: parts.Add("Số 1. 2."); break;
+                case 2: parts.Add("La Mã I. II."); break;
+                case 3: parts.Add("Alpha a. b."); break;
+                case 4: parts.Add("Alpha A. B."); break;
+            }
+
+            if (_settings.ClipboardMergePrefixDash) parts.Add("Gạch nối (-)");
+            if (_settings.ClipboardMergePrefixArrow) parts.Add("Mũi tên (->)");
+            if (_settings.ClipboardMergePrefixImplies) parts.Add("Suy ra (=>)");
+            if (_settings.ClipboardMergePrefixAsterisk) parts.Add("Hoa thị (*)");
+
+            parts.Add(_settings.ClipboardMergeDoubleSpacing ? "Dòng đúp" : "Dòng đơn");
+
+            return string.Join(" + ", parts);
+        }
+
+        private void UpdateMergeOptionsButtonLabel()
+        {
+            if (TxtMergeOptionsLabel == null || _settings == null) return;
+
+            var active = new List<string>();
+            switch (_settings.ClipboardMergeNumbering)
+            {
+                case 1: active.Add("1. 2."); break;
+                case 2: active.Add("I. II."); break;
+                case 3: active.Add("a. b."); break;
+                case 4: active.Add("A. B."); break;
+            }
+
+            if (_settings.ClipboardMergePrefixDash) active.Add("-");
+            if (_settings.ClipboardMergePrefixArrow) active.Add("->");
+            if (_settings.ClipboardMergePrefixImplies) active.Add("=>");
+            if (_settings.ClipboardMergePrefixAsterisk) active.Add("*");
+
+            if (_settings.ClipboardMergeDoubleSpacing) active.Add("Đúp");
+
+            if (active.Count == 0)
+            {
+                TxtMergeOptionsLabel.Text = "GỘP: MẶC ĐỊNH";
+            }
+            else
+            {
+                TxtMergeOptionsLabel.Text = "GỘP: " + string.Join(" + ", active);
+            }
+        }
+
+        private void BtnMergeOptionsMenu_Click(object sender, RoutedEventArgs e)
+        {
+            if (_settings == null) return;
+
+            var cm = new ContextMenu { Style = (Style)FindResource("CyberContextMenu") };
+
+            void AddHeader(string text)
+            {
+                var h = new MenuItem
+                {
+                    Header = text,
+                    IsEnabled = false,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = (System.Windows.Media.Brush)FindResource("CyberNeonCyan"),
+                    Style = (Style)FindResource("CyberMenuItem")
+                };
+                cm.Items.Add(h);
+            }
+
+            void AddSeparator()
+            {
+                cm.Items.Add(new Separator { Style = (Style)FindResource("CyberMenuSeparator") });
+            }
+
+            MenuItem miPreview1 = null;
+            MenuItem miPreview2 = null;
+
+            Action updatePreviews = () =>
+            {
+                string l1 = GetLinePrefix(1) + "Đoạn văn bản A (Passage A)";
+                string l2 = GetLinePrefix(2) + "Đoạn văn bản B (Passage B)";
+                if (miPreview1 != null) miPreview1.Header = "  " + l1;
+                if (miPreview2 != null) miPreview2.Header = (_settings.ClipboardMergeDoubleSpacing ? "  [Dòng trống]\n  " : "  ") + l2;
+                UpdateMergeOptionsButtonLabel();
+                Config.SettingsManager.SaveSettings(_settings);
+
+                var selected = LstClipboard?.SelectedItems?.Cast<ClipboardItem>().ToList();
+                if (selected != null && selected.Count > 1)
+                {
+                    UpdateMultiPreview(selected);
+                }
+            };
+
+            // 1. Nhóm Đánh số thứ tự (Chọn 1 hoặc không chọn)
+            AddHeader("--- 1. ĐÁNH SỐ THỨ TỰ (CHỌN 1 KIỂU) ---");
+
+            var numberingItems = new List<(MenuItem item, int value)>();
+
+            void AddNumberingOption(string title, int value)
+            {
+                var mi = new MenuItem
+                {
+                    Header = title,
+                    Style = (Style)FindResource("CyberMenuItem"),
+                    StaysOpenOnClick = true
+                };
+                mi.Icon = (_settings.ClipboardMergeNumbering == value) ? "☑" : "☐";
+                mi.Click += (s, ev) =>
+                {
+                    _settings.ClipboardMergeNumbering = (_settings.ClipboardMergeNumbering == value && value != 0) ? 0 : value;
+                    foreach (var n in numberingItems)
+                    {
+                        n.item.Icon = (_settings.ClipboardMergeNumbering == n.value) ? "☑" : "☐";
+                    }
+                    updatePreviews();
+                    if (TxtStatus != null) TxtStatus.Text = $"✓ Đã chọn kiểu đánh số: {title}";
+                };
+                numberingItems.Add((mi, value));
+                cm.Items.Add(mi);
+            }
+
+            AddNumberingOption("Không đánh số (Mặc định)", 0);
+            AddNumberingOption("1. 2. 3. (Số thứ tự thường)", 1);
+            AddNumberingOption("I. II. III. (Số thứ tự La Mã)", 2);
+            AddNumberingOption("a. b. c. (Alphabet thường)", 3);
+            AddNumberingOption("A. B. C. (Alphabet hoa)", 4);
+
+            AddSeparator();
+
+            // 2. Nhóm Ký hiệu đầu dòng (Bullets / Prefix) - Checkbox chọn 1 hoặc nhiều option
+            AddHeader("--- 2. KÝ HIỆU ĐẦU DÒNG (CHỌN NHIỀU) ---");
+
+            void AddPrefixCheckOption(string title, Func<bool> getter, Action<bool> setter)
+            {
+                var mi = new MenuItem
+                {
+                    Header = title,
+                    Style = (Style)FindResource("CyberMenuItem"),
+                    StaysOpenOnClick = true
+                };
+                mi.Icon = getter() ? "☑" : "☐";
+                mi.Click += (s, ev) =>
+                {
+                    bool newVal = !getter();
+                    setter(newVal);
+                    mi.Icon = newVal ? "☑" : "☐";
+                    updatePreviews();
+                    if (TxtStatus != null) TxtStatus.Text = $"✓ Đã {(newVal ? "bật" : "tắt")}: {title}";
+                };
+                cm.Items.Add(mi);
+            }
+
+            AddPrefixCheckOption("Dấu gạch nối: -", () => _settings.ClipboardMergePrefixDash, v => _settings.ClipboardMergePrefixDash = v);
+            AddPrefixCheckOption("Dấu mũi tên: ->", () => _settings.ClipboardMergePrefixArrow, v => _settings.ClipboardMergePrefixArrow = v);
+            AddPrefixCheckOption("Dấu suy ra: =>", () => _settings.ClipboardMergePrefixImplies, v => _settings.ClipboardMergePrefixImplies = v);
+            AddPrefixCheckOption("Dấu hoa thị: *", () => _settings.ClipboardMergePrefixAsterisk, v => _settings.ClipboardMergePrefixAsterisk = v);
+
+            AddSeparator();
+
+            // 3. Nhóm Khoảng cách dòng
+            AddHeader("--- 3. KHOẢNG CÁCH DÒNG ---");
+
+            MenuItem miSingleSpace = null;
+            MenuItem miDoubleSpace = null;
+
+            miSingleSpace = new MenuItem
+            {
+                Header = "Xuống dòng đơn (\\n)",
+                Style = (Style)FindResource("CyberMenuItem"),
+                StaysOpenOnClick = true,
+                Icon = (!_settings.ClipboardMergeDoubleSpacing) ? "☑" : "☐"
+            };
+            miDoubleSpace = new MenuItem
+            {
+                Header = "Xuống dòng đúp (\\n\\n)",
+                Style = (Style)FindResource("CyberMenuItem"),
+                StaysOpenOnClick = true,
+                Icon = (_settings.ClipboardMergeDoubleSpacing) ? "☑" : "☐"
+            };
+
+            miSingleSpace.Click += (s, ev) =>
+            {
+                _settings.ClipboardMergeDoubleSpacing = false;
+                miSingleSpace.Icon = "☑";
+                miDoubleSpace.Icon = "☐";
+                updatePreviews();
+                if (TxtStatus != null) TxtStatus.Text = "✓ Đã chọn: Xuống dòng đơn";
+            };
+
+            miDoubleSpace.Click += (s, ev) =>
+            {
+                _settings.ClipboardMergeDoubleSpacing = true;
+                miSingleSpace.Icon = "☐";
+                miDoubleSpace.Icon = "☑";
+                updatePreviews();
+                if (TxtStatus != null) TxtStatus.Text = "✓ Đã chọn: Xuống dòng đúp";
+            };
+
+            cm.Items.Add(miSingleSpace);
+            cm.Items.Add(miDoubleSpace);
+
+            AddSeparator();
+
+            // 4. Mẫu xem trước trực tiếp (Live Preview)
+            AddHeader("--- MẪU KẾT QUẢ GỘP (PREVIEW) ---");
+
+            miPreview1 = new MenuItem
+            {
+                Header = "  " + GetLinePrefix(1) + "Đoạn văn bản A (Passage A)",
+                IsEnabled = false,
+                Foreground = (System.Windows.Media.Brush)FindResource("CyberNeonYellow"),
+                Style = (Style)FindResource("CyberMenuItem")
+            };
+            miPreview2 = new MenuItem
+            {
+                Header = (_settings.ClipboardMergeDoubleSpacing ? "  [Dòng trống]\n  " : "  ") + GetLinePrefix(2) + "Đoạn văn bản B (Passage B)",
+                IsEnabled = false,
+                Foreground = (System.Windows.Media.Brush)FindResource("CyberNeonYellow"),
+                Style = (Style)FindResource("CyberMenuItem")
+            };
+            cm.Items.Add(miPreview1);
+            cm.Items.Add(miPreview2);
+
+            AddSeparator();
+
+            // 5. Đặt lại mặc định
+            var miReset = new MenuItem
+            {
+                Header = "↺ Đặt lại mặc định (Chỉ xuống dòng)",
+                Style = (Style)FindResource("CyberMenuItem"),
+                StaysOpenOnClick = true
+            };
+            miReset.Click += (s, ev) =>
+            {
+                _settings.ClipboardMergeNumbering = 0;
+                _settings.ClipboardMergePrefixDash = false;
+                _settings.ClipboardMergePrefixArrow = false;
+                _settings.ClipboardMergePrefixImplies = false;
+                _settings.ClipboardMergePrefixAsterisk = false;
+                _settings.ClipboardMergeDoubleSpacing = false;
+
+                foreach (var n in numberingItems)
+                {
+                    n.item.Icon = (n.value == 0) ? "☑" : "☐";
+                }
+                miSingleSpace.Icon = "☑";
+                miDoubleSpace.Icon = "☐";
+                updatePreviews();
+                if (TxtStatus != null) TxtStatus.Text = "✓ Đã đặt lại tùy chọn gộp về mặc định!";
+            };
+            cm.Items.Add(miReset);
+
+            // 6. Tác vụ gộp ảnh nhanh nếu người dùng đang chọn từ 2 ảnh trở lên
+            var selectedItems = LstClipboard?.SelectedItems?.Cast<ClipboardItem>().ToList();
+            int imgSelCount = selectedItems != null ? selectedItems.Count(x => x.ContentType == ClipboardContentType.Image) : 0;
+            if (imgSelCount >= 2)
+            {
+                AddSeparator();
+                AddHeader($"--- GỘP {imgSelCount} HÌNH ẢNH ĐÃ CHỌN ---");
+                var miMergeV = new MenuItem
+                {
+                    Header = "↕ Ghép ảnh dọc (Trên - Dưới)",
+                    Style = (Style)FindResource("CyberMenuItem")
+                };
+                miMergeV.Click += (s, ev) => MergeSelectedImages(true);
+                cm.Items.Add(miMergeV);
+
+                var miMergeH = new MenuItem
+                {
+                    Header = "↔ Ghép ảnh ngang (Trái - Phải)",
+                    Style = (Style)FindResource("CyberMenuItem")
+                };
+                miMergeH.Click += (s, ev) => MergeSelectedImages(false);
+                cm.Items.Add(miMergeH);
+            }
+
+            cm.PlacementTarget = sender as UIElement ?? BtnMergeOptionsMenu;
+            cm.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            cm.IsOpen = true;
+        }
+
+        #endregion
+
         private void LstClipboard_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             var selected = LstClipboard?.SelectedItems?.Cast<ClipboardItem>().ToList();
@@ -393,29 +837,45 @@ namespace ModernKey
                 TxtPreview.Visibility = Visibility.Visible;
                 var sb = new StringBuilder();
                 sb.AppendLine($"=== ĐÃ CHỌN {items.Count} MỤC CLIPBOARD ===");
+                if (imgCount >= 2)
+                {
+                    sb.AppendLine($"• Chuột phải -> Gộp ảnh: Ghép dọc (↕ Trên - Dưới) hoặc Ghép ngang (↔ Trái - Phải)");
+                }
+                sb.AppendLine($"• Định dạng gộp: {GetMergeFormatSummary()}");
                 sb.AppendLine($"• [Enter] hoặc [Ctrl+V]: Dán gộp vào ứng dụng đích");
                 sb.AppendLine($"• [Ctrl+C]: Sao chép gộp vào Clipboard hệ thống");
                 sb.AppendLine($"• [Del]: Xóa toàn bộ {items.Count} mục đã chọn");
                 sb.AppendLine();
-                sb.AppendLine("--- NỘI DUNG TỔNG HỢP ---");
-                int idx = 1;
-                foreach (var it in items)
+                sb.AppendLine("--- NỘI DUNG TỔNG HỢP (XEM TRƯỚC GỘP) ---");
+
+                var textItems = items.Where(x => x.ContentType == ClipboardContentType.Text && !string.IsNullOrEmpty(x.TextContent))
+                                     .Select(x => x.TextContent)
+                                     .ToList();
+                if (textItems.Count == items.Count)
                 {
-                    string content;
-                    if (it.ContentType == ClipboardContentType.Text)
+                    sb.AppendLine(FormatMergedText(textItems));
+                }
+                else
+                {
+                    int idx = 1;
+                    foreach (var it in items)
                     {
-                        content = it.TextContent;
+                        string content;
+                        if (it.ContentType == ClipboardContentType.Text)
+                        {
+                            content = GetLinePrefix(idx) + it.TextContent;
+                        }
+                        else if (it.ContentType == ClipboardContentType.Files)
+                        {
+                            content = $"[{it.TypeBadge}] " + it.PreviewText + Environment.NewLine + it.TextContent;
+                        }
+                        else
+                        {
+                            content = it.PreviewText;
+                        }
+                        sb.AppendLine($"[{idx++}] " + content);
+                        if (_settings != null && _settings.ClipboardMergeDoubleSpacing) sb.AppendLine();
                     }
-                    else if (it.ContentType == ClipboardContentType.Files)
-                    {
-                        content = $"[{it.TypeBadge}] " + it.PreviewText + Environment.NewLine + it.TextContent;
-                    }
-                    else
-                    {
-                        content = it.PreviewText;
-                    }
-                    sb.AppendLine($"[{idx++}] " + content);
-                    sb.AppendLine();
                 }
                 TxtPreview.Text = sb.ToString();
             }
@@ -591,6 +1051,58 @@ namespace ModernKey
             }
         }
 
+        private static void SafeSetClipboardText(string text)
+        {
+            if (text == null) text = string.Empty;
+            for (int retry = 0; retry < 10; retry++)
+            {
+                try
+                {
+                    Clipboard.SetDataObject(new DataObject(DataFormats.UnicodeText, text), true);
+                    return;
+                }
+                catch
+                {
+                    try
+                    {
+                        System.Windows.Forms.Clipboard.SetText(text);
+                        return;
+                    }
+                    catch
+                    {
+                        Thread.Sleep(30);
+                    }
+                }
+            }
+        }
+
+        private static void SafeSetClipboardImage(string imagePath, System.Windows.Media.ImageSource bmpSource)
+        {
+            for (int retry = 0; retry < 10; retry++)
+            {
+                try
+                {
+                    if (!string.IsNullOrEmpty(imagePath) && File.Exists(imagePath))
+                    {
+                        using (var img = System.Drawing.Image.FromFile(imagePath))
+                        {
+                            System.Windows.Forms.Clipboard.SetImage(img);
+                            return;
+                        }
+                    }
+                    else if (bmpSource is BitmapSource bs)
+                    {
+                        Clipboard.SetImage(bs);
+                        return;
+                    }
+                }
+                catch
+                {
+                    Thread.Sleep(30);
+                }
+            }
+        }
+
         private void ExecuteCopySelectedToClipboard()
         {
             var selected = LstClipboard?.SelectedItems?.Cast<ClipboardItem>().ToList();
@@ -609,21 +1121,11 @@ namespace ModernKey
                     }
                     else if (item.ContentType == ClipboardContentType.Image)
                     {
-                        if (!string.IsNullOrEmpty(item.ImagePath) && File.Exists(item.ImagePath))
-                        {
-                            using (var img = System.Drawing.Image.FromFile(item.ImagePath))
-                            {
-                                System.Windows.Forms.Clipboard.SetImage(img);
-                            }
-                        }
-                        else if (item.ImageSource != null)
-                        {
-                            Clipboard.SetImage(item.ImageSource);
-                        }
+                        SafeSetClipboardImage(item.ImagePath, item.ImageSource);
                     }
                     else
                     {
-                        Clipboard.SetText(item.TextContent ?? string.Empty);
+                        SafeSetClipboardText(item.TextContent ?? string.Empty);
                     }
                 }
                 else
@@ -642,8 +1144,8 @@ namespace ModernKey
                                                 .ToList();
                         if (textItems.Count > 0)
                         {
-                            string combined = string.Join(Environment.NewLine, textItems);
-                            Clipboard.SetText(combined);
+                            string combined = FormatMergedText(textItems);
+                            SafeSetClipboardText(combined);
                         }
                     }
                 }
@@ -655,7 +1157,9 @@ namespace ModernKey
 
                 if (TxtStatus != null)
                 {
-                    TxtStatus.Text = $"✓ Đã sao chép {selected.Count} mục vào Clipboard hệ thống!";
+                    TxtStatus.Text = selected.Count > 1
+                        ? $"✓ Đã gộp và sao chép {selected.Count} mục vào Clipboard ({GetMergeFormatSummary()})!"
+                        : $"✓ Đã sao chép 1 mục vào Clipboard hệ thống!";
                 }
             }
             catch (Exception ex)
@@ -712,12 +1216,12 @@ namespace ModernKey
                 return;
             }
 
-            string combinedText = string.Join(Environment.NewLine, textItems);
+            string combinedText = FormatMergedText(textItems);
             var virtualItemText = new ClipboardItem
             {
                 ContentType = ClipboardContentType.Text,
                 TextContent = combinedText,
-                PreviewText = $"[Gộp {textItems.Count} mục]",
+                PreviewText = $"[Gộp {textItems.Count} mục: {GetMergeFormatSummary()}]",
                 CharCount = combinedText.Length,
                 ByteSize = Encoding.UTF8.GetByteCount(combinedText)
             };
@@ -1085,16 +1589,201 @@ namespace ModernKey
                                         .ToList();
                 if (textParts.Count > 0)
                 {
-                    string merged = string.Join(Environment.NewLine + "---" + Environment.NewLine, textParts);
+                    string merged = FormatMergedText(textParts);
                     _historyManager?.AddText(merged, "ModernKey Gộp", null);
                     _itemsView?.Refresh();
                     EnsureAppropriateSelection();
-                    if (TxtStatus != null) TxtStatus.Text = $"✓ Đã gộp {textParts.Count} đoạn văn bản thành 1 mục mới!";
+                    if (TxtStatus != null) TxtStatus.Text = $"✓ Đã gộp {textParts.Count} đoạn văn bản ({GetMergeFormatSummary()}) thành 1 mục mới!";
                 }
             }
             else
             {
                 MessageBox.Show("Vui lòng chọn từ 2 mục văn bản trở lên để gộp.", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
+        private void CtxMenuMergeImagesVertical_Click(object sender, RoutedEventArgs e)
+        {
+            MergeSelectedImages(true);
+        }
+
+        private void CtxMenuMergeImagesHorizontal_Click(object sender, RoutedEventArgs e)
+        {
+            MergeSelectedImages(false);
+        }
+
+        private void MergeSelectedImages(bool isVertical)
+        {
+            var selected = LstClipboard?.SelectedItems?.Cast<ClipboardItem>().ToList();
+            if (selected == null || selected.Count < 2)
+            {
+                MessageBox.Show("Vui lòng chọn từ 2 hình ảnh trở lên để gộp.", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            // Thu thập đường dẫn ảnh từ các mục đã chọn (hỗ trợ cả Image lẫn Files chứa tệp ảnh)
+            var imagePaths = new List<string>();
+            foreach (var it in selected)
+            {
+                if (it.ContentType == ClipboardContentType.Image)
+                {
+                    string p = ClipboardItem.ResolvePath(it.ImagePath);
+                    if (!string.IsNullOrEmpty(p) && File.Exists(p))
+                    {
+                        imagePaths.Add(p);
+                    }
+                }
+                else if (it.ContentType == ClipboardContentType.Files)
+                {
+                    var files = it.FilePaths;
+                    foreach (var f in files)
+                    {
+                        string ext = Path.GetExtension(f)?.ToLowerInvariant();
+                        if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".webp" || ext == ".gif")
+                        {
+                            if (File.Exists(f)) imagePaths.Add(f);
+                        }
+                    }
+                }
+            }
+
+            if (imagePaths.Count < 2)
+            {
+                MessageBox.Show("Chỉ tìm thấy ít hơn 2 hình ảnh hợp lệ trong các mục đã chọn để gộp.", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            try
+            {
+                // Nạp tất cả ảnh vào bộ nhớ an toàn (không lock file)
+                var loadedBitmaps = new List<System.Drawing.Bitmap>();
+                foreach (var path in imagePaths)
+                {
+                    try
+                    {
+                        using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        using (var orig = System.Drawing.Image.FromStream(fs))
+                        {
+                            var bmp = new System.Drawing.Bitmap(orig);
+                            loadedBitmaps.Add(bmp);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine("Lỗi đọc file ảnh: " + ex.Message);
+                    }
+                }
+
+                if (loadedBitmaps.Count < 2)
+                {
+                    foreach (var b in loadedBitmaps) b.Dispose();
+                    MessageBox.Show("Không thể nạp đủ các tệp hình ảnh để thực hiện gộp.", "Lỗi", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                int totalWidth = 0;
+                int totalHeight = 0;
+                int spacing = 0; // Ghép liền mạch (0px)
+
+                if (isVertical)
+                {
+                    totalWidth = loadedBitmaps.Max(b => b.Width);
+                    totalHeight = loadedBitmaps.Sum(b => b.Height) + spacing * (loadedBitmaps.Count - 1);
+                }
+                else
+                {
+                    totalWidth = loadedBitmaps.Sum(b => b.Width) + spacing * (loadedBitmaps.Count - 1);
+                    totalHeight = loadedBitmaps.Max(b => b.Height);
+                }
+
+                if (totalWidth <= 0 || totalHeight <= 0)
+                {
+                    foreach (var b in loadedBitmaps) b.Dispose();
+                    return;
+                }
+
+                byte[] mergedPngBytes = null;
+                using (var canvas = new System.Drawing.Bitmap(totalWidth, totalHeight, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
+                using (var g = System.Drawing.Graphics.FromImage(canvas))
+                {
+                    g.Clear(System.Drawing.Color.Transparent);
+                    g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+                    g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                    g.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.HighQuality;
+
+                    int currentX = 0;
+                    int currentY = 0;
+
+                    foreach (var bmp in loadedBitmaps)
+                    {
+                        if (isVertical)
+                        {
+                            // Ghép dọc: căn giữa theo chiều ngang
+                            int drawX = (totalWidth - bmp.Width) / 2;
+                            g.DrawImage(bmp, drawX, currentY, bmp.Width, bmp.Height);
+                            currentY += bmp.Height + spacing;
+                        }
+                        else
+                        {
+                            // Ghép ngang: căn giữa theo chiều dọc
+                            int drawY = (totalHeight - bmp.Height) / 2;
+                            g.DrawImage(bmp, currentX, drawY, bmp.Width, bmp.Height);
+                            currentX += bmp.Width + spacing;
+                        }
+                    }
+
+                    using (var ms = new MemoryStream())
+                    {
+                        canvas.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                        mergedPngBytes = ms.ToArray();
+                    }
+                }
+
+                // Giải phóng bộ nhớ ảnh tạm
+                foreach (var b in loadedBitmaps) b.Dispose();
+                loadedBitmaps.Clear();
+
+                if (mergedPngBytes == null || mergedPngBytes.Length == 0) return;
+
+                string dirText = isVertical ? "dọc" : "ngang";
+                string previewLabel = $"[Gộp {imagePaths.Count} ảnh {dirText} {totalWidth}x{totalHeight}]";
+
+                // Thêm vào HistoryManager
+                var newItem = _historyManager?.AddImage(mergedPngBytes, totalWidth, totalHeight, "ModernKey Gộp Ảnh", null, previewLabel);
+                _itemsView?.Refresh();
+
+                if (newItem != null)
+                {
+                    LstClipboard.SelectedItem = newItem;
+                    LstClipboard.ScrollIntoView(newItem);
+                    _lastActiveItemId = newItem.Id;
+
+                    // Sao chép ngay vào Clipboard hệ thống
+                    try
+                    {
+                        KeySender.SuppressClipboardMonitoring = true;
+                        SafeSetClipboardImage(newItem.ImagePath, newItem.ImageSource);
+                    }
+                    catch { }
+                    finally
+                    {
+                        ThreadPool.QueueUserWorkItem(_ =>
+                        {
+                            Thread.Sleep(500);
+                            KeySender.SuppressClipboardMonitoring = false;
+                        });
+                    }
+                }
+
+                if (TxtStatus != null)
+                {
+                    TxtStatus.Text = $"✓ Đã gộp thành công {imagePaths.Count} ảnh ({dirText}) thành ảnh mới {totalWidth}x{totalHeight} và nạp vào Clipboard!";
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi khi gộp hình ảnh: " + ex.Message, "Lỗi", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -1264,6 +1953,306 @@ namespace ModernKey
 
         #endregion
 
+        #region Drag & Drop ra các ứng dụng khác (Images, Files/Folders, Text)
+
+        private Point _dragStartPoint = new Point(-1, -1);
+        private bool _isDragging = false;
+
+        private void LstClipboard_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            // Bỏ qua nếu click vào button (nút sao yêu thích) hoặc scrollbar
+            DependencyObject original = e.OriginalSource as DependencyObject;
+            while (original != null && original != LstClipboard)
+            {
+                if (original is Button || original is System.Windows.Controls.Primitives.ScrollBar)
+                {
+                    _dragStartPoint = new Point(-1, -1);
+                    return;
+                }
+                original = VisualTreeHelper.GetParent(original);
+            }
+
+            _dragStartPoint = e.GetPosition(null);
+        }
+
+        private void LstClipboard_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed || _dragStartPoint.X < 0 || _isDragging) return;
+
+            Point currentPos = e.GetPosition(null);
+            Vector diff = _dragStartPoint - currentPos;
+
+            if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+            {
+                StartDragDropFromSelection(LstClipboard);
+            }
+        }
+
+        private void ImgPreview_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _dragStartPoint = e.GetPosition(null);
+        }
+
+        private void ImgPreview_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton != MouseButtonState.Pressed || _dragStartPoint.X < 0 || _isDragging) return;
+
+            Point currentPos = e.GetPosition(null);
+            Vector diff = _dragStartPoint - currentPos;
+
+            if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+            {
+                StartDragDropFromPreviewImage();
+            }
+        }
+
+        private static ClipboardItem GetItemAtPoint(ListBox listBox, Point pt)
+        {
+            if (listBox == null || pt.X < 0 || pt.Y < 0) return null;
+            try
+            {
+                var hit = VisualTreeHelper.HitTest(listBox, pt);
+                if (hit == null) return null;
+
+                DependencyObject current = hit.VisualHit;
+                while (current != null && current != listBox)
+                {
+                    if (current is ListBoxItem lbi)
+                    {
+                        return lbi.DataContext as ClipboardItem;
+                    }
+                    current = VisualTreeHelper.GetParent(current);
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        private void StartDragDropFromPreviewImage()
+        {
+            if (LstClipboard?.SelectedItem is ClipboardItem curItem && curItem.ContentType == ClipboardContentType.Image)
+            {
+                StartDragDropForItems(new List<ClipboardItem> { curItem }, ImgPreview);
+            }
+        }
+
+        private void StartDragDropFromSelection(DependencyObject dragSource)
+        {
+            var selected = LstClipboard?.SelectedItems?.Cast<ClipboardItem>().ToList();
+            if (selected == null || selected.Count == 0)
+            {
+                var hoveredItem = GetItemAtPoint(LstClipboard, _dragStartPoint);
+                if (hoveredItem != null)
+                {
+                    selected = new List<ClipboardItem> { hoveredItem };
+                }
+            }
+
+            if (selected == null || selected.Count == 0) return;
+
+            StartDragDropForItems(selected, dragSource);
+        }
+
+        private void StartDragDropForItems(List<ClipboardItem> items, DependencyObject dragSource)
+        {
+            if (items == null || items.Count == 0 || dragSource == null) return;
+
+            _isDragging = true;
+            _dragStartPoint = new Point(-1, -1);
+
+            try
+            {
+                var data = CreateDataObjectForItems(items, out DragDropEffects allowedEffects);
+                if (data == null) return;
+
+                if (TxtStatus != null)
+                {
+                    TxtStatus.Text = items.Count > 1
+                        ? $"⚡ Đang kéo {items.Count} mục... (Thả vào ứng dụng khác để dán/chép)"
+                        : $"⚡ Đang kéo: {items[0].PreviewText}... (Thả vào ứng dụng khác)";
+                }
+
+                // Cho phép đầy đủ Copy, Move, Link để tương thích 100% với AnyDesk, TeamViewer, RDP, Explorer
+                DragDropEffects effectsToAllow = allowedEffects | DragDropEffects.Link | DragDropEffects.Copy | DragDropEffects.Move;
+                DragDropEffects result = DragDrop.DoDragDrop(dragSource, data, effectsToAllow);
+
+                if (result != DragDropEffects.None)
+                {
+                    if (TxtStatus != null)
+                    {
+                        TxtStatus.Text = "✓ Đã kéo thả thành công vào ứng dụng khác!";
+                    }
+
+                    if (_settings != null && _settings.ClipboardAutoHide && !_settings.ClipboardAlwaysOnTop)
+                    {
+                        Hide();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("DragDrop error: " + ex.Message);
+            }
+            finally
+            {
+                _isDragging = false;
+                _dragStartPoint = new Point(-1, -1);
+            }
+        }
+
+        private DataObject CreateDataObjectForItems(List<ClipboardItem> items, out DragDropEffects allowedEffects)
+        {
+            // Mặc định cho phép đầy đủ Copy, Move, Link
+            allowedEffects = DragDropEffects.Copy | DragDropEffects.Move | DragDropEffects.Link;
+            if (items == null || items.Count == 0) return null;
+
+            var data = new DataObject();
+
+            // 1. Nhóm tệp tin & thư mục (Files / Folders) hoặc ảnh (Images lưu file)
+            var fileList = new List<string>();
+            int dropEffect = 1; // 1 = Copy, 2 = Move
+
+            // 2. Nhóm văn bản thuần túy (Text)
+            var textList = new List<string>();
+
+            // 3. Ảnh đầu tiên để hỗ trợ Bitmap (Photoshop, Paint, Word)
+            BitmapSource firstBitmap = null;
+            string firstImagePath = null;
+
+            foreach (var it in items)
+            {
+                if (it.ContentType == ClipboardContentType.Files)
+                {
+                    if (it.FilePaths != null && it.FilePaths.Count > 0)
+                    {
+                        foreach (var fp in it.FilePaths)
+                        {
+                            if (!string.IsNullOrWhiteSpace(fp))
+                            {
+                                fileList.Add(fp.Trim());
+                            }
+                        }
+                    }
+                    if (it.DropEffect > 0) dropEffect = it.DropEffect;
+                    // LƯU Ý QUAN TRỌNG CHO ANYDESK / TEAMVIEWER / REMOTE DESKTOP:
+                    // Tuyệt đối KHÔNG gán it.TextContent vào textList khi kéo Files!
+                    // Nếu gán Text, AnyDesk/TeamViewer sẽ nhận diện nhầm đây là Text Drag và từ chối
+                    // nhận trên canvas remote desktop (gây hiện biểu tượng cấm 🚫).
+                }
+                else if (it.ContentType == ClipboardContentType.Image)
+                {
+                    string resolvedImg = ClipboardItem.ResolvePath(it.ImagePath);
+                    if (!string.IsNullOrEmpty(resolvedImg) && File.Exists(resolvedImg))
+                    {
+                        fileList.Add(resolvedImg);
+                        if (firstImagePath == null) firstImagePath = resolvedImg;
+                    }
+                    if (firstBitmap == null && it.ImageSource is BitmapSource bs)
+                    {
+                        firstBitmap = bs;
+                    }
+                    // Tương tự, không đưa preview text vào textList khi kéo ảnh
+                }
+                else // Văn bản thuần túy
+                {
+                    if (!string.IsNullOrEmpty(it.TextContent))
+                    {
+                        textList.Add(it.TextContent);
+                    }
+                }
+            }
+
+            // Gán FileDropList nếu có tệp/thư mục hoặc file ảnh
+            if (fileList.Count > 0)
+            {
+                string[] fileArray = fileList.Where(f => !string.IsNullOrEmpty(f)).Distinct().ToArray();
+                if (fileArray.Length > 0)
+                {
+                    // 1. Gán CF_HDROP chuẩn Win32 OLE với string[] (autoConvert = true) cho AnyDesk, TeamViewer, Explorer
+                    data.SetData(DataFormats.FileDrop, fileArray, true);
+                    data.SetData("FileDrop", fileArray, true);
+
+                    // 2. Gán StringCollection cho các ứng dụng WPF / .NET
+                    var sc = new System.Collections.Specialized.StringCollection();
+                    sc.AddRange(fileArray);
+                    data.SetFileDropList(sc);
+
+                    // 3. Gán Shell format "FileNameW" và "FileName" cho các native Win32 drop targets
+                    data.SetData("FileNameW", fileArray[0]);
+                    data.SetData("FileName", fileArray[0]);
+
+                    // 4. Preferred DropEffect: Giá trị chuẩn Shell của Windows Explorer khi drag file:
+                    // 5 = DROPEFFECT_COPY | DROPEFFECT_LINK (hỗ trợ cả Copy và Remote Link Transfer)
+                    // hoặc 2 = DROPEFFECT_MOVE nếu đang Cut/Move
+                    int effVal = (dropEffect == 2) ? 2 : (1 | 4);
+                    data.SetData("Preferred DropEffect", new MemoryStream(BitConverter.GetBytes(effVal)));
+
+                    // 5. InShellDragLoop: Báo cho Windows Shell và Remote hook biết đây là Shell drag
+                    data.SetData("InShellDragLoop", new MemoryStream(BitConverter.GetBytes(1)));
+
+                    allowedEffects = (dropEffect == 2)
+                        ? (DragDropEffects.Move | DragDropEffects.Copy | DragDropEffects.Link)
+                        : (DragDropEffects.Copy | DragDropEffects.Link | DragDropEffects.Move);
+                }
+            }
+
+            // Gán Bitmap & DIB cho ứng dụng đồ họa/soạn thảo nếu có ảnh
+            if (firstImagePath != null && File.Exists(firstImagePath))
+            {
+                try
+                {
+                    byte[] pngBytes = File.ReadAllBytes(firstImagePath);
+                    data.SetData("PNG", new MemoryStream(pngBytes));
+
+                    using (var ms = new MemoryStream(pngBytes))
+                    using (var gdiImg = System.Drawing.Image.FromStream(ms))
+                    using (var bmpMs = new MemoryStream())
+                    {
+                        gdiImg.Save(bmpMs, System.Drawing.Imaging.ImageFormat.Bmp);
+                        byte[] bmpData = bmpMs.ToArray();
+                        if (bmpData.Length > 14)
+                        {
+                            // Cắt bỏ 14 byte BITMAPFILEHEADER để tạo DIB stream chuẩn CF_DIB
+                            var dibStream = new MemoryStream(bmpData, 14, bmpData.Length - 14);
+                            data.SetData(DataFormats.Dib, dibStream);
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            if (firstBitmap != null)
+            {
+                try { data.SetImage(firstBitmap); } catch { }
+            }
+            else if (firstImagePath != null && File.Exists(firstImagePath))
+            {
+                try
+                {
+                    var bmp = new BitmapImage(new Uri(firstImagePath));
+                    data.SetImage(bmp);
+                }
+                catch { }
+            }
+
+            // Gán Văn bản (Text) CHỈ KHI không có File và không có Image (kéo thả văn bản thuần túy)
+            if (fileList.Count == 0 && firstBitmap == null && firstImagePath == null && textList.Count > 0)
+            {
+                string combinedText = textList.Count == 1 ? textList[0] : FormatMergedText(textList);
+                data.SetText(combinedText);
+                data.SetData(DataFormats.UnicodeText, combinedText);
+                data.SetData(DataFormats.Text, combinedText);
+                data.SetData(DataFormats.StringFormat, combinedText);
+                allowedEffects = DragDropEffects.Copy | DragDropEffects.Move;
+            }
+
+            return data;
+        }
+
+        #endregion
+
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Escape)
@@ -1330,11 +2319,17 @@ namespace ModernKey
             }
             else if (e.Key == Key.C && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
             {
-                if (!TxtSearch.IsFocused || TxtSearch.SelectionLength == 0)
+                if (TxtSearch != null && TxtSearch.IsFocused && TxtSearch.SelectionLength > 0)
                 {
-                    ExecuteCopySelectedToClipboard();
-                    e.Handled = true;
+                    return;
                 }
+                if (TxtPreview != null && TxtPreview.IsFocused && TxtPreview.SelectionLength > 0)
+                {
+                    return;
+                }
+
+                ExecuteCopySelectedToClipboard();
+                e.Handled = true;
             }
             else if (e.Key == Key.V && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
             {
