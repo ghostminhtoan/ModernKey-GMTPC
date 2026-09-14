@@ -1237,7 +1237,7 @@ namespace ModernKey.Core
                         ("uw", "ư"),
                         ("ow", "ơ"),
                         ("uow", "ươ"),
-                        ("duocwj", "được"),
+                        ("duocwj", "dược"),
                         ("dduocwj", "được")
                     };
                     foreach (var sc in simpleCases)
@@ -1335,8 +1335,8 @@ namespace ModernKey.Core
                     }, new MacroManager());
 
                     string expectedSentence = "Đông đến, đường đi đầy đá, đoàn đường xa đến đâu được mà đừng đứng đợi. Đại đồng đồng lòng đi đầu, đô đốc đứng đó đo đếm đại đội đang đóng đồn.";
-                    string line1Input = "DDoong ddeesn, ddwowfng ddi ddaaqy ddaas, ddoafn ddwowfng xa ddeesn ddaaqu ddwwowjcc maaf ddwwfwng dduwawjng ddowjqi. DDaji ddoofng ddoofng loofng ddi ddaafu, ddoas ddoosc dduwawjng ddoas ddo ddeesm ddaji ddooji ddaang ddoasng ddoofn.";
-                    string line2Input = "densd ddesn, duongwf ddi ddayq dass, doanf duongwf xa densd dauq duocwj maf dungwf dungwf doiwj. Daij dongf dongf longf ddi dauf, docs docs dungwf dos do deams daij doij dang doangs donf.";
+                    string line1Input = "DDoong ddeesn, ddwowfng ddi ddaaqy ddaas, ddoafn ddwowfng xa ddeesn ddaaqu ddwwowjcc maaf ddwwfwng dduwawjng ddowjqi. DDaji ddoofng ddoofng loofng ddi ddaafu, ddoo ddoosc dduwawjng ddoas ddo ddeesm ddaji ddooji ddaang ddoasng ddoofn.";
+                    string line2Input = "DDoong ddeesn, dduongwf ddi ddayq ddaas, ddoanf dduongwf xa ddesn ddaaqu dduocwj maaf ddwwfwng dduwawjng ddowjqi. DDaji ddoofng ddoofng loofng ddi ddaafu, ddoo ddoosc dduwawjng ddoas ddo ddeesm ddaji ddooji ddaang ddoasng ddoofn.";
 
                     string actualLine1 = SimulateTypingSentence(telexUserEngine, line1Input);
                     if (actualLine1 == expectedSentence)
@@ -1445,6 +1445,47 @@ namespace ModernKey.Core
                         {
                             allPassed = false;
                             sb.AppendLine($"  FAIL Sửa lỗi chính tả: '{st.input.Replace("\n", "\\n")}' -> '{resSpelling.Replace("\n", "\\n")}' (Mong doi: '{st.expected.Replace("\n", "\\n")}')");
+                        }
+                    }
+
+                    // I. Test TUYỆT ĐỐI KHÔNG TỰ Ý GHÉP d THÀNH đ KHI GÕ d + NGUYÊN ÂM
+                    var telexDTestEngine = new VietnameseEngine(new AppSettings
+                    {
+                        IsVietnamese = true,
+                        CurrentInputMethod = InputMethod.Telex,
+                        ModernToneRules = true,
+                        FreeMark = true
+                    }, new MacroManager());
+
+                    var dVowelTests = new (string input, string expected)[]
+                    {
+                        ("da", "da"),
+                        ("de", "de"),
+                        ("di", "di"),
+                        ("do", "do"),
+                        ("du", "du"),
+                        ("dang", "dang"),
+                        ("dongf", "dòng"),
+                        ("dungwf", "dừng"),
+                        ("daauf", "dầu"),
+                        ("daij", "dại"),
+                        ("duongwf", "dường"),
+                        ("duocwj", "dược"),
+                        ("docs", "dóc"),
+                        ("dos", "dó")
+                    };
+
+                    foreach (var dvt in dVowelTests)
+                    {
+                        string resDv = SimulateTypingWord(telexDTestEngine, dvt.input);
+                        if (resDv == dvt.expected)
+                        {
+                            sb.AppendLine($"  PASS d+nguyên âm không thành đ: '{dvt.input}' -> '{resDv}'");
+                        }
+                        else
+                        {
+                            allPassed = false;
+                            sb.AppendLine($"  FAIL d+nguyên âm không thành đ: '{dvt.input}' -> '{resDv}' (Mong doi: '{dvt.expected}')");
                         }
                     }
                 }

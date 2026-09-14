@@ -2580,18 +2580,7 @@ namespace ModernKey.Core
                     {
                         if (lower == 's')
                         {
-                            if (tone == 1)
-                            {
-                                // Nếu từ bắt đầu bằng d/D (ví dụ: dass -> đá)
-                                if (sb.Length > 0 && (sb[0] == 'd' || sb[0] == 'D'))
-                                {
-                                    sb[0] = (sb[0] == 'D') ? 'Đ' : 'đ';
-                                    modified = true;
-                                    continue;
-                                }
-                                tone = 0;
-                                sb.Append(c);
-                            }
+                            if (tone == 1) { tone = 0; sb.Append(c); }
                             else tone = 1;
                             modified = true;
                             continue;
@@ -2723,33 +2712,6 @@ namespace ModernKey.Core
 
                             if (dIdx == 0)
                             {
-                                string curLower = sb.ToString().ToLowerInvariant();
-                                if ((curLower == "den" || curLower == "dén") && tone == 1)
-                                {
-                                    bool isUpper = (sb[0] == 'D') || char.IsUpper(c) || IsCapsLockActive();
-                                    string pClean = string.IsNullOrEmpty(lastWord) ? "" : lastWord.Trim().ToLowerInvariant().TrimEnd(',', '.', '!', '?', ';', ':');
-                                    if (string.IsNullOrEmpty(pClean))
-                                    {
-                                        sb.Clear();
-                                        sb.Append("Đông");
-                                        tone = 0;
-                                        modified = true;
-                                        continue;
-                                    }
-
-                                    sb[0] = isUpper ? 'Đ' : 'đ';
-                                    for (int j = 1; j < sb.Length; j++)
-                                    {
-                                        if (char.ToLowerInvariant(sb[j]) == 'e' || char.ToLowerInvariant(sb[j]) == 'é')
-                                        {
-                                            sb[j] = char.IsUpper(sb[j]) ? 'Ê' : 'ê';
-                                            break;
-                                        }
-                                    }
-                                    modified = true;
-                                    continue;
-                                }
-
                                 if (freeMark && CanTransformTrailingD(sb, c, tone, modernTone))
                                 {
                                     bool isUpper = (sb[0] == 'D') || char.IsUpper(c) || IsCapsLockActive();
@@ -2780,7 +2742,7 @@ namespace ModernKey.Core
                     }
 
                     // ddesn: khi gõ 'n' sau 'đe' mang dấu sắc (tone == 1) -> biến e thành ê để ra 'đến'
-                    if (lower == 'n' && sb.Length >= 2 && (sb[0] == 'đ' || sb[0] == 'Đ' || sb[0] == 'd' || sb[0] == 'D') && tone == 1)
+                    if (lower == 'n' && sb.Length >= 2 && (sb[0] == 'đ' || sb[0] == 'Đ') && tone == 1)
                     {
                         char prevChar = char.ToLowerInvariant(sb[sb.Length - 1]);
                         if (prevChar == 'e' || prevChar == 'é')
@@ -3047,140 +3009,47 @@ namespace ModernKey.Core
             string lower = coreWord.ToLowerInvariant();
             bool isUpper = char.IsUpper(coreWord[0]);
 
-            string prevClean = string.IsNullOrEmpty(lastWord) ? "" : lastWord.Trim().ToLowerInvariant().TrimEnd(',', '.', '!', '?', ';', ':');
-
-            // 1. Quy tắc ngữ cảnh dựa vào từ liền trước (Preceding Word Context)
-            if (string.IsNullOrEmpty(prevClean))
-            {
-                // Ở đầu câu/đoạn: densd -> Đông
-                if (lower == "densd")
-                {
-                    return "Đông" + punct;
-                }
-            }
-            else
-            {
-                if (prevClean == "xa")
-                {
-                    if (lower == "densd")
-                        return (isUpper ? "Đến" : "đến") + punct;
-                }
-                else if (prevClean == "đầu" || prevClean.EndsWith("đầu"))
-                {
-                    // "đi đầu, đô đốc": ddoas -> đô, docs -> đô
-                    if (lower == "ddoas" || lower == "đoá" || lower == "docs" || lower == "dóc")
-                        return (isUpper ? "Đô" : "đô") + punct;
-                }
-                else if (prevClean == "đô")
-                {
-                    // "đô đốc": docs -> đốc
-                    if (lower == "docs" || lower == "dóc")
-                        return (isUpper ? "Đốc" : "đốc") + punct;
-                }
-                else if (prevClean == "đừng" || prevClean == "đốc")
-                {
-                    // "đừng đứng đợi", "đô đốc đứng đó": dungwf -> đứng
-                    if (lower == "dungwf" || lower == "dưng" || lower == "dừng")
-                        return (isUpper ? "Đứng" : "đứng") + punct;
-                }
-                else if (prevClean == "đứng")
-                {
-                    // "đứng đó đo đếm": ddoas -> đó, dos -> đó
-                    if (lower == "ddoas" || lower == "đoá" || lower == "dos" || lower == "dó")
-                        return (isUpper ? "Đó" : "đó") + punct;
-                }
-            }
-
-            // 2. Danh sách chuẩn hóa các từ ghép dấu tự do (Free Mark) Telex & SimpleTelex
+            // Danh sách chuẩn hóa các từ ghép dấu tự do (Free Mark) Telex & SimpleTelex
+            // TUYỆT ĐỐI KHÔNG tự ý ghép 'd' + nguyên âm thành 'đ'. Chỉ xử lý khi người dùng gõ 'dd' hoặc đã có 'đ'.
             switch (lower)
             {
                 case "densd":
                 case "ddesn":
                 case "đén":
-                case "dén":
                     return (isUpper ? "Đến" : "đến") + punct;
 
-                case "duongwf":
-                case "dường":
-                    return (isUpper ? "Đường" : "đường") + punct;
-
-                case "dược":
-                case "duocwj":
+                case "dduocwj":
                 case "ddwwowjcc":
                 case "đưựơcc":
                     return (isUpper ? "Được" : "được") + punct;
 
-                case "doanf":
-                case "doàn":
-                    return (isUpper ? "Đoàn" : "đoàn") + punct;
-
-                case "dợi":
-                case "doiwj":
                 case "ddowjqi":
                 case "đơi":
-                case "dơi":
                 case "đợqi":
                 case "đơqi":
                     return (isUpper ? "Đợi" : "đợi") + punct;
 
-                case "dòng":
-                case "dongf":
-                    return (isUpper ? "Đồng" : "đồng") + punct;
-
-                case "dóc":
-                case "docs":
-                    return (isUpper ? "Đốc" : "đốc") + punct;
-
-                case "dó":
-                case "dos":
                 case "đoá":
                 case "ddoas":
                     return (isUpper ? "Đó" : "đó") + punct;
 
-                case "dòn":
-                case "donf":
-                    return (isUpper ? "Đồn" : "đồn") + punct;
-
-                case "dọi":
-                case "doij":
-                    return (isUpper ? "Đội" : "đội") + punct;
-
-                case "doáng":
-                case "doangs":
                 case "đoáng":
                 case "ddoasng":
                     return (isUpper ? "Đóng" : "đóng") + punct;
 
-                case "dầu":
-                case "dàu":
-                case "dauf":
                 case "ddaafu":
                     return (isUpper ? "Đầu" : "đầu") + punct;
 
-                case "dâu":
-                case "dauq":
                 case "ddaaqu":
                 case "đâqu":
                 case "đâuq":
                     return (isUpper ? "Đâu" : "đâu") + punct;
 
-                case "dại":
-                case "daij":
-                    return (isUpper ? "Đại" : "đại") + punct;
-
-                case "dếm":
-                case "deams":
-                case "deáms":
-                case "déams":
-                case "deám":
-                case "déam":
-                case "dém":
                 case "đém":
                     return (isUpper ? "Đếm" : "đếm") + punct;
 
                 case "ddaas":
                 case "đấ":
-                case "dass":
                     return (isUpper ? "Đá" : "đá") + punct;
 
                 case "maaf":
@@ -3189,15 +3058,10 @@ namespace ModernKey.Core
 
                 case "ddwwfwng":
                 case "đưừưng":
-                case "dưng":
-                case "dừng":
-                case "dungwf":
                     return (isUpper ? "Đừng" : "đừng") + punct;
 
                 case "dduwawjng":
                 case "đưặng":
-                case "dứng":
-                case "dungws":
                     return (isUpper ? "Đứng" : "đứng") + punct;
 
                 case "lồng":
@@ -3214,12 +3078,6 @@ namespace ModernKey.Core
                 case "ddayq":
                 case "đâyq":
                     return (isUpper ? "Đầy" : "đầy") + punct;
-
-                case "do":
-                    return (isUpper ? "Đo" : "đo") + punct;
-
-                case "dang":
-                    return (isUpper ? "Đang" : "đang") + punct;
             }
 
             return word;
