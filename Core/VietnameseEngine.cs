@@ -1050,21 +1050,6 @@ namespace ModernKey.Core
         {
             if (keys == null || keys.Count == 0) return null;
 
-            // Xử lý riêng theo yêu cầu: gõ "did" sẽ thành "di" (kiểu gõ TBT, Telex, Simple Telex)
-            if (keys.Count == 3 &&
-                (method == InputMethod.Telex || method == InputMethod.SimpleTelex || method == InputMethod.TuBinhTran) &&
-                char.ToLowerInvariant(keys[0]) == 'd' &&
-                char.ToLowerInvariant(keys[1]) == 'i' &&
-                char.ToLowerInvariant(keys[2]) == 'd')
-            {
-                bool isUpper0 = char.IsUpper(keys[0]);
-                bool isUpper1 = char.IsUpper(keys[1]);
-                bool isUpper2 = char.IsUpper(keys[2]);
-                if (isUpper0 && isUpper1 && isUpper2) return "DI";
-                if (isUpper0) return "Di";
-                return "di";
-            }
-
             string result = null;
             if (method == InputMethod.TuBinhTran)
             {
@@ -1257,9 +1242,8 @@ namespace ModernKey.Core
                 if (sb[i] == 'd' || sb[i] == 'D') return false;
             }
 
-            // 3. Bắt buộc phải có nguyên âm mang dấu thanh (tone > 0) hoặc mang mũ/móc tiếng Việt (â, ă, ê, ô, ơ, ư)
-            bool hasMark = (tone > 0) || HasVietnameseMarkedVowel(sb);
-            if (!hasMark) return false;
+            // 3. Bắt buộc từ đã có nguyên âm (ví dụ: du, di, de, da, do, dù, dì, đương, dược...)
+            if (!HasAnyVowel(sb)) return false;
 
             // 4. Kiểm tra cấu trúc đơn âm tiết: tiếng Việt chỉ có đúng 1 cụm nguyên âm (loại bỏ downloads, dictated, decide...)
             int vowelGroupCount = 0;

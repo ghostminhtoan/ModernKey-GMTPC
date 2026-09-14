@@ -66,7 +66,8 @@ namespace ModernKey.Core
                 ("hentai2read", "hentai2read"),
                 ("dictated", "dictated"),
                 ("deadline", "deadline"),
-                ("dad", "dad"),
+                ("dad", "đa"),
+                ("dadd", "dad"),
                 ("ddd", "dd"),
                 ("dddr", "ddr"),
                 ("DDDr", "DDr"),
@@ -129,7 +130,7 @@ namespace ModernKey.Core
                 sb.AppendLine($"  FAIL Doan 3:\n    Ket qua : '{out3}'\n    Mong doi: '{expected3}'");
             }
 
-            string sample4 = "downloads dictated deadline dad.";
+            string sample4 = "downloads dictated deadline dadd.";
             string expected4 = "downloads dictated deadline dad.";
             string out4 = SimulateTypingSentence(telexEngine, sample4);
             if (out4 == expected4)
@@ -1360,7 +1361,7 @@ namespace ModernKey.Core
                         sb.AppendLine($"  FAIL Kiểu ghép dấu tự do: '{actualLine2}'\n   (Mong doi: '{expectedSentence}')");
                     }
 
-                    // G. Test tính năng mới: di không thành đi; did thành di; đi + d thành did (Telex, SimpleTelex, TBT)
+                    // G. Test tính năng ghép dấu tự do cho chữ đ: di -> di, did -> đi, dud -> đu, ddid -> did, didd -> did (Telex, SimpleTelex, TBT)
                     var methodsToTest = new[] { InputMethod.Telex, InputMethod.SimpleTelex, InputMethod.TuBinhTran };
                     foreach (var m in methodsToTest)
                     {
@@ -1372,7 +1373,7 @@ namespace ModernKey.Core
                             FreeMark = true
                         }, new MacroManager());
 
-                        // 1. Gõ di -> phải ra di (không thành đi)
+                        // 1. Gõ di -> phải ra di (không tự sửa thành đi khi chưa gõ d dấu)
                         string resDi = SimulateTypingWord(eng, "di");
                         if (resDi == "di")
                         {
@@ -1384,19 +1385,43 @@ namespace ModernKey.Core
                             sb.AppendLine($"  FAIL {m}: 'di' -> '{resDi}' (Mong doi: 'di')");
                         }
 
-                        // 2. Gõ did -> phải thành di
+                        // 2. Gõ did -> phải thành đi (ghép dấu tự do)
                         string resDid = SimulateTypingWord(eng, "did");
-                        if (resDid == "di")
+                        if (resDid == "đi")
                         {
                             sb.AppendLine($"  PASS {m}: 'did' -> '{resDid}'");
                         }
                         else
                         {
                             allPassed = false;
-                            sb.AppendLine($"  FAIL {m}: 'did' -> '{resDid}' (Mong doi: 'di')");
+                            sb.AppendLine($"  FAIL {m}: 'did' -> '{resDid}' (Mong doi: 'đi')");
                         }
 
-                        // 3. Đang chữ đi (gõ ddi) gõ thêm d -> thành did
+                        // 3. Gõ dud -> phải thành đu (ghép dấu tự do)
+                        string resDud = SimulateTypingWord(eng, "dud");
+                        if (resDud == "đu")
+                        {
+                            sb.AppendLine($"  PASS {m}: 'dud' -> '{resDud}'");
+                        }
+                        else
+                        {
+                            allPassed = false;
+                            sb.AppendLine($"  FAIL {m}: 'dud' -> '{resDud}' (Mong doi: 'đu')");
+                        }
+
+                        // 4. Gõ ded -> phải thành đe (ghép dấu tự do)
+                        string resDed = SimulateTypingWord(eng, "ded");
+                        if (resDed == "đe")
+                        {
+                            sb.AppendLine($"  PASS {m}: 'ded' -> '{resDed}'");
+                        }
+                        else
+                        {
+                            allPassed = false;
+                            sb.AppendLine($"  FAIL {m}: 'ded' -> '{resDed}' (Mong doi: 'đe')");
+                        }
+
+                        // 5. Đang chữ đi (gõ ddi) gõ thêm d -> thành did
                         string resDdid = SimulateTypingWord(eng, "ddid");
                         if (resDdid == "did")
                         {
@@ -1406,6 +1431,18 @@ namespace ModernKey.Core
                         {
                             allPassed = false;
                             sb.AppendLine($"  FAIL {m}: 'ddid' -> '{resDdid}' (Mong doi: 'did')");
+                        }
+
+                        // 6. Gõ didd (did đã thành đi, gõ thêm d) -> thành did
+                        string resDidd = SimulateTypingWord(eng, "didd");
+                        if (resDidd == "did")
+                        {
+                            sb.AppendLine($"  PASS {m}: 'didd' -> '{resDidd}'");
+                        }
+                        else
+                        {
+                            allPassed = false;
+                            sb.AppendLine($"  FAIL {m}: 'didd' -> '{resDidd}' (Mong doi: 'did')");
                         }
                     }
 
