@@ -373,6 +373,50 @@ namespace ModernKey.Hook
             LanguageChanged?.Invoke();
         }
 
+        /// <summary>
+        /// Phát âm Beep đa âm sắc (arpeggio chime) đặc trưng riêng biệt cho từng kiểu gõ khi chuyển đổi,
+        /// hoàn toàn khác biệt với âm đơn 600Hz/1000Hz của EN-VI. Chạy bất đồng bộ qua Task.Run để không trễ hook.
+        /// </summary>
+        public static void PlayInputMethodBeep(InputMethod method)
+        {
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try
+                {
+                    switch (method)
+                    {
+                        case InputMethod.Telex:
+                            // Âm sắc thanh thoát, chuỗi 2 âm đi lên (1300Hz 45ms -> 1650Hz 55ms)
+                            Console.Beep(1300, 45);
+                            Console.Beep(1650, 55);
+                            break;
+                        case InputMethod.Vni:
+                            // Âm sắc đầm chắc, âm đôi trầm bổng (800Hz 45ms -> 1100Hz 55ms)
+                            Console.Beep(800, 45);
+                            Console.Beep(1100, 55);
+                            break;
+                        case InputMethod.SimpleTelex:
+                            // Âm sắc cao vút, âm đôi nhanh (1400Hz 40ms -> 1850Hz 55ms)
+                            Console.Beep(1400, 40);
+                            Console.Beep(1850, 55);
+                            break;
+                        case InputMethod.TuBinhTran:
+                            // Âm sắc tốc ký, 3 nốt arpeggio ngắn (1200Hz 35ms -> 1500Hz 35ms -> 1900Hz 45ms)
+                            Console.Beep(1200, 35);
+                            Console.Beep(1500, 35);
+                            Console.Beep(1900, 45);
+                            break;
+                        default:
+                            // Các kiểu khác (1100Hz 45ms -> 1450Hz 55ms)
+                            Console.Beep(1100, 45);
+                            Console.Beep(1450, 55);
+                            break;
+                    }
+                }
+                catch { }
+            });
+        }
+
         private void OnForegroundWindowChanged(IntPtr hWnd)
         {
             ResetModifierState();
@@ -684,15 +728,19 @@ namespace ModernKey.Hook
                     }
 
                     // 7. Tab Phím tắt (F1-F12 kết hợp Modifier tùy chọn chuẩn OpenKey C++)
-                    if (_settings.ShortcutModifier != 0 && (vkCode >= 0x70 && vkCode <= 0x7B))
+                    if (vkCode >= 0x70 && vkCode <= 0x7B)
                     {
                         int currentMod = 0;
-                        if ((_modifierFlag & MASK_CTRL) != 0) currentMod |= 0x01;
-                        if ((_modifierFlag & MASK_SHIFT) != 0) currentMod |= 0x02;
-                        if ((_modifierFlag & MASK_ALT) != 0) currentMod |= 0x04;
-                        if ((_modifierFlag & MASK_WIN) != 0) currentMod |= 0x08;
+                        if ((_modifierFlag & MASK_CTRL) != 0 || (GetKeyState(0x11) & 0x8000) != 0) currentMod |= 0x01;
+                        if ((_modifierFlag & MASK_SHIFT) != 0 || (GetKeyState(0x10) & 0x8000) != 0) currentMod |= 0x02;
+                        if ((_modifierFlag & MASK_ALT) != 0 || (GetKeyState(0x12) & 0x8000) != 0) currentMod |= 0x04;
+                        if ((_modifierFlag & MASK_WIN) != 0 || (GetKeyState(0x5B) & 0x8000) != 0 || (GetKeyState(0x5C) & 0x8000) != 0) currentMod |= 0x08;
 
-                        if ((currentMod & _settings.ShortcutModifier) == _settings.ShortcutModifier)
+                        bool modifierMatches = (_settings.ShortcutModifier == 0)
+                            ? (currentMod == 0)
+                            : ((currentMod & _settings.ShortcutModifier) == _settings.ShortcutModifier);
+
+                        if (modifierMatches)
                         {
                             int fIndex = (int)(vkCode - 0x70 + 1); // F1=1..F12=12
                             if ((_settings.ShortcutEnableMask & (1 << fIndex)) != 0)
@@ -734,11 +782,19 @@ namespace ModernKey.Hook
                                     case 6: // F6: Kiểu gõ 1 (ShortcutF6InputMethod - Mặc định Telex)
                                         _settings.CurrentInputMethod = _settings.ShortcutF6InputMethod;
                                         InputMethodChanged?.Invoke(_settings.ShortcutF6InputMethod);
+                                        if (_settings.SwitchBeep)
+                                        {
+                                            PlayInputMethodBeep(_settings.ShortcutF6InputMethod);
+                                        }
                                         return (IntPtr)1;
 
                                     case 7: // F7: Kiểu gõ 2 (ShortcutF7InputMethod - Mặc định VNI)
                                         _settings.CurrentInputMethod = _settings.ShortcutF7InputMethod;
                                         InputMethodChanged?.Invoke(_settings.ShortcutF7InputMethod);
+                                        if (_settings.SwitchBeep)
+                                        {
+                                            PlayInputMethodBeep(_settings.ShortcutF7InputMethod);
+                                        }
                                         return (IntPtr)1;
 
                                     case 8: // F8: Mở bảng gõ tắt

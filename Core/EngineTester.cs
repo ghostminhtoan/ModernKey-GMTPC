@@ -1235,7 +1235,7 @@ namespace ModernKey.Core
                         ("uw", "ư"),
                         ("ow", "ơ"),
                         ("uow", "ươ"),
-                        ("duocwj", "dược"),
+                        ("duocwj", "được"),
                         ("dduocwj", "được")
                     };
                     foreach (var sc in simpleCases)
@@ -1314,6 +1314,40 @@ namespace ModernKey.Core
                             allPassed = false;
                             sb.AppendLine($"  FAIL Tư Bình Trần: '{tc.input}' -> '{res}' (Mong doi: '{tc.expected}')");
                         }
+                    }
+
+                    // F. Test câu ghép dấu tự do & câu bình thường (User sentences test)
+                    var telexUserEngine = new VietnameseEngine(new AppSettings
+                    {
+                        IsVietnamese = true,
+                        CurrentInputMethod = InputMethod.Telex,
+                        ModernToneRules = true
+                    }, new MacroManager());
+
+                    string expectedSentence = "Đông đến, đường đi đầy đá, đoàn đường xa đến đâu được mà đừng đứng đợi. Đại đồng đồng lòng đi đầu, đô đốc đứng đó đo đếm đại đội đang đóng đồn.";
+                    string line1Input = "DDoong ddeesn, ddwowfng ddi ddaaqy ddaas, ddoafn ddwowfng xa ddeesn ddaaqu ddwwowjcc maaf ddwwfwng dduwawjng ddowjqi. DDaji ddoofng ddoofng loofng ddi ddaafu, ddoas ddoosc dduwawjng ddoas ddo ddeesm ddaji ddooji ddaang ddoasng ddoofn.";
+                    string line2Input = "densd ddesn, duongwf di ddayq dass, doanf duongwf xa densd dauq duocwj maf dungwf dungwf doiwj. Daij dongf dongf longf di dauf, docs docs dungwf dos do deams daij doij dang doangs donf.";
+
+                    string actualLine1 = SimulateTypingSentence(telexUserEngine, line1Input);
+                    if (actualLine1 == expectedSentence)
+                    {
+                        sb.AppendLine($"  PASS Kiểu bình thường: '{actualLine1}'");
+                    }
+                    else
+                    {
+                        allPassed = false;
+                        sb.AppendLine($"  FAIL Kiểu bình thường: '{actualLine1}'\n   (Mong doi: '{expectedSentence}')");
+                    }
+
+                    string actualLine2 = SimulateTypingSentence(telexUserEngine, line2Input);
+                    if (actualLine2 == expectedSentence)
+                    {
+                        sb.AppendLine($"  PASS Kiểu ghép dấu tự do: '{actualLine2}'");
+                    }
+                    else
+                    {
+                        allPassed = false;
+                        sb.AppendLine($"  FAIL Kiểu ghép dấu tự do: '{actualLine2}'\n   (Mong doi: '{expectedSentence}')");
                     }
                 }
                 catch (Exception ex)

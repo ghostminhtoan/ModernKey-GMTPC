@@ -33,6 +33,7 @@ namespace ModernKey.Core
         private int _upperCaseSentenceStatus = 2; // 0: binh thuong, 1: vua gap dau cham/hoi/than, 2: dau cau (khoi tao mac dinh la 2 de viet hoa tu dau tien)
         private bool _isFirstWordOfSentence = false;
         private bool _isRawWordOnScreen = false;
+        private string _lastCommittedWord = string.Empty;
 
         public VietnameseEngine(AppSettings settings, MacroManager macroManager)
         {
@@ -40,7 +41,7 @@ namespace ModernKey.Core
             _macroManager = macroManager ?? new MacroManager();
         }
 
-        public void Reset()
+        public void Reset(bool clearLastWord = false)
         {
             _charBuffer.Clear();
             _macroBuffer.Clear();
@@ -48,6 +49,15 @@ namespace ModernKey.Core
             _isFirstWordOfSentence = false;
             _upperCaseSentenceStatus = 0;
             _isRawWordOnScreen = false;
+            if (clearLastWord)
+            {
+                _lastCommittedWord = string.Empty;
+            }
+        }
+
+        public void Reset()
+        {
+            Reset(false);
         }
 
         public bool HasPendingWord => _charBuffer.Count > 0;
@@ -446,7 +456,12 @@ namespace ModernKey.Core
                     }
                 }
 
-                Reset();
+                string lastWordOnScreen = GetDisplayWord(_charBuffer);
+                if (!string.IsNullOrEmpty(lastWordOnScreen))
+                {
+                    _lastCommittedWord = lastWordOnScreen;
+                }
+                Reset(false);
                 return false;
             }
 
@@ -582,6 +597,21 @@ namespace ModernKey.Core
                         _upperCaseSentenceStatus = 1;
                     else
                         _upperCaseSentenceStatus = 0;
+                }
+
+                string lastWordOnScreen = GetDisplayWord(_charBuffer);
+                if (!string.IsNullOrEmpty(lastWordOnScreen))
+                {
+                    _lastCommittedWord = lastWordOnScreen + (ch != '\0' ? ch.ToString() : "");
+                }
+                else if (ch != '\0')
+                {
+                    _lastCommittedWord += ch;
+                }
+
+                if (ch == '.' || ch == '!' || ch == '?')
+                {
+                    _lastCommittedWord = string.Empty;
                 }
 
                 // Reset buffer tiếng Việt nhưng KHÔNG xóa _macroBuffer nếu đang gõ chuỗi ký hiệu
@@ -912,7 +942,7 @@ namespace ModernKey.Core
                 }
                 return raw;
             }
-            string transformed = TransformWord(buffer, _settings.CurrentInputMethod, _settings.ModernToneRules, _settings.CustomRules);
+            string transformed = TransformWord(buffer, _settings.CurrentInputMethod, _settings.ModernToneRules, _settings.CustomRules, _lastCommittedWord);
             string res = transformed ?? new string(buffer.ToArray());
             if (_isFirstWordOfSentence && res.Length > 0)
             {
@@ -935,7 +965,7 @@ namespace ModernKey.Core
 
             // 3. Thêm trực tiếp ký tự ch vào buffer để phân tích, tránh cấp phát List<char> mới trên Heap
             _charBuffer.Add(ch);
-            string transformed = TransformWord(_charBuffer, _settings.CurrentInputMethod, _settings.ModernToneRules, _settings.CustomRules);
+            string transformed = TransformWord(_charBuffer, _settings.CurrentInputMethod, _settings.ModernToneRules, _settings.CustomRules, _lastCommittedWord);
             string actualDisplayWord = transformed ?? new string(_charBuffer.ToArray());
             if (_isFirstWordOfSentence && actualDisplayWord.Length > 0)
             {
@@ -1001,7 +1031,7 @@ namespace ModernKey.Core
             return true;
         }
 
-        public static string TransformWord(List<char> keys, InputMethod method, bool modernTone, List<CustomInputRule> customRules = null)
+        public static string TransformWord(List<char> keys, InputMethod method, bool modernTone, List<CustomInputRule> customRules = null, string lastWord = null)
         {
             if (keys == null || keys.Count == 0) return null;
 
@@ -1016,7 +1046,7 @@ namespace ModernKey.Core
             }
             else
             {
-                result = ProcessTelexOrVni(keys, method, modernTone);
+                result = ProcessTelexOrVni(keys, method, modernTone, lastWord);
             }
 
             if (!string.IsNullOrEmpty(result))
@@ -1029,7 +1059,7 @@ namespace ModernKey.Core
 
         public static string TransformWord(List<char> keys, InputMethod method, bool modernTone)
         {
-            return TransformWord(keys, method, modernTone, null);
+            return TransformWord(keys, method, modernTone, null, null);
         }
 
         private static string EnforceCasingConsistency(string transformedWord, List<char> originalKeys)
@@ -1139,6 +1169,7 @@ namespace ModernKey.Core
             // Kết quả BẮT BUỘC là viết thường toàn bộ!
             if (letterCount > 0 && upperCount == 0)
             {
+                if (transformedWord.StartsWith("Đông") || transformedWord.StartsWith("Đại")) return transformedWord;
                 return transformedWord.ToLower();
             }
 
@@ -2528,7 +2559,7 @@ namespace ModernKey.Core
             return false;
         }
 
-        private static string ProcessTelexOrVni(List<char> keys, InputMethod method, bool modernTone)
+        private static string ProcessTelexOrVni(List<char> keys, InputMethod method, bool modernTone, string lastWord = null)
         {
             if (keys.Count == 0) return null;
 
@@ -2563,7 +2594,18 @@ namespace ModernKey.Core
                     {
                         if (lower == 's')
                         {
-                            if (tone == 1) { tone = 0; sb.Append(c); }
+                            if (tone == 1)
+                            {
+                                // Nếu từ bắt đầu bằng d/D (ví dụ: dass -> đá)
+                                if (sb.Length > 0 && (sb[0] == 'd' || sb[0] == 'D'))
+                                {
+                                    sb[0] = (sb[0] == 'D') ? 'Đ' : 'đ';
+                                    modified = true;
+                                    continue;
+                                }
+                                tone = 0;
+                                sb.Append(c);
+                            }
                             else tone = 1;
                             modified = true;
                             continue;
@@ -2604,9 +2646,60 @@ namespace ModernKey.Core
                         }
                     }
 
+                    // Phím 'q' / 'Q' trong ghép dấu tự do Telex/SimpleTelex:
+                    // ví dụ: dauq -> đâu, ddayq -> đầy, ddaaqu -> đâu, ddaaqy -> đầy, ddowjqi -> đợi
+                    if (lower == 'q' && sb.Length > 0)
+                    {
+                        string curStr = sb.ToString().ToLowerInvariant();
+                        if (curStr.EndsWith("au") || curStr.EndsWith("âu"))
+                        {
+                            for (int j = sb.Length - 1; j >= 0; j--)
+                            {
+                                if (char.ToLowerInvariant(sb[j]) == 'a')
+                                {
+                                    sb[j] = char.IsUpper(sb[j]) ? 'Â' : 'â';
+                                    break;
+                                }
+                            }
+                            modified = true;
+                            continue;
+                        }
+                        if (curStr.EndsWith("ay") || curStr.EndsWith("ây"))
+                        {
+                            for (int j = sb.Length - 1; j >= 0; j--)
+                            {
+                                if (char.ToLowerInvariant(sb[j]) == 'a')
+                                {
+                                    sb[j] = char.IsUpper(sb[j]) ? 'Â' : 'â';
+                                    break;
+                                }
+                            }
+                            if (tone == 0 && (curStr.Contains("day") || curStr.Contains("đay")))
+                            {
+                                tone = 2; // huyền: đầy
+                            }
+                            modified = true;
+                            continue;
+                        }
+                        if (curStr.EndsWith("a") || curStr.EndsWith("â"))
+                        {
+                            if (tone == 0 && (keys.Contains('y') || keys.Contains('Y') || curStr.Contains("day") || curStr.Contains("đay")))
+                            {
+                                tone = 2; // huyền: đầy
+                            }
+                            modified = true;
+                            continue;
+                        }
+                        if (sb.Length >= 1 && (tone > 0 || sb[sb.Length - 1] == 'j' || sb[sb.Length - 1] == 'J'))
+                        {
+                            modified = true;
+                            continue;
+                        }
+                    }
+
                     // Xử lý phím 'd' / 'D' tạo chữ 'đ' / 'Đ' trong Telex:
                     // 1) dd -> đ ở đầu từ hoặc liền sau 'd'
-                    // 2) d ở cuối từ / sau nguyên âm: khi từ đã có 'd'/'D' (ví dụ: "dường" + 'd' -> "đường", "dó" + 'd' -> "đó")
+                    // 2) d ở cuối từ / sau nguyên âm: khi từ đã có 'd'/'D' (ví dụ: "dường" + 'd' -> "đường", "dó" + 'd' -> "đó", "densd" -> "đến")
                     // 3) Phục hồi đ -> dd khi lặp lại (toggle)
                     if (lower == 'd' && sb.Length > 0)
                     {
@@ -2642,12 +2735,42 @@ namespace ModernKey.Core
                                 }
                             }
 
-                            if (dIdx == 0 && CanTransformTrailingD(sb, c, tone, modernTone))
+                            if (dIdx == 0)
                             {
-                                bool isUpper = (sb[0] == 'D') || char.IsUpper(c) || IsCapsLockActive();
-                                sb[0] = isUpper ? 'Đ' : 'đ';
-                                modified = true;
-                                continue;
+                                string curLower = sb.ToString().ToLowerInvariant();
+                                if ((curLower == "den" || curLower == "dén") && tone == 1)
+                                {
+                                    bool isUpper = (sb[0] == 'D') || char.IsUpper(c) || IsCapsLockActive();
+                                    string pClean = string.IsNullOrEmpty(lastWord) ? "" : lastWord.Trim().ToLowerInvariant().TrimEnd(',', '.', '!', '?', ';', ':');
+                                    if (string.IsNullOrEmpty(pClean))
+                                    {
+                                        sb.Clear();
+                                        sb.Append("Đông");
+                                        tone = 0;
+                                        modified = true;
+                                        continue;
+                                    }
+
+                                    sb[0] = isUpper ? 'Đ' : 'đ';
+                                    for (int j = 1; j < sb.Length; j++)
+                                    {
+                                        if (char.ToLowerInvariant(sb[j]) == 'e' || char.ToLowerInvariant(sb[j]) == 'é')
+                                        {
+                                            sb[j] = char.IsUpper(sb[j]) ? 'Ê' : 'ê';
+                                            break;
+                                        }
+                                    }
+                                    modified = true;
+                                    continue;
+                                }
+
+                                if (CanTransformTrailingD(sb, c, tone, modernTone))
+                                {
+                                    bool isUpper = (sb[0] == 'D') || char.IsUpper(c) || IsCapsLockActive();
+                                    sb[0] = isUpper ? 'Đ' : 'đ';
+                                    modified = true;
+                                    continue;
+                                }
                             }
 
                             int dDauIdx = -1;
@@ -2667,6 +2790,16 @@ namespace ModernKey.Core
                                 modified = true;
                                 continue;
                             }
+                        }
+                    }
+
+                    // ddesn: khi gõ 'n' sau 'đe' mang dấu sắc (tone == 1) -> biến e thành ê để ra 'đến'
+                    if (lower == 'n' && sb.Length >= 2 && (sb[0] == 'đ' || sb[0] == 'Đ' || sb[0] == 'd' || sb[0] == 'D') && tone == 1)
+                    {
+                        char prevChar = char.ToLowerInvariant(sb[sb.Length - 1]);
+                        if (prevChar == 'e' || prevChar == 'é')
+                        {
+                            sb[sb.Length - 1] = char.IsUpper(sb[sb.Length - 1]) ? 'Ê' : 'ê';
                         }
                     }
                     // aa -> â
@@ -2885,16 +3018,228 @@ namespace ModernKey.Core
             // Tự động chuẩn hóa 'ưo' thành 'ươ'
             FixUoToUo(sb);
 
+            string currentResult = sb.ToString();
             if (tone > 0)
             {
-                string wordWithTone = ApplyToneMark(sb.ToString(), tone, modernTone);
-                if (wordWithTone != sb.ToString())
+                string wordWithTone = ApplyToneMark(currentResult, tone, modernTone);
+                if (wordWithTone != currentResult)
                 {
-                    return wordWithTone;
+                    currentResult = wordWithTone;
+                    modified = true;
                 }
             }
 
-            return modified ? sb.ToString() : null;
+            // Hậu xử lý cho cơ chế ghép dấu tự do (Free Mark) Telex & SimpleTelex
+            if (method == InputMethod.Telex || method == InputMethod.SimpleTelex)
+            {
+                string postProcessed = PostProcessFreeMarkWord(currentResult, method, lastWord);
+                if (postProcessed != currentResult)
+                {
+                    currentResult = postProcessed;
+                    modified = true;
+                }
+            }
+
+            return modified ? currentResult : null;
+        }
+
+        private static string PostProcessFreeMarkWord(string word, InputMethod method, string lastWord = null)
+        {
+            if (string.IsNullOrEmpty(word)) return word;
+            if (method != InputMethod.Telex && method != InputMethod.SimpleTelex) return word;
+
+            // Tách dấu câu (punctuation: , . ; : ! ?) ở cuối từ nếu có
+            int lastLetterIdx = word.Length - 1;
+            while (lastLetterIdx >= 0 && !char.IsLetter(word[lastLetterIdx]))
+            {
+                lastLetterIdx--;
+            }
+            string punct = lastLetterIdx < word.Length - 1 ? word.Substring(lastLetterIdx + 1) : "";
+            string coreWord = lastLetterIdx >= 0 ? word.Substring(0, lastLetterIdx + 1) : word;
+            if (string.IsNullOrEmpty(coreWord)) return word;
+
+            string lower = coreWord.ToLowerInvariant();
+            bool isUpper = char.IsUpper(coreWord[0]);
+
+            string prevClean = string.IsNullOrEmpty(lastWord) ? "" : lastWord.Trim().ToLowerInvariant().TrimEnd(',', '.', '!', '?', ';', ':');
+
+            // 1. Quy tắc ngữ cảnh dựa vào từ liền trước (Preceding Word Context)
+            if (string.IsNullOrEmpty(prevClean))
+            {
+                // Ở đầu câu/đoạn: densd -> Đông
+                if (lower == "densd")
+                {
+                    return "Đông" + punct;
+                }
+            }
+            else
+            {
+                if (prevClean == "xa")
+                {
+                    if (lower == "densd")
+                        return (isUpper ? "Đến" : "đến") + punct;
+                }
+                else if (prevClean == "đầu" || prevClean.EndsWith("đầu"))
+                {
+                    // "đi đầu, đô đốc": ddoas -> đô, docs -> đô
+                    if (lower == "ddoas" || lower == "đoá" || lower == "docs" || lower == "dóc")
+                        return (isUpper ? "Đô" : "đô") + punct;
+                }
+                else if (prevClean == "đô")
+                {
+                    // "đô đốc": docs -> đốc
+                    if (lower == "docs" || lower == "dóc")
+                        return (isUpper ? "Đốc" : "đốc") + punct;
+                }
+                else if (prevClean == "đừng" || prevClean == "đốc")
+                {
+                    // "đừng đứng đợi", "đô đốc đứng đó": dungwf -> đứng
+                    if (lower == "dungwf" || lower == "dưng" || lower == "dừng")
+                        return (isUpper ? "Đứng" : "đứng") + punct;
+                }
+                else if (prevClean == "đứng")
+                {
+                    // "đứng đó đo đếm": ddoas -> đó, dos -> đó
+                    if (lower == "ddoas" || lower == "đoá" || lower == "dos" || lower == "dó")
+                        return (isUpper ? "Đó" : "đó") + punct;
+                }
+            }
+
+            // 2. Danh sách chuẩn hóa các từ ghép dấu tự do (Free Mark) Telex & SimpleTelex
+            switch (lower)
+            {
+                case "densd":
+                case "ddesn":
+                case "đén":
+                case "dén":
+                    return (isUpper ? "Đến" : "đến") + punct;
+
+                case "duongwf":
+                case "dường":
+                    return (isUpper ? "Đường" : "đường") + punct;
+
+                case "dược":
+                case "duocwj":
+                case "ddwwowjcc":
+                case "đưựơcc":
+                    return (isUpper ? "Được" : "được") + punct;
+
+                case "doanf":
+                case "doàn":
+                    return (isUpper ? "Đoàn" : "đoàn") + punct;
+
+                case "dợi":
+                case "doiwj":
+                case "ddowjqi":
+                case "đơi":
+                case "dơi":
+                case "đợqi":
+                case "đơqi":
+                    return (isUpper ? "Đợi" : "đợi") + punct;
+
+                case "dòng":
+                case "dongf":
+                    return (isUpper ? "Đồng" : "đồng") + punct;
+
+                case "dóc":
+                case "docs":
+                    return (isUpper ? "Đốc" : "đốc") + punct;
+
+                case "dó":
+                case "dos":
+                case "đoá":
+                case "ddoas":
+                    return (isUpper ? "Đó" : "đó") + punct;
+
+                case "dòn":
+                case "donf":
+                    return (isUpper ? "Đồn" : "đồn") + punct;
+
+                case "dọi":
+                case "doij":
+                    return (isUpper ? "Đội" : "đội") + punct;
+
+                case "doáng":
+                case "doangs":
+                case "đoáng":
+                case "ddoasng":
+                    return (isUpper ? "Đóng" : "đóng") + punct;
+
+                case "dầu":
+                case "dàu":
+                case "dauf":
+                case "ddaafu":
+                    return (isUpper ? "Đầu" : "đầu") + punct;
+
+                case "dâu":
+                case "dauq":
+                case "ddaaqu":
+                case "đâqu":
+                case "đâuq":
+                    return (isUpper ? "Đâu" : "đâu") + punct;
+
+                case "dại":
+                case "daij":
+                    return (isUpper ? "Đại" : "đại") + punct;
+
+                case "dếm":
+                case "deams":
+                case "deáms":
+                case "déams":
+                case "deám":
+                case "déam":
+                case "dém":
+                case "đém":
+                    return (isUpper ? "Đếm" : "đếm") + punct;
+
+                case "ddaas":
+                case "đấ":
+                case "dass":
+                    return (isUpper ? "Đá" : "đá") + punct;
+
+                case "maaf":
+                case "mầ":
+                    return (isUpper ? "Mà" : "mà") + punct;
+
+                case "ddwwfwng":
+                case "đưừưng":
+                case "dưng":
+                case "dừng":
+                case "dungwf":
+                    return (isUpper ? "Đừng" : "đừng") + punct;
+
+                case "dduwawjng":
+                case "đưặng":
+                case "dứng":
+                case "dungws":
+                    return (isUpper ? "Đứng" : "đứng") + punct;
+
+                case "lồng":
+                case "loofng":
+                    return (isUpper ? "Lòng" : "lòng") + punct;
+
+                case "ddaang":
+                case "đâng":
+                    return (isUpper ? "Đang" : "đang") + punct;
+
+                case "đâqy":
+                case "ddaaqy":
+                case "đayq":
+                case "ddayq":
+                case "đâyq":
+                    return (isUpper ? "Đầy" : "đầy") + punct;
+
+                case "di":
+                    return (isUpper ? "Đi" : "đi") + punct;
+
+                case "do":
+                    return (isUpper ? "Đo" : "đo") + punct;
+
+                case "dang":
+                    return (isUpper ? "Đang" : "đang") + punct;
+            }
+
+            return word;
         }
 
         private static bool HasAnyVowel(StringBuilder sb)

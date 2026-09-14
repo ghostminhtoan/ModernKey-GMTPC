@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using ModernKey.Config;
 using ModernKey.Core;
+using ModernKey.Hook;
 using ModernKey.Models;
 using ModernKey.Tray;
 
@@ -271,8 +272,8 @@ namespace ModernKey
                     CmbShortcutF4Charset.IsEnabled = (ChkShortcutF4?.IsChecked == true);
                 }
                 if (ChkShortcutF5 != null) ChkShortcutF5.IsChecked = (_settings.ShortcutEnableMask & (1 << 5)) != 0;
-                bool isF6 = (_settings.CurrentInputMethod == _settings.ShortcutF6InputMethod) || ((_settings.ShortcutEnableMask & (1 << 6)) != 0 && (_settings.ShortcutEnableMask & (1 << 7)) == 0);
-                bool isF7 = (_settings.CurrentInputMethod == _settings.ShortcutF7InputMethod) || ((_settings.ShortcutEnableMask & (1 << 7)) != 0 && (_settings.ShortcutEnableMask & (1 << 6)) == 0);
+                bool isF7 = (_settings.CurrentInputMethod == _settings.ShortcutF7InputMethod);
+                bool isF6 = (_settings.CurrentInputMethod == _settings.ShortcutF6InputMethod) || !isF7;
                 if (isF7)
                 {
                     if (RadShortcutF7 != null) RadShortcutF7.IsChecked = true;
@@ -392,8 +393,9 @@ namespace ModernKey
             if (ChkShortcutF3?.IsChecked == true) fMask |= (1 << 3);
             if (ChkShortcutF4?.IsChecked == true) fMask |= (1 << 4);
             if (ChkShortcutF5?.IsChecked == true) fMask |= (1 << 5);
-            if (RadShortcutF6?.IsChecked == true) fMask |= (1 << 6);
-            if (RadShortcutF7?.IsChecked == true) fMask |= (1 << 7);
+            // F6 và F7 luôn được bật để người dùng dùng phím tắt chuyển đổi bất kỳ lúc nào
+            fMask |= (1 << 6);
+            fMask |= (1 << 7);
             if (ChkShortcutF8?.IsChecked == true) fMask |= (1 << 8);
             if (ChkShortcutF9?.IsChecked == true) fMask |= (1 << 9);
             if (ChkShortcutF11?.IsChecked == true) fMask |= (1 << 11);
@@ -532,7 +534,7 @@ namespace ModernKey
         private void RadShortcutF6_Checked(object sender, RoutedEventArgs e)
         {
             if (_isUpdatingUi) return;
-            _settings.ShortcutEnableMask = (_settings.ShortcutEnableMask | (1 << 6)) & ~(1 << 7);
+            _settings.ShortcutEnableMask |= (1 << 6) | (1 << 7);
             _settings.CurrentInputMethod = _settings.ShortcutF6InputMethod;
             SettingsManager.SaveSettings(_settings);
 
@@ -547,6 +549,10 @@ namespace ModernKey
                 _isUpdatingUi = false;
             }
 
+            if (_settings.SwitchBeep)
+            {
+                KeyboardHook.PlayInputMethodBeep(_settings.CurrentInputMethod);
+            }
             _trayManager?.UpdateTrayIcon();
             _trayManager?.BuildContextMenu();
             (Application.Current as App)?.ShowStatusOsd(_settings.IsVietnamese);
@@ -555,7 +561,7 @@ namespace ModernKey
         private void RadShortcutF7_Checked(object sender, RoutedEventArgs e)
         {
             if (_isUpdatingUi) return;
-            _settings.ShortcutEnableMask = (_settings.ShortcutEnableMask | (1 << 7)) & ~(1 << 6);
+            _settings.ShortcutEnableMask |= (1 << 6) | (1 << 7);
             _settings.CurrentInputMethod = _settings.ShortcutF7InputMethod;
             SettingsManager.SaveSettings(_settings);
 
@@ -570,6 +576,10 @@ namespace ModernKey
                 _isUpdatingUi = false;
             }
 
+            if (_settings.SwitchBeep)
+            {
+                KeyboardHook.PlayInputMethodBeep(_settings.CurrentInputMethod);
+            }
             _trayManager?.UpdateTrayIcon();
             _trayManager?.BuildContextMenu();
             (Application.Current as App)?.ShowStatusOsd(_settings.IsVietnamese);
