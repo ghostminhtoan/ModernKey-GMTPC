@@ -327,7 +327,7 @@ namespace ModernKey.Hook
             return false;
         }
 
-        private static string NativeGetClipboardText()
+        public static string NativeGetClipboardText()
         {
             for (int retry = 0; retry < 5; retry++)
             {

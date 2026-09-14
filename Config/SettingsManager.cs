@@ -296,7 +296,8 @@ namespace ModernKey.Config
                             settings.SwitchKeyChar = val;
                             break;
                         case "IsVietnamese":
-                            if (bool.TryParse(val, out var iv)) settings.IsVietnamese = iv;
+                            // Mặc định khi mở ứng dụng luôn luôn kích hoạt chế độ Tiếng Việt [VI]
+                            settings.IsVietnamese = true;
                             break;
                         case "CheckSpelling":
                             if (bool.TryParse(val, out var csb)) settings.CheckSpelling = csb;

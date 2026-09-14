@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
@@ -106,19 +107,158 @@ try {
 
         /// <summary>
         /// Chuẩn hóa các ký tự nhận dạng OCR đặc thù khi hệ thống dùng engine Latin nhận dạng tiếng Việt
+        /// và tự động sửa các lỗi chính tả tiếng Việt phổ biến sinh ra từ nhận dạng OCR font màn hình.
         /// </summary>
-        private static string PostProcessVietnamese(string input)
+        public static string PostProcessVietnamese(string input)
         {
             if (string.IsNullOrEmpty(input)) return string.Empty;
 
-            // Xử lý các ký tự dính lỗi OCR phổ biến từ font màn hình
             string text = input;
+
+            // 1. Xử lý các ký tự dính lỗi OCR phổ biến từ font màn hình
             text = text.Replace("ø", "o").Replace("Ø", "O");
             text = text.Replace("å", "a").Replace("Å", "A");
             text = text.Replace("ä", "a").Replace("Ä", "A");
             text = text.Replace("ö", "o").Replace("Ö", "O");
             text = text.Replace("ü", "u").Replace("Ü", "U");
             text = text.Replace("•", " ");
+
+            // Nối dòng bị gãy giữa từ bởi dấu gạch ngang
+            text = Regex.Replace(text, @"(\w+)-\r?\n(\w+)", "$1$2");
+
+            // 2. Chuẩn hóa dấu thanh và dấu mũ/móc bị OCR tách rời (vd: o' -> ơ, u' -> ư, a' -> á...)
+            text = Regex.Replace(text, @"(?<=[aA])['’]", "á");
+            text = Regex.Replace(text, @"(?<=[aA])[`\\]", "à");
+            text = Regex.Replace(text, @"(?<=[aA])\?", "ả");
+            text = Regex.Replace(text, @"(?<=[aA])~", "ã");
+            text = Regex.Replace(text, @"(?<=[aA])\^", "â");
+            text = Regex.Replace(text, @"(?<=[aA])\(", "ă");
+
+            text = Regex.Replace(text, @"(?<=[oO])['’]", "ơ");
+            text = Regex.Replace(text, @"(?<=[oO])\^", "ô");
+            text = Regex.Replace(text, @"(?<=[uU])['’]", "ư");
+            text = Regex.Replace(text, @"(?<=[eE])\^", "ê");
+
+            text = Regex.Replace(text, @"(?<=[ơƠ])['’]", "ớ");
+            text = Regex.Replace(text, @"(?<=[ơƠ])[`\\]", "ờ");
+            text = Regex.Replace(text, @"(?<=[ơƠ])\?", "ở");
+            text = Regex.Replace(text, @"(?<=[ơƠ])~", "ỡ");
+
+            text = Regex.Replace(text, @"(?<=[ưƯ])['’]", "ứ");
+            text = Regex.Replace(text, @"(?<=[ưƯ])[`\\]", "ừ");
+            text = Regex.Replace(text, @"(?<=[ưƯ])\?", "ử");
+            text = Regex.Replace(text, @"(?<=[ưƯ])~", "ữ");
+
+            text = Regex.Replace(text, @"(?<=[ôÔ])['’]", "ố");
+            text = Regex.Replace(text, @"(?<=[ôÔ])[`\\]", "ồ");
+            text = Regex.Replace(text, @"(?<=[ôÔ])\?", "ổ");
+            text = Regex.Replace(text, @"(?<=[ôÔ])~", "ỗ");
+
+            text = Regex.Replace(text, @"(?<=[êÊ])['’]", "ế");
+            text = Regex.Replace(text, @"(?<=[êÊ])[`\\]", "ề");
+            text = Regex.Replace(text, @"(?<=[êÊ])\?", "ể");
+            text = Regex.Replace(text, @"(?<=[êÊ])~", "ễ");
+
+            text = Regex.Replace(text, @"(?<=[âÂ])['’]", "ấ");
+            text = Regex.Replace(text, @"(?<=[âÂ])[`\\]", "ầ");
+            text = Regex.Replace(text, @"(?<=[âÂ])\?", "ẩ");
+            text = Regex.Replace(text, @"(?<=[âÂ])~", "ẫ");
+
+            text = Regex.Replace(text, @"(?<=[ăĂ])['’]", "ắ");
+            text = Regex.Replace(text, @"(?<=[ăĂ])[`\\]", "ằ");
+            text = Regex.Replace(text, @"(?<=[ăĂ])\?", "ẳ");
+            text = Regex.Replace(text, @"(?<=[ăĂ])~", "ẵ");
+
+            // 3. Sửa lỗi nhận diện chữ 'đ' / 'Đ' từ 'cl' / 'ct' hoặc nhầm 'd' ở các từ luôn là 'đ'
+            string[] clToDWords = new[]
+            {
+                "ược", "ầu", "i", "ến", "ã", "e", "ang", "ây", "ó", "ạt", "ổi", "úng",
+                "ường", "ơn", "ộng", "ội", "ồng", "ịnh", "ặc", "ặt", "ủ", "ất", "ối",
+                "ọc", "ức", "ông", "ều", "óng", "áp", "oàn", "ấu", "ao", "ài", "ạo",
+                "ời", "ám", "ạn", "ập", "iểm", "iều", "iện", "ược", "ứng"
+            };
+
+            foreach (var w in clToDWords)
+            {
+                text = Regex.Replace(text, $@"\b[cC][lL]{Regex.Escape(w)}\b", "đ" + w);
+                text = Regex.Replace(text, $@"\b[cC][lL]{Regex.Escape(w.ToUpper())}\b", "Đ" + w.ToUpper());
+                text = Regex.Replace(text, $@"\b[cC][tT]{Regex.Escape(w)}\b", "đ" + w);
+            }
+
+            // Sửa các cặp từ tiếng Việt thông dụng thường bị OCR Latin làm mất dấu hoặc sai chính tả
+            var phraseCorrections = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "muc dich", "mục đích" },
+                { "mục dích", "mục đích" },
+                { "sao ke", "sao kê" },
+                { "to chuc", "tổ chức" },
+                { "to chức", "tổ chức" },
+                { "ca nhan", "cá nhân" },
+                { "ca nhân", "cá nhân" },
+                { "ro rang", "rõ ràng" },
+                { "rõ rang", "rõ ràng" },
+                { "ro ràng", "rõ ràng" },
+                { "nguoi", "người" },
+                { "người ta", "người ta" },
+                { "tai khoan", "tài khoản" },
+                { "ung ho", "ủng hộ" },
+                { "cong dong", "cộng đồng" },
+                { "bao chi", "báo chí" },
+                { "chinh quyen", "chính quyền" },
+                { "chinh xac", "chính xác" },
+                { "thong tin", "thông tin" },
+                { "du lieu", "dữ liệu" },
+                { "phat trien", "phát triển" },
+                { "cong khai", "công khai" },
+                { "minh bach", "minh bạch" },
+                { "chi tiet", "chi tiết" },
+                { "thuc hien", "thực hiện" },
+                { "hoat dong", "hoạt động" },
+                { "thoi gian", "thời gian" },
+                { "tuong tu", "tương tự" },
+                { "huong dan", "hướng dẫn" },
+                { "su dung", "sử dụng" },
+                { "ung dung", "ứng dụng" },
+                { "tro giup", "trợ giúp" },
+                { "khong", "không" },
+                { "trieu", "triệu" },
+                { "ti le", "tỉ lệ" }
+            };
+
+            foreach (var kv in phraseCorrections)
+            {
+                text = Regex.Replace(text, $@"\b{Regex.Escape(kv.Key)}\b", match =>
+                {
+                    string m = match.Value;
+                    if (string.IsNullOrEmpty(m)) return kv.Value;
+                    if (char.IsUpper(m[0]))
+                    {
+                        if (m.Length > 1 && char.IsUpper(m[1])) return kv.Value.ToUpper();
+                        return char.ToUpper(kv.Value[0]) + kv.Value.Substring(1);
+                    }
+                    return kv.Value;
+                }, RegexOptions.IgnoreCase);
+            }
+
+            // 4. Áp dụng từ điển sửa lỗi chính tả nếu có cấu hình tùy chỉnh
+            try
+            {
+                var dictManager = SpellingCorrectionManager.Instance;
+                if (dictManager != null)
+                {
+                    // Quét các từ đơn lẻ qua từ điển sửa lỗi
+                    var words = text.Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var word in words)
+                    {
+                        string clean = word.Trim('.', ',', '!', '?', ';', ':', '(', ')', '[', ']', '\"', '\'');
+                        if (clean.Length >= 2 && dictManager.TryCorrect(clean, out string corr))
+                        {
+                            text = Regex.Replace(text, $@"\b{Regex.Escape(clean)}\b", corr);
+                        }
+                    }
+                }
+            }
+            catch { }
 
             return text.Trim();
         }

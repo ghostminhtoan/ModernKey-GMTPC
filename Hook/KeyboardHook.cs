@@ -291,6 +291,7 @@ namespace ModernKey.Hook
         private static readonly Dictionary<string, bool> _appLanguageMap = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         private static string _currentAppExeName = string.Empty;
 
+        private static bool _isFirstForegroundCheck = true;
         private static readonly HashSet<string> _defaultExcludedApps = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "cmd.exe", "powershell.exe", "pwsh.exe", "windowsterminal.exe", "wt.exe",
@@ -440,8 +441,10 @@ namespace ModernKey.Hook
                 }
                 else
                 {
-                    // Lần đầu mở app: kiểm tra nếu app thuộc danh sách loại trừ mặc định -> chọn EN (false), ngược lại chọn trạng thái hiện tại
-                    bool isDefaultExclude = _defaultExcludedApps.Contains(exe);
+                    // Lần đầu mở app: nếu là sự kiện đầu tiên khi vừa khởi chạy ứng dụng, luôn giữ Tiếng Việt [VI] mặc định
+                    bool isDefaultExclude = !_isFirstForegroundCheck && _defaultExcludedApps.Contains(exe);
+                    _isFirstForegroundCheck = false;
+
                     bool initialLang = isDefaultExclude ? false : _settings.IsVietnamese;
                     _appLanguageMap[exe] = initialLang;
 

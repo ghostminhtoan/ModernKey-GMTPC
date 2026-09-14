@@ -97,6 +97,7 @@ namespace ModernKey
 
             // 1. Tải cấu hình, macro và từ điển sửa lỗi chính tả
             _settings = SettingsManager.LoadSettings();
+            _settings.IsVietnamese = true; // Luôn đảm bảo bật Tiếng Việt [VI] khi mới mở app
             _macroManager = new MacroManager();
             _clipboardHistory = new ClipboardHistoryManager(_settings);
             SpellingCorrectionManager.Instance.InitializeDictionary();

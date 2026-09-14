@@ -93,23 +93,52 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" MinWidth="22" />
                                     <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" MinWidth="40" />
+                                    <ColumnDefinition Width="Auto" MinWidth="30" />
                                 </Grid.ColumnDefinitions>
                                 <ContentPresenter Grid.Column="0" ContentSource="Icon" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="1" x:Name="txtHeader" Text="{TemplateBinding Header}"
-                                           Foreground="{TemplateBinding Foreground}" FontFamily="Consolas" FontSize="11" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="2" Text="{TemplateBinding InputGestureText}"
+                                <ContentPresenter Grid.Column="1" x:Name="contentPresenter" ContentSource="Header"
+                                                  RecognizesAccessKey="True" VerticalAlignment="Center" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
+                                <TextBlock Grid.Column="2" x:Name="txtGesture" Text="{TemplateBinding InputGestureText}"
                                            Foreground="{StaticResource CyberNeonYellow}" FontFamily="Consolas" FontSize="10"
                                            VerticalAlignment="Center" HorizontalAlignment="Right" Margin="10,0,0,0" />
+                                <TextBlock Grid.Column="2" x:Name="txtArrow" Text="▶"
+                                           Foreground="{StaticResource CyberNeonCyan}" FontFamily="Consolas" FontSize="9"
+                                           VerticalAlignment="Center" HorizontalAlignment="Right" Margin="10,0,0,0" Visibility="Collapsed" />
+                                <Popup x:Name="PART_Popup"
+                                       AllowsTransparency="True"
+                                       Focusable="False"
+                                       IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
+                                       Placement="Right"
+                                       PopupAnimation="Fade">
+                                    <Border Background="#0D141F" BorderBrush="{StaticResource CyberNeonCyan}" BorderThickness="1.2" CornerRadius="3" Padding="3" Margin="4">
+                                        <Border.Effect>
+                                            <DropShadowEffect Color="#00F0FF" BlurRadius="10" ShadowDepth="0" Opacity="0.6" />
+                                        </Border.Effect>
+                                        <ScrollViewer CanContentScroll="True">
+                                            <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle"
+                                                            KeyboardNavigation.TabNavigation="Cycle"
+                                                            Grid.IsSharedSizeScope="True"
+                                                            SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
+                                        </ScrollViewer>
+                                    </Border>
+                                </Popup>
                             </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
+                            <Trigger Property="HasItems" Value="True">
+                                <Setter TargetName="txtArrow" Property="Visibility" Value="Visible" />
+                                <Setter TargetName="txtGesture" Property="Visibility" Value="Collapsed" />
+                            </Trigger>
                             <Trigger Property="IsHighlighted" Value="True">
                                 <Setter TargetName="border" Property="Background" Value="#1A293E" />
-                                <Setter TargetName="txtHeader" Property="Foreground" Value="#FFFFFF" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsSubmenuOpen" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#1A293E" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="txtHeader" Property="Foreground" Value="#55657E" />
+                                <Setter Property="Foreground" Value="#55657E" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -297,7 +326,7 @@
                                 <Separator Style="{StaticResource CyberMenuSeparator}" />
                                 <!-- Tính năng Làm mờ Clipboard: 2 suboption Pixelated và Blur (mỗi option có slider 0-100) -->
                                 <MenuItem Header="🎭 Làm mờ Clipboard" Style="{StaticResource CyberMenuItem}">
-                                    <MenuItem x:Name="MnuBlurPixel" Style="{StaticResource CyberMenuItem}">
+                                    <MenuItem x:Name="MnuBlurPixel" StaysOpenOnClick="True" Style="{StaticResource CyberMenuItem}">
                                         <MenuItem.Header>
                                             <StackPanel Width="230" Margin="0,2">
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
@@ -309,7 +338,7 @@
                                         </MenuItem.Header>
                                     </MenuItem>
                                     <Separator Style="{StaticResource CyberMenuSeparator}" />
-                                    <MenuItem x:Name="MnuBlurBlur" Style="{StaticResource CyberMenuItem}">
+                                    <MenuItem x:Name="MnuBlurBlur" StaysOpenOnClick="True" Style="{StaticResource CyberMenuItem}">
                                         <MenuItem.Header>
                                             <StackPanel Width="230" Margin="0,2">
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">

@@ -34,6 +34,13 @@ namespace ModernKey.Core
         private bool _isFirstWordOfSentence = false;
         private bool _isRawWordOnScreen = false;
         private string _lastCommittedWord = string.Empty;
+        private bool _justCommittedSpace = false;
+        private readonly StringBuilder _mathBuffer = new StringBuilder();
+
+        private static bool IsMathChar(char c)
+        {
+            return (c >= '0' && c <= '9') || c == '+' || c == '-' || c == '*' || c == '/' || c == '^' || c == '%' || c == '(' || c == ')' || c == '.' || c == ',';
+        }
 
         public VietnameseEngine(AppSettings settings, MacroManager macroManager)
         {
@@ -45,6 +52,7 @@ namespace ModernKey.Core
         {
             _charBuffer.Clear();
             _macroBuffer.Clear();
+            _mathBuffer.Clear();
             _inNumberSequence = false;
             _isFirstWordOfSentence = false;
             _upperCaseSentenceStatus = 0;
@@ -52,6 +60,7 @@ namespace ModernKey.Core
             if (clearLastWord)
             {
                 _lastCommittedWord = string.Empty;
+                _justCommittedSpace = false;
             }
         }
 
@@ -140,6 +149,10 @@ namespace ModernKey.Core
 
             if (ch != '[' && ch != ']' && ch != '^' && ch != '&' && ch != '*' && ch != '(' && ch != '{' && ch != '}')
                 return false;
+
+            // Nếu đang trong chuỗi số (vd: 2*83, 15^2): các ký hiệu này là toán tử số học
+            if (_inNumberSequence)
+                return true;
 
             if (_charBuffer.Count == 0)
                 return false;
@@ -263,15 +276,49 @@ namespace ModernKey.Core
                 return false;
             }
 
-            // 2. Nếu chế độ Tiếng Anh: kiểm tra nếu cho phép gõ tắt cả khi tắt tiếng Việt
+            // 2. Nếu chế độ Tiếng Anh: kiểm tra tính biểu thức số học hoặc gõ tắt tiếng Anh
             if (!_settings.IsVietnamese)
             {
+                if (_settings.InlineMathEvaluator)
+                {
+                    if (vkCode == 0x08)
+                    {
+                        if (_mathBuffer.Length > 0) _mathBuffer.Remove(_mathBuffer.Length - 1, 1);
+                    }
+                    else if (ch == '=')
+                    {
+                        string mathCandidate = _mathBuffer.ToString();
+                        if (MathEvaluator.IsPotentialMathExpression(mathCandidate + "=", out string mathExpr) &&
+                            MathEvaluator.TryEvaluate(mathExpr, out double mRes, out string mFormatted))
+                        {
+                            newString = "=" + mFormatted;
+                            backspaceCount = 0;
+                            _mathBuffer.Clear();
+                            Reset();
+                            return true;
+                        }
+                    }
+                    else if (IsMathChar(ch))
+                    {
+                        if (_mathBuffer.Length < 64) _mathBuffer.Append(ch);
+                    }
+                    else if (!char.IsWhiteSpace(ch) || _mathBuffer.Length == 0)
+                    {
+                        _mathBuffer.Clear();
+                    }
+                }
+
                 if (_settings.UseMacro && _settings.UseMacroInEnglish)
                 {
                     return ProcessEnglishMacroOnly(ch, vkCode, out backspaceCount, out newString, out trailingVkCode);
                 }
-                Reset();
                 return false;
+            }
+
+            // Nếu phím gõ không phải Backspace hay Space thì hủy cờ vừa ngắt từ bằng space
+            if (vkCode != 0x08 && vkCode != 0x20 && ch != ' ')
+            {
+                _justCommittedSpace = false;
             }
 
             // 3. Phím Backspace
@@ -279,6 +326,22 @@ namespace ModernKey.Core
             {
                 _isRawWordOnScreen = false;
                 if (_macroBuffer.Count > 0) _macroBuffer.RemoveAt(_macroBuffer.Count - 1);
+                if (_mathBuffer.Length > 0) _mathBuffer.Remove(_mathBuffer.Length - 1, 1);
+
+                // Khôi phục từ trước nếu vừa bấm Space xong rồi bấm Backspace để đổi dấu
+                if (_justCommittedSpace && _charBuffer.Count == 0 && !string.IsNullOrEmpty(_lastCommittedWord))
+                {
+                    _justCommittedSpace = false;
+                    var restored = SynchronizeBufferWithDisplay(_lastCommittedWord, _settings.CurrentInputMethod, _settings.ModernToneRules, _settings.CustomRules);
+                    if (restored != null && restored.Count > 0)
+                    {
+                        _charBuffer.Clear();
+                        _charBuffer.AddRange(restored);
+                    }
+                    return false; // Windows sẽ tự xóa ký tự space vừa gõ
+                }
+                _justCommittedSpace = false;
+
                 string currentDisplay = GetDisplayWord(_charBuffer);
                 if (string.IsNullOrEmpty(currentDisplay) || currentDisplay.Length <= 1)
                 {
@@ -475,6 +538,11 @@ namespace ModernKey.Core
                 if (!string.IsNullOrEmpty(lastWordOnScreen))
                 {
                     _lastCommittedWord = lastWordOnScreen;
+                    _justCommittedSpace = isSpace;
+                }
+                else
+                {
+                    _justCommittedSpace = false;
                 }
                 Reset(false);
                 return false;
@@ -483,6 +551,15 @@ namespace ModernKey.Core
             // 4.2. Xử lý khi gõ Dấu câu / Ký hiệu (Punctuation)
             if (isPunctuation)
             {
+                if (IsMathChar(ch))
+                {
+                    if (_mathBuffer.Length < 64) _mathBuffer.Append(ch);
+                }
+                else if (ch != '=')
+                {
+                    _mathBuffer.Clear();
+                }
+
                 if (_isRawWordOnScreen)
                 {
                     Reset();
@@ -492,12 +569,13 @@ namespace ModernKey.Core
                 // 12. Inline Math Evaluator: Tự động tính biểu thức toán học khi gõ dấu '=' (vd: 125*45/2=)
                 if (_settings.InlineMathEvaluator && ch == '=')
                 {
-                    string candidate = _macroBuffer.Count > 0 ? new string(_macroBuffer.ToArray()) : (_charBuffer.Count > 0 ? new string(_charBuffer.ToArray()) : "");
+                    string candidate = _mathBuffer.Length > 0 ? _mathBuffer.ToString() : (_macroBuffer.Count > 0 ? new string(_macroBuffer.ToArray()) : (_charBuffer.Count > 0 ? new string(_charBuffer.ToArray()) : ""));
                     if (MathEvaluator.IsPotentialMathExpression(candidate + "=", out string expr) &&
                         MathEvaluator.TryEvaluate(expr, out double res, out string formattedRes))
                     {
                         newString = "=" + formattedRes;
                         backspaceCount = 0;
+                        _mathBuffer.Clear();
                         Reset();
                         return true;
                     }
@@ -631,15 +709,23 @@ namespace ModernKey.Core
 
                 // Reset buffer tiếng Việt nhưng KHÔNG xóa _macroBuffer nếu đang gõ chuỗi ký hiệu
                 _charBuffer.Clear();
-                _inNumberSequence = false;
+                _inNumberSequence = IsMathChar(ch);
                 _isFirstWordOfSentence = false;
                 return false;
             }
 
-            // 5. Lưu ký tự hợp lệ vào _macroBuffer cho các phím số và chữ
+            // 5. Lưu ký tự hợp lệ vào _macroBuffer và _mathBuffer cho các phím số và chữ
             if (!char.IsControl(ch))
             {
                 if (_macroBuffer.Count < 64) _macroBuffer.Add(ch);
+                if (IsMathChar(ch))
+                {
+                    if (_mathBuffer.Length < 64) _mathBuffer.Append(ch);
+                }
+                else if (char.IsLetter(ch))
+                {
+                    _mathBuffer.Clear();
+                }
             }
 
             // 5. Kiểm tra bảo vệ số thuần và từ chứa số (như hardcode, hentai2read)
@@ -670,6 +756,13 @@ namespace ModernKey.Core
                     string currentDisplay = GetDisplayWord(_charBuffer);
                     bool hasVowelInCur = !string.IsNullOrEmpty(currentDisplay) && HasAnyVowel(currentDisplay);
 
+                    // Nếu đang trong chuỗi số thuần hoặc biểu thức số học sau toán tử (VD: 2*83): giữ nguyên là số thuần
+                    if (_inNumberSequence)
+                    {
+                        _charBuffer.Clear();
+                        return false;
+                    }
+
                     // Phím 1..5: Dấu thanh trong TBT (sắc, huyền, hỏi, ngã, nặng)
                     if (ch >= '1' && ch <= '5')
                     {
@@ -688,9 +781,12 @@ namespace ModernKey.Core
                     }
                     else if (ch == '0')
                     {
-                        _inNumberSequence = true;
-                        _charBuffer.Clear();
-                        return false;
+                        if (!hasVowelInCur)
+                        {
+                            _inNumberSequence = true;
+                            _charBuffer.Clear();
+                            return false;
+                        }
                     }
                     else if (ch >= '6' && ch <= '9')
                     {
@@ -741,8 +837,8 @@ namespace ModernKey.Core
                     if (_inNumberSequence)
                     {
                         _charBuffer.Clear();
-                        _inNumberSequence = false;
                     }
+                    _inNumberSequence = false;
                 }
             }
 
@@ -770,7 +866,12 @@ namespace ModernKey.Core
             }
 
             // 6. Xử lý gõ tiếng Việt với cơ chế Delta-Change thông minh
-            return TryTransformVietnamese(ch, out backspaceCount, out newString);
+            bool transformed = TryTransformVietnamese(ch, out backspaceCount, out newString);
+            if (transformed)
+            {
+                _mathBuffer.Clear();
+            }
+            return transformed;
         }
 
         public bool TryTriggerMacroDirect(out int backspaceCount, out string newString)

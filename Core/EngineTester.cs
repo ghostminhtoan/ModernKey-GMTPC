@@ -832,8 +832,12 @@ namespace ModernKey.Core
                 // Kích hoạt SendViaClipboardPaste với chuỗi test
                 ModernKey.Hook.KeySender.SendViaClipboardPaste("TestMacroExpansionText");
 
-                bool hasTextDuring = System.Windows.Forms.Clipboard.ContainsText();
-                string textDuring = hasTextDuring ? System.Windows.Forms.Clipboard.GetText() : "NO_TEXT";
+                string textDuring = ModernKey.Hook.KeySender.NativeGetClipboardText();
+                if (string.IsNullOrEmpty(textDuring) && System.Windows.Forms.Clipboard.ContainsText())
+                {
+                    try { textDuring = System.Windows.Forms.Clipboard.GetText(); } catch { }
+                }
+                bool hasTextDuring = !string.IsNullOrEmpty(textDuring);
                 sb.AppendLine($"  [TEST CLIP] Trong lúc dán: ContainsText = {hasTextDuring}, Text = '{textDuring}'");
 
                 // Đợi 1700ms để Timer phục hồi ảnh (1500ms) chạy xong hoàn tất
@@ -1523,6 +1527,118 @@ namespace ModernKey.Core
                         {
                             allPassed = false;
                             sb.AppendLine($"  FAIL d+nguyên âm không thành đ: '{dvt.input}' -> '{resDv}' (Mong doi: '{dvt.expected}')");
+                        }
+                    }
+                    // Test 1: Khôi phục từ sau Space + Backspace để đổi dấu (Telex, TBT, VNI)
+                    var spaceBsTelexEngine = new VietnameseEngine(new AppSettings { IsVietnamese = true, CurrentInputMethod = InputMethod.Telex, ModernToneRules = true }, new MacroManager());
+                    var spaceBsTests = new[]
+                    {
+                        ("maf \br", "mả"),
+                        ("toans \bf", "toàn"),
+                        ("chus \bj", "chụ"),
+                        ("bangf \bs", "báng")
+                    };
+
+                    foreach (var sbt in spaceBsTests)
+                    {
+                        string resSb = SimulateTypingWord(spaceBsTelexEngine, sbt.Item1);
+                        if (resSb == sbt.Item2)
+                        {
+                            sb.AppendLine($"  PASS Space+Backspace đổi dấu Telex: '{sbt.Item1}' -> '{resSb}'");
+                        }
+                        else
+                        {
+                            allPassed = false;
+                            sb.AppendLine($"  FAIL Space+Backspace đổi dấu Telex: '{sbt.Item1}' -> '{resSb}' (Mong doi: '{sbt.Item2}')");
+                        }
+                    }
+
+                    // Test TBT đổi dấu sau Space + Backspace
+                    var spaceBsTbtEngine = new VietnameseEngine(new AppSettings { IsVietnamese = true, CurrentInputMethod = InputMethod.TuBinhTran, ModernToneRules = true }, new MacroManager());
+                    var tbtSpaceTests = new[]
+                    {
+                        ("ma2 \b3", "mả"),
+                        ("toan1 \b2", "toàn")
+                    };
+                    foreach (var sbt in tbtSpaceTests)
+                    {
+                        string resSb = SimulateTypingWord(spaceBsTbtEngine, sbt.Item1);
+                        if (resSb == sbt.Item2)
+                        {
+                            sb.AppendLine($"  PASS Space+Backspace đổi dấu TBT: '{sbt.Item1}' -> '{resSb}'");
+                        }
+                        else
+                        {
+                            allPassed = false;
+                            sb.AppendLine($"  FAIL Space+Backspace đổi dấu TBT: '{sbt.Item1}' -> '{resSb}' (Mong doi: '{sbt.Item2}')");
+                        }
+                    }
+
+                    // Test 2: Inline Math Evaluator ở chế độ EN
+                    var enMathEngine = new VietnameseEngine(new AppSettings { IsVietnamese = false, InlineMathEvaluator = true }, new MacroManager());
+                    var enMathTests = new[]
+                    {
+                        ("125*45=", "125*45=5625"),
+                        ("200+50/2=", "200+50/2=225"),
+                        ("2*83=", "2*83=166")
+                    };
+                    foreach (var mt in enMathTests)
+                    {
+                        string resM = SimulateTypingWord(enMathEngine, mt.Item1);
+                        if (resM == mt.Item2)
+                        {
+                            sb.AppendLine($"  PASS Inline Math EN: '{mt.Item1}' -> '{resM}'");
+                        }
+                        else
+                        {
+                            allPassed = false;
+                            sb.AppendLine($"  FAIL Inline Math EN: '{mt.Item1}' -> '{resM}' (Mong doi: '{mt.Item2}')");
+                        }
+                    }
+
+                    // Test 3: Inline Math Evaluator với kiểu gõ Tư Bình Trần
+                    var tbtMathEngine = new VietnameseEngine(new AppSettings { IsVietnamese = true, CurrentInputMethod = InputMethod.TuBinhTran, InlineMathEvaluator = true }, new MacroManager());
+                    var tbtMathTests = new[]
+                    {
+                        ("2*83=", "2*83=166"),
+                        ("10+5=", "10+5=15"),
+                        ("100/4=", "100/4=25")
+                    };
+                    foreach (var mt in tbtMathTests)
+                    {
+                        string resM = SimulateTypingWord(tbtMathEngine, mt.Item1);
+                        if (resM == mt.Item2)
+                        {
+                            sb.AppendLine($"  PASS Inline Math TBT: '{mt.Item1}' -> '{resM}'");
+                        }
+                        else
+                        {
+                            allPassed = false;
+                            sb.AppendLine($"  FAIL Inline Math TBT: '{mt.Item1}' -> '{resM}' (Mong doi: '{mt.Item2}')");
+                        }
+                    }
+
+                    // Test 4: OCR Post-processing tiếng Việt
+                    var ocrTests = new[]
+                    {
+                        ("clược", "được"),
+                        ("clầu", "đầu"),
+                        ("sao ke", "sao kê"),
+                        ("to chuc", "tổ chức"),
+                        ("ro rang", "rõ ràng"),
+                        ("Mục dích sao ke to chuc ro rang", "Mục đích sao kê tổ chức rõ ràng")
+                    };
+                    foreach (var ot in ocrTests)
+                    {
+                        string resOcr = ClipboardOcrHelper.PostProcessVietnamese(ot.Item1);
+                        if (resOcr == ot.Item2)
+                        {
+                            sb.AppendLine($"  PASS OCR Post-process: '{ot.Item1}' -> '{resOcr}'");
+                        }
+                        else
+                        {
+                            allPassed = false;
+                            sb.AppendLine($"  FAIL OCR Post-process: '{ot.Item1}' -> '{resOcr}' (Mong doi: '{ot.Item2}')");
                         }
                     }
                 }
