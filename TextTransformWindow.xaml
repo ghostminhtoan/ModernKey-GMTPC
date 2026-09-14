@@ -1,0 +1,51 @@
+<Window x:Class="ModernKey.TextTransformWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="CYBER TEXT TRANSFORM"
+        Width="440" Height="210"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Topmost="True" ShowInTaskbar="False" WindowStartupLocation="Manual">
+    <Border Background="#0D0316" BorderBrush="{StaticResource CyberNeonPink}" BorderThickness="1.5" CornerRadius="4" Padding="10">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <Grid Grid.Row="0" Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="⚡ CYBER TRANSFORM //" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonPink}" FontSize="12" />
+                    <TextBlock x:Name="TxtInfo" Text=" (Bôi đen văn bản)" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" FontSize="11" />
+                </StackPanel>
+
+                <Button Grid.Column="1" Content="✕" Click="BtnClose_Click" Width="22" Height="20"
+                        Background="#2B0914" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}"
+                        FontFamily="Consolas" FontWeight="Bold" FontSize="11" />
+            </Grid>
+
+            <!-- Text Preview -->
+            <TextBox x:Name="TxtPreview" Grid.Row="1" Height="40" Background="#07010C" Foreground="{StaticResource CyberTextPrimary}"
+                     BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1"
+                     FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" IsReadOnly="True" Margin="0,0,0,8" Padding="4" />
+
+            <!-- Action Grid -->
+            <WrapPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button Content="IN HOA" Click="BtnUpper_Click" Margin="3" Padding="8,4" Background="#180424" BorderBrush="{StaticResource CyberNeonCyan}" Foreground="{StaticResource CyberNeonCyan}" FontFamily="Consolas" FontWeight="Bold" />
+                <Button Content="in thường" Click="BtnLower_Click" Margin="3" Padding="8,4" Background="#180424" BorderBrush="{StaticResource CyberNeonCyan}" Foreground="{StaticResource CyberNeonCyan}" FontFamily="Consolas" />
+                <Button Content="Title Case" Click="BtnTitle_Click" Margin="3" Padding="8,4" Background="#180424" BorderBrush="{StaticResource CyberNeonCyan}" Foreground="{StaticResource CyberNeonCyan}" FontFamily="Consolas" />
+                <Button Content="BỎ DẤU" Click="BtnRemoveDiacritics_Click" Margin="3" Padding="8,4" Background="#221E0A" BorderBrush="{StaticResource CyberNeonYellow}" Foreground="{StaticResource CyberNeonYellow}" FontFamily="Consolas" FontWeight="Bold" />
+                <Button Content="URL-Slug" Click="BtnSlug_Click" Margin="3" Padding="8,4" Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" FontFamily="Consolas" />
+                <Button Content="Base64" Click="BtnBase64_Click" Margin="3" Padding="8,4" Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" FontFamily="Consolas" />
+                <Button Content="URL Encode" Click="BtnUrlEnc_Click" Margin="3" Padding="8,4" Background="#180424" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}" FontFamily="Consolas" />
+                <Button Content="ĐẾM TỪ" Click="BtnWordCount_Click" Margin="3" Padding="8,4" Background="#180424" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}" FontFamily="Consolas" />
+            </WrapPanel>
+        </Grid>
+    </Border>
+</Window>

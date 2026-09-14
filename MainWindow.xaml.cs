@@ -99,6 +99,7 @@ namespace ModernKey
             }
 
             SyncSettingsToUi();
+            RenderTypingStats();
         }
 
         private void SyncSettingsToUi()
@@ -153,11 +154,24 @@ namespace ModernKey
                 if (ChkClipboardAlwaysOnTop != null) ChkClipboardAlwaysOnTop.IsChecked = _settings.ClipboardAlwaysOnTop;
                 if (ChkClipboardIgnoreDuplicates != null) ChkClipboardIgnoreDuplicates.IsChecked = _settings.ClipboardIgnoreDuplicates;
                 if (ChkClipboardPasteAsPlainText != null) ChkClipboardPasteAsPlainText.IsChecked = _settings.ClipboardPasteAsPlainText;
+                if (ChkClipboardMaskSensitive != null) ChkClipboardMaskSensitive.IsChecked = _settings.ClipboardMaskSensitive;
+                if (ChkClipboardAutoPurgeSensitive != null) ChkClipboardAutoPurgeSensitive.IsChecked = _settings.ClipboardAutoPurgeSensitive;
                 if (TxtClipboardMaxItems != null) TxtClipboardMaxItems.Text = _settings.ClipboardMaxItems.ToString();
                 if (TxtClipboardStoragePath != null)
                 {
                     string cfgDir = SettingsManager.GetConfigDirectory();
                     TxtClipboardStoragePath.Text = "Thư mục lưu trữ: " + System.IO.Path.Combine(cfgDir, "clipboard");
+                }
+
+                // Các tính năng mở rộng Cyberpunk
+                if (ChkSmartEnglishBypass != null) ChkSmartEnglishBypass.IsChecked = _settings.SmartEnglishBypass;
+                if (ChkOneKeyUndoRaw != null) ChkOneKeyUndoRaw.IsChecked = _settings.OneKeyUndoRaw;
+                if (ChkInlineMathEvaluator != null) ChkInlineMathEvaluator.IsChecked = _settings.InlineMathEvaluator;
+                if (ChkEnableCaretIndicator != null) ChkEnableCaretIndicator.IsChecked = _settings.EnableCaretIndicator;
+                if (ChkEnableKeySound != null) ChkEnableKeySound.IsChecked = _settings.EnableKeySound;
+                if (TxtSyncFolderPath != null && TxtSyncFolderPath.Text != _settings.SyncFolderPath)
+                {
+                    TxtSyncFolderPath.Text = _settings.SyncFolderPath ?? string.Empty;
                 }
 
 
@@ -261,6 +275,16 @@ namespace ModernKey
             if (ChkClipboardAlwaysOnTop != null) _settings.ClipboardAlwaysOnTop = ChkClipboardAlwaysOnTop.IsChecked == true;
             if (ChkClipboardIgnoreDuplicates != null) _settings.ClipboardIgnoreDuplicates = ChkClipboardIgnoreDuplicates.IsChecked == true;
             if (ChkClipboardPasteAsPlainText != null) _settings.ClipboardPasteAsPlainText = ChkClipboardPasteAsPlainText.IsChecked == true;
+            if (ChkClipboardMaskSensitive != null) _settings.ClipboardMaskSensitive = ChkClipboardMaskSensitive.IsChecked == true;
+            if (ChkClipboardAutoPurgeSensitive != null) _settings.ClipboardAutoPurgeSensitive = ChkClipboardAutoPurgeSensitive.IsChecked == true;
+
+            // Mở rộng Cyberpunk
+            if (ChkSmartEnglishBypass != null) _settings.SmartEnglishBypass = ChkSmartEnglishBypass.IsChecked == true;
+            if (ChkOneKeyUndoRaw != null) _settings.OneKeyUndoRaw = ChkOneKeyUndoRaw.IsChecked == true;
+            if (ChkInlineMathEvaluator != null) _settings.InlineMathEvaluator = ChkInlineMathEvaluator.IsChecked == true;
+            if (ChkEnableCaretIndicator != null) _settings.EnableCaretIndicator = ChkEnableCaretIndicator.IsChecked == true;
+            if (ChkEnableKeySound != null) _settings.EnableKeySound = ChkEnableKeySound.IsChecked == true;
+            if (TxtSyncFolderPath != null) _settings.SyncFolderPath = TxtSyncFolderPath.Text.Trim();
 
             // Tab Gõ tắt
             if (ChkUseMacro != null) _settings.UseMacro = ChkUseMacro.IsChecked == true;
@@ -836,6 +860,117 @@ namespace ModernKey
                     MessageBox.Show("Đã xóa toàn bộ dữ liệu clipboard!", "ModernKey HUD", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
+        }
+
+        private void TxtSyncFolderPath_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isUpdatingUi) return;
+            if (TxtSyncFolderPath != null)
+            {
+                _settings.SyncFolderPath = TxtSyncFolderPath.Text.Trim();
+                SettingsManager.SaveSettings(_settings);
+                SettingsManager.SetupSyncWatcher(_settings.SyncFolderPath);
+            }
+        }
+
+        private void BtnBrowseSyncFolder_Click(object sender, RoutedEventArgs e)
+        {
+            using (var dlg = new System.Windows.Forms.FolderBrowserDialog())
+            {
+                dlg.Description = "Chọn thư mục đồng bộ ModernKey (LAN, OneDrive, Dropbox, v.v.):";
+                if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                {
+                    TxtSyncFolderPath.Text = dlg.SelectedPath;
+                    _settings.SyncFolderPath = dlg.SelectedPath;
+                    SettingsManager.SaveSettings(_settings);
+                    SettingsManager.SetupSyncWatcher(_settings.SyncFolderPath);
+                    SettingsManager.ExportToSyncFolder(_settings.SyncFolderPath, _settings);
+                    MessageBox.Show("Đã thiết lập thư mục đồng bộ thành công!", "ModernKey Sync", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+        }
+
+        private void BtnSyncNow_Click(object sender, RoutedEventArgs e)
+        {
+            string path = TxtSyncFolderPath?.Text?.Trim();
+            if (string.IsNullOrEmpty(path) || !System.IO.Directory.Exists(path))
+            {
+                MessageBox.Show("Vui lòng chọn một thư mục hợp lệ trước khi đồng bộ!", "Lỗi đồng bộ", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            SettingsManager.ExportToSyncFolder(path, _settings);
+            MessageBox.Show("Đã đồng bộ cấu hình và file gõ tắt sang thư mục thành công!", "ModernKey Sync", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void BtnRefreshStats_Click(object sender, RoutedEventArgs e)
+        {
+            RenderTypingStats();
+        }
+
+        private void BtnResetStats_Click(object sender, RoutedEventArgs e)
+        {
+            var res = MessageBox.Show("Bạn có chắc chắn muốn đặt lại toàn bộ thống kê gõ phím về 0?", "Xác nhận đặt lại", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (res == MessageBoxResult.Yes)
+            {
+                TypingStatsManager.Instance.ResetStats();
+                RenderTypingStats();
+            }
+        }
+
+        private void RenderTypingStats()
+        {
+            try
+            {
+                var stats = TypingStatsManager.Instance;
+                if (TxtStatsWpm != null) TxtStatsWpm.Text = stats.CurrentWpm.ToString();
+                if (TxtStatsKeystrokes != null) TxtStatsKeystrokes.Text = stats.TotalKeystrokes.ToString("N0");
+                if (TxtStatsWords != null) TxtStatsWords.Text = stats.TotalWords.ToString("N0");
+                if (TxtStatsTime != null)
+                {
+                    int mins = stats.ActiveTypingMinutes;
+                    if (mins < 60) TxtStatsTime.Text = $"{mins}m";
+                    else TxtStatsTime.Text = $"{mins / 60}h {mins % 60}m";
+                }
+
+                if (GridHourlyHeatmap != null)
+                {
+                    GridHourlyHeatmap.Children.Clear();
+                    GridHourlyHeatmap.ColumnDefinitions.Clear();
+
+                    int[] hourly = stats.GetHourlyActivity();
+                    int max = 1;
+                    for (int i = 0; i < hourly.Length; i++)
+                    {
+                        if (hourly[i] > max) max = hourly[i];
+                    }
+
+                    for (int i = 0; i < 24; i++)
+                    {
+                        GridHourlyHeatmap.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                        double ratio = (double)hourly[i] / max;
+                        double barHeight = Math.Max(4, ratio * 90);
+
+                        var bar = new Border
+                        {
+                            VerticalAlignment = VerticalAlignment.Bottom,
+                            HorizontalAlignment = HorizontalAlignment.Center,
+                            Width = 14,
+                            Height = barHeight,
+                            CornerRadius = new CornerRadius(2, 2, 0, 0),
+                            Background = hourly[i] == 0 ? new SolidColorBrush(Color.FromRgb(0x18, 0x22, 0x2A))
+                                        : ratio > 0.7 ? new SolidColorBrush(Color.FromRgb(0xFF, 0x00, 0x7F))
+                                        : ratio > 0.3 ? new SolidColorBrush(Color.FromRgb(0x00, 0xF0, 0xFF))
+                                        : new SolidColorBrush(Color.FromRgb(0x00, 0xFF, 0x66)),
+                            ToolTip = $"{i}h: {hourly[i]} phím"
+                        };
+                        Grid.SetColumn(bar, i);
+                        GridHourlyHeatmap.Children.Add(bar);
+                    }
+                }
+            }
+            catch { }
         }
 
         protected override void OnClosing(CancelEventArgs e)

@@ -180,6 +180,23 @@ namespace ModernKey.Hook
         public event Action OpenClipboardRequested;
         public event Action OpenClipboardFavoriteRequested;
         public Func<int, uint, bool> CheckClipboardShortcutRequested;
+        public event Action OpenTextTransformRequested;
+        public static event Action<bool> GameModeChanged;
+        public static event Action RequestShowCaretIndicator;
+
+        public void ToggleGameMode()
+        {
+            _settings.GameModeEnabled = !_settings.GameModeEnabled;
+            _engine.Reset();
+            GameModeChanged?.Invoke(_settings.GameModeEnabled);
+        }
+
+        public void SetGameMode(bool enable)
+        {
+            _settings.GameModeEnabled = enable;
+            _engine.Reset();
+            GameModeChanged?.Invoke(_settings.GameModeEnabled);
+        }
 
         [DllImport("user32.dll")]
         private static extern IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventDelegate lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
@@ -433,6 +450,31 @@ namespace ModernKey.Hook
                     uint vkCode = hookStruct.vkCode;
                     uint scanCode = hookStruct.scanCode;
 
+                    // 0. Toggle Game Mode nhanh: Ctrl + Shift + F11 (Feature 4)
+                    if (vkCode == 0x7A /* F11 */ && (_modifierFlag & MASK_CTRL) != 0 && (_modifierFlag & MASK_SHIFT) != 0)
+                    {
+                        ToggleGameMode();
+                        return (IntPtr)1;
+                    }
+
+                    // Nếu Game Mode đang kích hoạt: bypass tức thì 0ms, không xử lý bất kỳ logic nào
+                    if (_settings.GameModeEnabled)
+                    {
+                        return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
+                    }
+
+                    // 17. Phát âm thanh click phím cơ Cyberpunk nếu được bật
+                    if (_settings.EnableKeySound)
+                    {
+                        SoundManager.PlayKeyClick();
+                    }
+
+                    // 16. Báo hiệu hiển thị Caret Indicator khi bắt đầu gõ
+                    if (_settings.EnableCaretIndicator)
+                    {
+                        RequestShowCaretIndicator?.Invoke();
+                    }
+
                     bool isModifierKey = (vkCode == 0x11 || vkCode == 0xA2 || vkCode == 0xA3 || // Ctrl
                                           vkCode == 0x10 || vkCode == 0xA0 || vkCode == 0xA1 || // Shift
                                           vkCode == 0x12 || vkCode == 0xA4 || vkCode == 0xA5 || // Alt
@@ -544,6 +586,16 @@ namespace ModernKey.Hook
                         KeySender.SuppressAltMenuActivation();
                         _engine.Reset();
                         OpenClipboardFavoriteRequested?.Invoke();
+                        return (IntPtr)1;
+                    }
+
+                    // 6.8. Phím tắt mở Quick Text Transform Popup: Win+Alt+T hoặc Ctrl+Shift+T (Feature 13)
+                    if ((((_modifierFlag & (MASK_WIN | MASK_ALT)) == (MASK_WIN | MASK_ALT)) ||
+                         ((_modifierFlag & (MASK_CTRL | MASK_SHIFT)) == (MASK_CTRL | MASK_SHIFT))) && vkCode == 0x54 /* T */)
+                    {
+                        KeySender.SuppressAltMenuActivation();
+                        _engine.Reset();
+                        OpenTextTransformRequested?.Invoke();
                         return (IntPtr)1;
                     }
 

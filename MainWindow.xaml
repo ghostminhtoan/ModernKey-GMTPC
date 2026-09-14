@@ -175,6 +175,11 @@
                             </CheckBox>
                             <CheckBox x:Name="ChkAutoExclude" Content="Loại trừ ứng dụng thông minh" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Tự động chuyển [EN] khi vào ứng dụng loại trừ / game (Chuẩn OpenKey C++)" />
                             <CheckBox x:Name="ChkEnableStatusOsd" Content="Hiện huy hiệu OSD [VI]/[EN] tại vị trí con trỏ chuột" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                            <CheckBox x:Name="ChkSmartEnglishBypass" Content="Nhận diện &amp; bỏ qua từ tiếng Anh thông minh (Smart Bypass)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Tự động giữ nguyên các từ tiếng Anh thông dụng không bị ép dấu tiếng Việt" />
+                            <CheckBox x:Name="ChkOneKeyUndoRaw" Content="Hoàn tác dấu về phím gốc bằng phím Z hoặc Esc (One-Key Undo)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Nhấn phím Z sau khi có dấu tiếng Việt sẽ lập tức hủy dấu trả lại ký tự gốc" />
+                            <CheckBox x:Name="ChkInlineMathEvaluator" Content="Tính toán biểu thức số học khi gõ dấu '=' (Inline Math)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Tự động tính và điền kết quả biểu thức (Ví dụ: 125*45= -&gt; 5625)" />
+                            <CheckBox x:Name="ChkEnableCaretIndicator" Content="Hiện huy hiệu [VI]/[EN] bám sát con trỏ soạn thảo (Caret HUD)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Huy hiệu mini luôn nổi cạnh con trỏ văn bản tại ứng dụng đang soạn thảo" />
+                            <CheckBox x:Name="ChkEnableKeySound" Content="Phát âm thanh gõ phím cơ Cyberpunk siêu nhẹ (&lt;2ms)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Âm click cơ học phát trực tiếp trong bộ nhớ RAM qua winmm.dll không gây lag" />
                         </WrapPanel>
                     </StackPanel>
                 </ScrollViewer>
@@ -209,6 +214,30 @@
                                 <Button Content="NHẬP JSON" Click="BtnImportProfileJson_Click" Padding="10,4" ToolTip="Nhập cấu hình từ file JSON" />
                             </StackPanel>
                         </WrapPanel>
+
+                        <Separator Background="{StaticResource CyberBorderDim}" Margin="0,8,0,14" />
+
+                        <TextBlock Text="[ĐỒNG BỘ CẤU HÌNH &amp; P2P LOCAL FOLDER SYNC]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,10" />
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="THƯ MỤC ĐỒNG BỘ:" VerticalAlignment="Center" FontFamily="Consolas" Foreground="{StaticResource CyberNeonYellow}" />
+                            <TextBox x:Name="TxtSyncFolderPath" Grid.Column="1" Height="28" VerticalAlignment="Center" VerticalContentAlignment="Center" FontFamily="Consolas" Margin="0,0,8,0" TextChanged="TxtSyncFolderPath_TextChanged" ToolTip="Đường dẫn thư mục chia sẻ LAN, OneDrive hoặc Dropbox để tự động đồng bộ cấu hình và macro" />
+                            <Button Grid.Column="2" Content="CHỌN..." Click="BtnBrowseSyncFolder_Click" Height="28" Padding="12,3" Margin="0,0,8,0" />
+                            <Button Grid.Column="3" Content="ĐỒNG BỘ NGAY" Click="BtnSyncNow_Click" Height="28" Padding="12,3" Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" />
+                        </Grid>
+
+                        <Border Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="12,8" Margin="0,0,0,10">
+                            <StackPanel>
+                                <TextBlock Text="[TÍNH NĂNG ĐẶC BIỆT DÀNH CHO GAME THỦ &amp; STREAMER]:" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonPink}" />
+                                <TextBlock Text="• Game Mode Zero-Latency: Nhấn [Ctrl + Shift + F11] để bật/tắt chế độ Game Mode. Khi bật, bộ gõ bypass 0ms tuyệt đối để không ảnh hưởng đến thao tác game FPS/MOBA." FontSize="11" Foreground="{StaticResource CyberTextSecondary}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                                <TextBlock Text="• Text Transform Quick Toolbar: Nhấn [Win + Alt + T] để mở thanh công cụ chuyển đổi nhanh chữ hoa/thường/slug/bỏ dấu/base64 cho đoạn văn bản đang bôi đen." FontSize="11" Foreground="{StaticResource CyberNeonCyan}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -477,6 +506,8 @@
                             <CheckBox x:Name="ChkClipboardAlwaysOnTop" Content="Cửa sổ Clipboard luôn nổi trên cùng (Always on top)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
                             <CheckBox x:Name="ChkClipboardIgnoreDuplicates" Content="Không lưu các mục trùng lặp liên tiếp (Ignore duplicates)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Bỏ qua hoặc đẩy lên đầu nếu nội dung sao chép giống mục trước" />
                             <CheckBox x:Name="ChkClipboardPasteAsPlainText" Content="Mặc định dán văn bản thô (Plain Text)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Tự động loại bỏ font chữ, màu sắc và format khi dán nhanh" />
+                            <CheckBox x:Name="ChkClipboardMaskSensitive" Content="Tự động che dữ liệu nhạy cảm (Mật khẩu, Token, Thẻ)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Tự động phát hiện mật khẩu, API key, thẻ tín dụng để hiển thị dạng hoa thị (***) bảo mật" />
+                            <CheckBox x:Name="ChkClipboardAutoPurgeSensitive" Content="Tự động xóa vĩnh viễn dữ liệu nhạy cảm sau 10 phút" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Tự hủy các mục nhạy cảm để tránh lộ thông tin khi dùng máy chung" />
                         </WrapPanel>
 
                         <Separator Background="{StaticResource CyberBorderDim}" Margin="0,6,0,14" />
@@ -508,7 +539,113 @@
                             <Button Content="XÓA SẠCH TOÀN BỘ CLIPBOARD" Click="BtnClearAllClipboardHistory_Click" Margin="0,0,8,8" Padding="12,6" Background="#2B0914" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}" />
                         </WrapPanel>
 
+                        <Border Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberNeonCyan}" BorderThickness="1" CornerRadius="2" Padding="12,8" Margin="0,6,0,8">
+                            <StackPanel>
+                                <TextBlock Text="[CÁC CÔNG CỤ CLIPBOARD TÍCH HỢP TRỰC TIẾP TRÊN HUD]:" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" />
+                                <TextBlock Text="• [GHIM NOTE]: Ghim bất kỳ mục clipboard thành ghi chú nổi Sticky Note mini Always-On-Top trên màn hình." FontSize="11" Foreground="{StaticResource CyberTextSecondary}" Margin="0,3,0,0" />
+                                <TextBlock Text="• [OCR ẢNH]: Trích xuất văn bản từ hình ảnh sao chép dùng Native Windows Media OcrEngine mà không cần cài thêm phần mềm." FontSize="11" Foreground="{StaticResource CyberTextSecondary}" Margin="0,2,0,0" />
+                                <TextBlock Text="• [COLOR SWATCH]: Tự động nhận diện chuỗi mã màu #HEX / RGB và hiển thị ô vuông màu trực quan kèm xem trước." FontSize="11" Foreground="{StaticResource CyberTextSecondary}" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </Border>
+
                         <TextBlock x:Name="TxtClipboardStoragePath" Text="Thư mục lưu trữ: clipboard\" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource CyberTextSecondary}" Margin="0,8,0,0" />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- Tab 7: Thống Kê Gõ Phím (Cyberpunk Typing Stats HUD) -->
+            <TabItem Header="  THỐNG KÊ  ">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="18">
+                        <TextBlock Text="[CYBERPUNK TYPING TELEMETRY &amp; STATS DASHBOARD]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,14" />
+
+                        <!-- 4 Metric Cards -->
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Card 1: WPM -->
+                            <Border Grid.Column="0" Background="#12041A" BorderBrush="{StaticResource CyberNeonPink}" BorderThickness="1.5" CornerRadius="3" Padding="12,10" Margin="0,0,8,0">
+                                <StackPanel>
+                                    <TextBlock Text="TỐC ĐỘ GÕ (WPM)" FontSize="11" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" />
+                                    <TextBlock x:Name="TxtStatsWpm" Text="0" FontSize="26" FontWeight="ExtraBold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonPink}" Margin="0,4,0,0" />
+                                    <TextBlock Text="Từ / phút (Rolling 1m)" FontSize="10" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Card 2: Keystrokes -->
+                            <Border Grid.Column="1" Background="#061820" BorderBrush="{StaticResource CyberNeonCyan}" BorderThickness="1.5" CornerRadius="3" Padding="12,10" Margin="0,0,8,0">
+                                <StackPanel>
+                                    <TextBlock Text="TỔNG KÝ TỰ GÕ" FontSize="11" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" />
+                                    <TextBlock x:Name="TxtStatsKeystrokes" Text="0" FontSize="26" FontWeight="ExtraBold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,4,0,0" />
+                                    <TextBlock Text="Keystrokes recorded" FontSize="10" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Card 3: Words -->
+                            <Border Grid.Column="2" Background="#1E1A04" BorderBrush="{StaticResource CyberNeonYellow}" BorderThickness="1.5" CornerRadius="3" Padding="12,10" Margin="0,0,8,0">
+                                <StackPanel>
+                                    <TextBlock Text="TỔNG TỪ TIẾNG VIỆT" FontSize="11" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" />
+                                    <TextBlock x:Name="TxtStatsWords" Text="0" FontSize="26" FontWeight="ExtraBold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonYellow}" Margin="0,4,0,0" />
+                                    <TextBlock Text="Valid Vietnamese words" FontSize="10" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Card 4: Active Time -->
+                            <Border Grid.Column="3" Background="#051C10" BorderBrush="#00FF66" BorderThickness="1.5" CornerRadius="3" Padding="12,10">
+                                <StackPanel>
+                                    <TextBlock Text="THỜI GIAN HOẠT ĐỘNG" FontSize="11" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" />
+                                    <TextBlock x:Name="TxtStatsTime" Text="0m" FontSize="26" FontWeight="ExtraBold" FontFamily="Consolas" Foreground="#00FF66" Margin="0,4,0,0" />
+                                    <TextBlock Text="Active typing duration" FontSize="10" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <!-- Biểu đồ phân bổ 24 giờ -->
+                        <Border Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="3" Padding="14,12" Margin="0,0,0,14">
+                            <StackPanel>
+                                <TextBlock Text="[BIỂU ĐỒ HOẠT ĐỘNG 24 GIỜ TRONG NGÀY (HEATMAP)]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,12" />
+                                <Grid x:Name="GridHourlyHeatmap" Height="110" Margin="0,0,0,6">
+                                    <!-- Sẽ được populate code-behind 24 cột giờ -->
+                                </Grid>
+                                <UniformGrid Columns="24" Margin="0,4,0,0">
+                                    <TextBlock Text="0h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="1h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="2h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="3h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="4h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="5h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="6h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="7h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="8h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="9h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="10h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="11h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="12h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="13h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="14h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="15h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="16h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="17h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="18h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="19h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="20h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="21h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="22h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="23h" FontSize="9" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" HorizontalAlignment="Center"/>
+                                </UniformGrid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Nút bấm -->
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="LÀM MỚI SỐ LIỆU" Click="BtnRefreshStats_Click" Margin="0,0,8,0" Padding="14,6" Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" FontWeight="Bold" />
+                            <Button Content="ĐẶT LẠI THỐNG KÊ" Click="BtnResetStats_Click" Padding="12,6" Background="#2B0914" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}" />
+                        </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

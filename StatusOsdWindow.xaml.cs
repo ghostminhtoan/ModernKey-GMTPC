@@ -111,5 +111,57 @@ namespace ModernKey
                 _fadeStoryboard.Begin();
             });
         }
+
+        public void ShowMessage(string message, string colorHex = "#00FF66")
+        {
+            Dispatcher.Invoke(() =>
+            {
+                TxtOsdStatus.Text = message;
+                var color = (Color)ColorConverter.ConvertFromString(colorHex);
+                TxtOsdStatus.Foreground = new SolidColorBrush(color);
+                OsdBorder.BorderBrush = new SolidColorBrush(color);
+                OsdShadow.Color = color;
+
+                if (GetCursorPos(out POINT pt))
+                {
+                    double x = pt.X + 16;
+                    double y = pt.Y + 16;
+                    var workArea = SystemParameters.WorkArea;
+                    if (x + Width > workArea.Right) x = pt.X - Width - 10;
+                    if (y + Height > workArea.Bottom) y = pt.Y - Height - 10;
+                    Left = Math.Max(workArea.Left, x);
+                    Top = Math.Max(workArea.Top, y);
+                }
+                else
+                {
+                    var workArea = SystemParameters.WorkArea;
+                    Left = workArea.Right - Width - 20;
+                    Top = workArea.Bottom - Height - 20;
+                }
+
+                Show();
+                OsdBorder.Opacity = 0.95;
+
+                if (_fadeStoryboard != null)
+                {
+                    _fadeStoryboard.Stop();
+                }
+
+                var anim = new DoubleAnimation
+                {
+                    From = 0.95,
+                    To = 0.0,
+                    BeginTime = TimeSpan.FromSeconds(0.6),
+                    Duration = TimeSpan.FromSeconds(0.5)
+                };
+
+                _fadeStoryboard = new Storyboard();
+                _fadeStoryboard.Children.Add(anim);
+                Storyboard.SetTarget(anim, OsdBorder);
+                Storyboard.SetTargetProperty(anim, new PropertyPath(UIElement.OpacityProperty));
+                _fadeStoryboard.Completed += (s, ev) => Hide();
+                _fadeStoryboard.Begin();
+            });
+        }
     }
 }

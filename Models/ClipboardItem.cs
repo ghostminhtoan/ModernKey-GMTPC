@@ -240,6 +240,149 @@ namespace ModernKey.Models
         }
         public bool HasCustomBackground => !string.IsNullOrWhiteSpace(_backgroundColorHex) && !_backgroundColorHex.Equals("Default", StringComparison.OrdinalIgnoreCase);
 
+        // Feature 6: Dữ liệu nhạy cảm
+        private bool _isSensitive = false;
+        public bool IsSensitive
+        {
+            get => _isSensitive;
+            set
+            {
+                if (_isSensitive != value)
+                {
+                    _isSensitive = value;
+                    OnPropertyChanged(nameof(IsSensitive));
+                    OnPropertyChanged(nameof(SensitiveBadgeVisibility));
+                    OnPropertyChanged(nameof(DisplayTitle));
+                    OnPropertyChanged(nameof(DisplayPreviewText));
+                }
+            }
+        }
+
+        private bool _isMasked = true;
+        public bool IsMasked
+        {
+            get => _isMasked;
+            set
+            {
+                if (_isMasked != value)
+                {
+                    _isMasked = value;
+                    OnPropertyChanged(nameof(IsMasked));
+                    OnPropertyChanged(nameof(DisplayTitle));
+                    OnPropertyChanged(nameof(DisplayPreviewText));
+                    OnPropertyChanged(nameof(MaskToggleIcon));
+                }
+            }
+        }
+
+        public string MaskToggleIcon => IsMasked ? "👁" : "🔒";
+        public Visibility SensitiveBadgeVisibility => IsSensitive ? Visibility.Visible : Visibility.Collapsed;
+
+        public string DisplayPreviewText
+        {
+            get
+            {
+                if (IsSensitive && IsMasked)
+                {
+                    return "•••••••••••••••• [DỮ LIỆU BẢO MẬT]";
+                }
+                return PreviewText;
+            }
+        }
+
+        // Feature 9: Nhận diện mã màu
+        private bool _isColorCode = false;
+        public bool IsColorCode
+        {
+            get => _isColorCode;
+            set
+            {
+                if (_isColorCode != value)
+                {
+                    _isColorCode = value;
+                    OnPropertyChanged(nameof(IsColorCode));
+                    OnPropertyChanged(nameof(ColorBadgeVisibility));
+                    OnPropertyChanged(nameof(ColorSwatchBrush));
+                }
+            }
+        }
+
+        private string _colorHex = string.Empty;
+        public string ColorHex
+        {
+            get => _colorHex;
+            set
+            {
+                if (_colorHex != value)
+                {
+                    _colorHex = value;
+                    OnPropertyChanged(nameof(ColorHex));
+                    OnPropertyChanged(nameof(ColorSwatchBrush));
+                }
+            }
+        }
+
+        public Visibility ColorBadgeVisibility => IsColorCode ? Visibility.Visible : Visibility.Collapsed;
+
+        public System.Windows.Media.Brush ColorSwatchBrush
+        {
+            get
+            {
+                if (IsColorCode && !string.IsNullOrEmpty(ColorHex))
+                {
+                    try
+                    {
+                        var col = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(ColorHex);
+                        var brush = new System.Windows.Media.SolidColorBrush(col);
+                        brush.Freeze();
+                        return brush;
+                    }
+                    catch { }
+                }
+                return System.Windows.Media.Brushes.Transparent;
+            }
+        }
+
+        public void DetectMetadata()
+        {
+            if (ContentType != ClipboardContentType.Text || string.IsNullOrWhiteSpace(TextContent)) return;
+
+            string trimmed = TextContent.Trim();
+
+            // 1. Nhận diện mã màu HEX, RGB
+            if (System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"))
+            {
+                IsColorCode = true;
+                ColorHex = trimmed.Length == 4 ? $"#{trimmed[1]}{trimmed[1]}{trimmed[2]}{trimmed[2]}{trimmed[3]}{trimmed[3]}" : trimmed;
+            }
+            else if (System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"^rgb\s*\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            {
+                try
+                {
+                    var m = System.Text.RegularExpressions.Regex.Match(trimmed, @"rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    if (m.Success)
+                    {
+                        int r = Math.Min(255, int.Parse(m.Groups[1].Value));
+                        int g = Math.Min(255, int.Parse(m.Groups[2].Value));
+                        int b = Math.Min(255, int.Parse(m.Groups[3].Value));
+                        IsColorCode = true;
+                        ColorHex = $"#{r:X2}{g:X2}{b:X2}";
+                    }
+                }
+                catch { }
+            }
+
+            // 2. Nhận diện dữ liệu nhạy cảm (JWT Token, API Key, Thẻ tín dụng, OTP)
+            if (System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"^(eyJh[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*)$") ||
+                System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"^(sk_live_[0-9a-zA-Z]{20,}|ghp_[0-9a-zA-Z]{30,}|AKIA[0-9A-Z]{16})$") ||
+                System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"^(4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13})$") ||
+                (trimmed.Length == 6 && System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"^\d{6}$")))
+            {
+                IsSensitive = true;
+                IsMasked = true;
+            }
+        }
+
         public System.Windows.Media.Brush ItemBackgroundBrush
         {
             get

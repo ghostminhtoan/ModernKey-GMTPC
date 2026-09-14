@@ -26,8 +26,114 @@ namespace ModernKey.Config
             return Directory.Exists(portableMarker) || File.Exists(portableMarker);
         }
 
+        public static string CustomSyncDirectory { get; set; } = null;
+        private static FileSystemWatcher _syncWatcher = null;
+        private static DateTime _lastWatcherTrigger = DateTime.MinValue;
+        public static event Action OnExternalSyncUpdate;
+
+        public static void SetupSyncWatcher(string syncFolder)
+        {
+            try
+            {
+                if (_syncWatcher != null)
+                {
+                    _syncWatcher.EnableRaisingEvents = false;
+                    _syncWatcher.Dispose();
+                    _syncWatcher = null;
+                }
+
+                if (!string.IsNullOrEmpty(syncFolder) && Directory.Exists(syncFolder))
+                {
+                    CustomSyncDirectory = syncFolder;
+                    _syncWatcher = new FileSystemWatcher(syncFolder)
+                    {
+                        NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.Size,
+                        Filter = "*.*",
+                        EnableRaisingEvents = true
+                    };
+
+                    FileSystemEventHandler handler = (s, e) =>
+                    {
+                        string ext = Path.GetExtension(e.Name)?.ToLowerInvariant();
+                        if (ext == ".ini" || ext == ".txt")
+                        {
+                            if ((DateTime.Now - _lastWatcherTrigger).TotalMilliseconds > 800)
+                            {
+                                _lastWatcherTrigger = DateTime.Now;
+                                OnExternalSyncUpdate?.Invoke();
+                            }
+                        }
+                    };
+
+                    _syncWatcher.Changed += handler;
+                    _syncWatcher.Created += handler;
+                }
+                else
+                {
+                    CustomSyncDirectory = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Error setting up sync watcher: " + ex.Message);
+            }
+        }
+
+        public static void StopSyncWatcher()
+        {
+            try
+            {
+                if (_syncWatcher != null)
+                {
+                    _syncWatcher.EnableRaisingEvents = false;
+                    _syncWatcher.Dispose();
+                    _syncWatcher = null;
+                }
+            }
+            catch { }
+        }
+
+        public static void ExportToSyncFolder(string targetFolder, AppSettings settings)
+        {
+            try
+            {
+                if (!Directory.Exists(targetFolder))
+                {
+                    Directory.CreateDirectory(targetFolder);
+                }
+
+                string srcIni = Path.Combine(GetConfigDirectory(), "modernkey.ini");
+                string targetIni = Path.Combine(targetFolder, "modernkey.ini");
+                if (File.Exists(srcIni))
+                {
+                    File.Copy(srcIni, targetIni, true);
+                }
+                else
+                {
+                    SaveSettings(settings);
+                    if (File.Exists(srcIni)) File.Copy(srcIni, targetIni, true);
+                }
+
+                string srcMacro = Path.Combine(GetConfigDirectory(), "macro.txt");
+                string targetMacro = Path.Combine(targetFolder, "macro.txt");
+                if (File.Exists(srcMacro))
+                {
+                    File.Copy(srcMacro, targetMacro, true);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("ExportToSyncFolder error: " + ex.Message);
+            }
+        }
+
         public static string GetConfigDirectory()
         {
+            if (!string.IsNullOrEmpty(CustomSyncDirectory) && Directory.Exists(CustomSyncDirectory))
+            {
+                return CustomSyncDirectory;
+            }
+
             if (IsPortableMode())
             {
                 string portableDir = Path.Combine(GetAppDirectory(), ".portable");
@@ -312,6 +418,36 @@ namespace ModernKey.Config
                         case "ActiveProfile":
                             if (!string.IsNullOrEmpty(val)) settings.ActiveProfile = val;
                             break;
+                        case "SmartEnglishBypass":
+                            if (bool.TryParse(val, out var seb)) settings.SmartEnglishBypass = seb;
+                            break;
+                        case "GameModeEnabled":
+                            if (bool.TryParse(val, out var gme)) settings.GameModeEnabled = gme;
+                            break;
+                        case "OneKeyUndoRaw":
+                            if (bool.TryParse(val, out var oku)) settings.OneKeyUndoRaw = oku;
+                            break;
+                        case "SensitiveDataMasking":
+                            if (bool.TryParse(val, out var sdm)) settings.SensitiveDataMasking = sdm;
+                            break;
+                        case "SensitiveAutoPurgeMinutes":
+                            if (int.TryParse(val, out var sapm)) settings.SensitiveAutoPurgeMinutes = sapm;
+                            break;
+                        case "DynamicMacroEnabled":
+                            if (bool.TryParse(val, out var dme)) settings.DynamicMacroEnabled = dme;
+                            break;
+                        case "InlineMathEvaluator":
+                            if (bool.TryParse(val, out var ime)) settings.InlineMathEvaluator = ime;
+                            break;
+                        case "EnableCaretIndicator":
+                            if (bool.TryParse(val, out var eci)) settings.EnableCaretIndicator = eci;
+                            break;
+                        case "EnableKeySound":
+                            if (bool.TryParse(val, out var eks)) settings.EnableKeySound = eks;
+                            break;
+                        case "SyncFolderPath":
+                            settings.SyncFolderPath = val ?? string.Empty;
+                            break;
                         case "CustomRules":
                             if (!string.IsNullOrEmpty(val))
                             {
@@ -398,6 +534,16 @@ namespace ModernKey.Config
                 sb.AppendLine("EscKeyUndo=" + settings.EscKeyUndo);
                 sb.AppendLine("IsCompactMode=" + settings.IsCompactMode);
                 sb.AppendLine("ActiveProfile=" + (settings.ActiveProfile ?? "Office"));
+                sb.AppendLine("SmartEnglishBypass=" + settings.SmartEnglishBypass);
+                sb.AppendLine("GameModeEnabled=" + settings.GameModeEnabled);
+                sb.AppendLine("OneKeyUndoRaw=" + settings.OneKeyUndoRaw);
+                sb.AppendLine("SensitiveDataMasking=" + settings.SensitiveDataMasking);
+                sb.AppendLine("SensitiveAutoPurgeMinutes=" + settings.SensitiveAutoPurgeMinutes);
+                sb.AppendLine("DynamicMacroEnabled=" + settings.DynamicMacroEnabled);
+                sb.AppendLine("InlineMathEvaluator=" + settings.InlineMathEvaluator);
+                sb.AppendLine("EnableCaretIndicator=" + settings.EnableCaretIndicator);
+                sb.AppendLine("EnableKeySound=" + settings.EnableKeySound);
+                sb.AppendLine("SyncFolderPath=" + (settings.SyncFolderPath ?? ""));
 
                 if (settings.CustomRules != null && settings.CustomRules.Count > 0)
                 {

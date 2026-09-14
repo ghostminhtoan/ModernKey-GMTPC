@@ -1063,10 +1063,12 @@ namespace ModernKey
                     ImgPreview.Visibility = Visibility.Visible;
                     ImgPreview.Source = item.ImageSource;
                 }
+                if (BtnOcrImage != null) BtnOcrImage.Visibility = Visibility.Visible;
                 if (TxtMetaInfo != null) TxtMetaInfo.Text = $"[HÌNH ẢNH]{appPart} • Dung lượng: {item.ByteSize / 1024} KB • Thời gian: {item.TimeDisplay}";
             }
             else if (item.ContentType == ClipboardContentType.Files)
             {
+                if (BtnOcrImage != null) BtnOcrImage.Visibility = Visibility.Collapsed;
                 if (ImgPreview != null) ImgPreview.Visibility = Visibility.Collapsed;
                 if (TxtPreview != null)
                 {
@@ -1114,11 +1116,19 @@ namespace ModernKey
             }
             else
             {
+                if (BtnOcrImage != null) BtnOcrImage.Visibility = Visibility.Collapsed;
                 if (ImgPreview != null) ImgPreview.Visibility = Visibility.Collapsed;
                 if (TxtPreview != null)
                 {
                     TxtPreview.Visibility = Visibility.Visible;
-                    TxtPreview.Text = item.TextContent ?? string.Empty;
+                    if (item.IsSensitive && item.IsMasked)
+                    {
+                        TxtPreview.Text = "••••••••••••••••••••••••••••••••\r\n[NỘI DUNG ĐÃ ĐƯỢC BẢO MẬT]\r\n(Nhấp vào biểu tượng 👁 trên danh sách để xem nội dung đầy đủ)";
+                    }
+                    else
+                    {
+                        TxtPreview.Text = item.TextContent ?? string.Empty;
+                    }
                 }
                 int lineCount = (item.TextContent ?? "").Split('\n').Length;
                 if (TxtMetaInfo != null) TxtMetaInfo.Text = $"Văn bản{appPart} • {item.CharCount} ký tự • {lineCount} dòng • {item.ByteSize} B • {item.TimeDisplay}";
@@ -1127,6 +1137,10 @@ namespace ModernKey
 
         private void ClearPreview()
         {
+            if (BtnOcrImage != null)
+            {
+                BtnOcrImage.Visibility = Visibility.Collapsed;
+            }
             if (TxtPreview != null)
             {
                 TxtPreview.Visibility = Visibility.Visible;
@@ -2594,6 +2608,89 @@ namespace ModernKey
                     container?.Focus();
                     e.Handled = true;
                 }
+            }
+        }
+
+        private void BtnToggleMask_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.DataContext is ClipboardItem item)
+            {
+                item.IsMasked = !item.IsMasked;
+                if (LstClipboard?.SelectedItem == item)
+                {
+                    UpdatePreview(item);
+                }
+            }
+        }
+
+        private void ColorSwatch_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.DataContext is ClipboardItem item)
+            {
+                if (!string.IsNullOrEmpty(item.ColorHex))
+                {
+                    try
+                    {
+                        Clipboard.SetText(item.ColorHex);
+                        if (TxtStatus != null) TxtStatus.Text = $"✓ Đã sao chép mã màu: {item.ColorHex}";
+                    }
+                    catch { }
+                }
+            }
+        }
+
+        private void CtxMenuStickyNote_Click(object sender, RoutedEventArgs e)
+        {
+            OpenSelectedAsStickyNote();
+        }
+
+        private void BtnStickyNoteAction_Click(object sender, RoutedEventArgs e)
+        {
+            OpenSelectedAsStickyNote();
+        }
+
+        private void OpenSelectedAsStickyNote()
+        {
+            var selected = LstClipboard?.SelectedItems?.Cast<ClipboardItem>().FirstOrDefault();
+            if (selected != null)
+            {
+                string text = selected.ContentType == ClipboardContentType.Text ? selected.TextContent : selected.PreviewText;
+                var sticky = new StickyNoteWindow(text);
+                sticky.Show();
+                if (TxtStatus != null) TxtStatus.Text = "✓ Đã ghim thẻ Sticky Note lên màn hình!";
+            }
+        }
+
+        private void CtxMenuOcr_Click(object sender, RoutedEventArgs e)
+        {
+            PerformOcrOnSelected();
+        }
+
+        private void BtnOcrImage_Click(object sender, RoutedEventArgs e)
+        {
+            PerformOcrOnSelected();
+        }
+
+        private async void PerformOcrOnSelected()
+        {
+            var selected = LstClipboard?.SelectedItems?.Cast<ClipboardItem>().FirstOrDefault();
+            if (selected == null || selected.ContentType != ClipboardContentType.Image || string.IsNullOrEmpty(selected.ImagePath))
+            {
+                if (TxtStatus != null) TxtStatus.Text = "⚠ Vui lòng chọn một hình ảnh để trích xuất chữ OCR!";
+                return;
+            }
+
+            if (TxtStatus != null) TxtStatus.Text = "⏳ Đang chạy Windows Native OCR trích xuất chữ từ ảnh...";
+            string text = await ClipboardOcrHelper.RecognizeTextAsync(selected.ImagePath);
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                _historyManager.AddText(text, "OCR: " + (selected.SourceApp ?? "Image"));
+                try { Clipboard.SetText(text); } catch { }
+                if (TxtStatus != null) TxtStatus.Text = $"✓ OCR thành công ({text.Length} ký tự)! Đã sao chép vào Clipboard.";
+            }
+            else
+            {
+                if (TxtStatus != null) TxtStatus.Text = "⚠ Không trích xuất được chữ hoặc hình ảnh không có văn bản.";
             }
         }
     }

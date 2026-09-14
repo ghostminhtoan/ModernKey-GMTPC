@@ -208,6 +208,12 @@ namespace ModernKey.Core
                 ch = targetUpper ? char.ToUpper(ch) : char.ToLower(ch);
             }
 
+            try
+            {
+                TypingStatsManager.Instance.RecordKeystroke(isWordBreak: false, isVietnamese: _settings.IsVietnamese);
+            }
+            catch { }
+
             // 0. Phím ESC: hoàn tác từ tiếng Việt về ký tự gốc nếu bật EscKeyUndo, hoặc reset engine
             if (vkCode == 0x1B)
             {
@@ -391,6 +397,28 @@ namespace ModernKey.Core
                     }
                 }
 
+                // 3. Smart English Bypass: Tự động khôi phục từ tiếng Anh thông dụng khi ngắt từ
+                if (_settings.SmartEnglishBypass && _charBuffer.Count > 0)
+                {
+                    string displayWord = GetDisplayWord(_charBuffer);
+                    string rawWord = new string(_charBuffer.ToArray());
+
+                    if (!string.IsNullOrEmpty(displayWord) && displayWord != rawWord && EnglishDictionary.IsCommonEnglishWord(rawWord))
+                    {
+                        backspaceCount = displayWord.Length;
+                        newString = rawWord;
+                        trailingVkCode = isSpace ? 0x20 : (isReturn ? 0x0D : 0);
+                        Reset();
+                        return true;
+                    }
+                }
+
+                try
+                {
+                    TypingStatsManager.Instance.RecordKeystroke(isWordBreak: true, isVietnamese: _settings.IsVietnamese);
+                }
+                catch { }
+
                 // Kiểm tra chính tả theo cơ chế OpenKey C++ và tự động khôi phục nếu từ sai chính tả
                 if (_settings.CheckSpelling && _settings.RestoreIfWrongSpelling && _charBuffer.Count > 0)
                 {
@@ -416,6 +444,35 @@ namespace ModernKey.Core
             // 4.2. Xử lý khi gõ Dấu câu / Ký hiệu (Punctuation)
             if (isPunctuation)
             {
+                // 12. Inline Math Evaluator: Tự động tính biểu thức toán học khi gõ dấu '=' (vd: 125*45/2=)
+                if (_settings.InlineMathEvaluator && ch == '=')
+                {
+                    string candidate = _macroBuffer.Count > 0 ? new string(_macroBuffer.ToArray()) : (_charBuffer.Count > 0 ? new string(_charBuffer.ToArray()) : "");
+                    if (MathEvaluator.IsPotentialMathExpression(candidate + "=", out string expr) &&
+                        MathEvaluator.TryEvaluate(expr, out double res, out string formattedRes))
+                    {
+                        newString = "=" + formattedRes;
+                        backspaceCount = 0;
+                        Reset();
+                        return true;
+                    }
+                }
+
+                // 3. Smart English Bypass khi chạm dấu câu
+                if (_settings.SmartEnglishBypass && _charBuffer.Count > 0)
+                {
+                    string displayWord = GetDisplayWord(_charBuffer);
+                    string rawWord = new string(_charBuffer.ToArray());
+                    if (!string.IsNullOrEmpty(displayWord) && displayWord != rawWord && EnglishDictionary.IsCommonEnglishWord(rawWord))
+                    {
+                        backspaceCount = displayWord.Length;
+                        newString = rawWord + (ch != '\0' ? ch.ToString() : "");
+                        trailingVkCode = 0;
+                        Reset();
+                        return true;
+                    }
+                }
+
                 // A. Kiểm tra nếu từ TRƯỚC dấu câu là một macro (vd: vn. -> việt nam., vn? -> việt nam?, emogrin! -> 😏😏😏!)
                 if (_settings.UseMacro)
                 {
@@ -875,6 +932,35 @@ namespace ModernKey.Core
             {
                 if (!OpenKeySpelling.IsValidWord(prevDisplayWord, forceCheckVowel: false, _settings))
                 {
+                    return false;
+                }
+            }
+
+            // 5. Hoàn tác dấu một phím (OneKeyUndoRaw): khi gõ Z/z mà từ trước đó đã có dấu/mũ, khôi phục ngay chuỗi thô ASCII
+            if (_settings.OneKeyUndoRaw && (ch == 'z' || ch == 'Z') && prevDisplayWord.Length > 0 && _charBuffer.Count > 1)
+            {
+                string rawBeforeZ = new string(_charBuffer.ToArray(), 0, _charBuffer.Count - 1);
+                if (prevDisplayWord != rawBeforeZ)
+                {
+                    backspaceCount = Math.Min(prevDisplayWord.Length, 15);
+                    newString = CharsetConverter.FromUnicode(rawBeforeZ, _settings.CurrentCharset);
+                    Reset();
+                    return true;
+                }
+            }
+
+            // 3. Smart English Bypass: Nếu toàn bộ từ thô tạo thành từ tiếng Anh thông dụng (vd: "post"), khôi phục lại không ép dấu
+            if (_settings.SmartEnglishBypass)
+            {
+                string rawWord = new string(_charBuffer.ToArray());
+                if (EnglishDictionary.IsCommonEnglishWord(rawWord))
+                {
+                    if (prevDisplayWord != rawWord.Substring(0, rawWord.Length - 1))
+                    {
+                        backspaceCount = Math.Min(prevDisplayWord.Length, 15);
+                        newString = CharsetConverter.FromUnicode(rawWord, _settings.CurrentCharset);
+                        return true;
+                    }
                     return false;
                 }
             }

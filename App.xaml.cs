@@ -27,6 +27,7 @@ namespace ModernKey
         private ClipboardHistoryManager _clipboardHistory;
         private ClipboardListener _clipboardListener;
         private ClipboardWindow _clipboardWindow;
+        private CaretIndicatorWindow _caretIndicatorWindow;
 
         public ClipboardHistoryManager ClipboardHistory => _clipboardHistory;
 
@@ -205,6 +206,60 @@ namespace ModernKey
             {
                 return TryPasteClipboardItemByShortcut(mod, vk);
             };
+
+            // Phím tắt Quick Text Transform (Win+Alt+T / Ctrl+Shift+T)
+            _keyboardHook.OpenTextTransformRequested += () =>
+            {
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
+                {
+                    ShowTextTransformWindow();
+                }));
+            };
+
+            // Game Mode Zero-Latency Toggle (Ctrl+Shift+F11)
+            KeyboardHook.GameModeChanged += (enabled) =>
+            {
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
+                {
+                    _statusOsdWindow?.ShowMessage(enabled ? "GAME MODE: ON (0ms)" : "GAME MODE: OFF (NORMAL)", enabled ? "#00FF66" : "#FF007F");
+                }));
+            };
+
+            // Floating Caret Indicator bám theo con trỏ soạn thảo
+            KeyboardHook.RequestShowCaretIndicator += () =>
+            {
+                if (_settings != null && _settings.EnableCaretIndicator)
+                {
+                    Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
+                    {
+                        if (_caretIndicatorWindow == null)
+                        {
+                            _caretIndicatorWindow = new CaretIndicatorWindow();
+                        }
+                        _caretIndicatorWindow.ShowIndicator(_settings.IsVietnamese);
+                    }));
+                }
+            };
+
+            // Lắng nghe đồng bộ cấu hình từ bên ngoài (P2P / Local Folder Sync)
+            SettingsManager.OnExternalSyncUpdate += () =>
+            {
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
+                {
+                    _settings = SettingsManager.LoadSettings();
+                    _macroManager?.Load();
+                    if (_mainWindow != null && _mainWindow.IsLoaded && _mainWindow.IsVisible)
+                    {
+                        _mainWindow.RefreshState();
+                    }
+                    _statusOsdWindow?.ShowMessage("P2P CONFIG SYNCED", "#00F0FF");
+                }));
+            };
+
+            if (!string.IsNullOrEmpty(_settings.SyncFolderPath))
+            {
+                SettingsManager.SetupSyncWatcher(_settings.SyncFolderPath);
+            }
 
             _trayManager.StateChanged += () =>
             {
@@ -492,8 +547,31 @@ namespace ModernKey
             });
         }
 
+        public void ShowTextTransformWindow()
+        {
+            try
+            {
+                string text = "";
+                if (Clipboard.ContainsText())
+                {
+                    text = Clipboard.GetText();
+                }
+
+                var wnd = new TextTransformWindow(text);
+                wnd.Show();
+                wnd.Activate();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("ShowTextTransformWindow error: " + ex.Message);
+            }
+        }
+
         public void ExitApplication()
         {
+            SettingsManager.StopSyncWatcher();
+            SoundManager.Cleanup();
+            _caretIndicatorWindow?.Close();
             _keyboardHook?.Dispose();
             _clipboardListener?.Dispose();
             _clipboardHistory?.SaveHistoryNow();
@@ -506,6 +584,9 @@ namespace ModernKey
 
         protected override void OnExit(ExitEventArgs e)
         {
+            SettingsManager.StopSyncWatcher();
+            SoundManager.Cleanup();
+            _caretIndicatorWindow?.Close();
             _keyboardHook?.Dispose();
             _clipboardListener?.Dispose();
             _clipboardHistory?.SaveHistoryNow();

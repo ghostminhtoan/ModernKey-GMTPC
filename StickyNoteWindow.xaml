@@ -1,0 +1,61 @@
+<Window x:Class="ModernKey.StickyNoteWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="CYBER STICKY NOTE"
+        Width="320" Height="260" MinWidth="220" MinHeight="160"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Topmost="True" ShowInTaskbar="False" WindowStartupLocation="Manual">
+    <Border Background="#0D0316" BorderBrush="{StaticResource CyberNeonCyan}" BorderThickness="1.5" CornerRadius="4" Padding="8">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Header: Drag, Title, Action Buttons -->
+            <Grid Grid.Row="0" Margin="0,0,0,6" MouseLeftButtonDown="Header_MouseLeftButtonDown" Background="Transparent" Cursor="SizeAll">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="📌 STICKY //" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonYellow}" FontSize="12" Margin="4,0,4,0" />
+                    <TextBlock x:Name="TxtTime" Text="12:00:00" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" FontSize="10" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button x:Name="BtnPinToggle" Content="TOP" Click="BtnPinToggle_Click" Width="36" Height="22" Margin="0,0,4,0"
+                            Background="#180424" BorderBrush="{StaticResource CyberNeonCyan}" Foreground="{StaticResource CyberNeonCyan}"
+                            FontFamily="Consolas" FontSize="10" FontWeight="Bold" ToolTip="Bật / Tắt ghim trên cùng" />
+                    <Button Content="✕" Click="BtnClose_Click" Width="24" Height="22"
+                            Background="#2B0914" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}"
+                            FontFamily="Consolas" FontWeight="Bold" FontSize="11" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Content -->
+            <TextBox x:Name="TxtContent" Grid.Row="1" Background="#07010C" Foreground="{StaticResource CyberTextPrimary}"
+                     BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1"
+                     FontFamily="Consolas, Segoe UI" FontSize="12" AcceptsReturn="True" TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto" Padding="6" />
+
+            <!-- Footer Toolbar -->
+            <Grid Grid.Row="2" Margin="0,6,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock x:Name="TxtCharCount" Grid.Column="0" Text="0 ký tự" FontFamily="Consolas" FontSize="10"
+                           Foreground="{StaticResource CyberTextSecondary}" VerticalAlignment="Center" Margin="4,0,0,0" />
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="[CHÉP]" Click="BtnCopy_Click" Padding="8,2" Margin="0,0,4,0"
+                            Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" FontFamily="Consolas" FontSize="10" FontWeight="Bold" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

@@ -80,6 +80,28 @@ namespace ModernKey.Models
         public bool SmartCodePassthrough { get; set; } = true;
         public bool EscKeyUndo { get; set; } = true;
 
+        // 14 Tính Năng Nâng Cấp Độc Đáo
+        public bool SmartEnglishBypass { get; set; } = true; // Tính năng 3: Song ngữ Anh - Việt thông minh
+        public bool GameModeEnabled { get; set; } = false; // Tính năng 4: Game Mode Zero Latency
+        public bool OneKeyUndoRaw { get; set; } = true; // Tính năng 5: Hoàn tác 1 phím về ASCII thô
+        public bool SensitiveDataMasking { get; set; } = true; // Tính năng 6: Bảo vệ dữ liệu nhạy cảm
+        public int SensitiveAutoPurgeMinutes { get; set; } = 5; // Tính năng 6: Tự động xóa dữ liệu nhạy cảm sau N phút
+        public bool ClipboardMaskSensitive
+        {
+            get => SensitiveDataMasking;
+            set => SensitiveDataMasking = value;
+        }
+        public bool ClipboardAutoPurgeSensitive
+        {
+            get => SensitiveAutoPurgeMinutes > 0;
+            set => SensitiveAutoPurgeMinutes = value ? 10 : 0;
+        }
+        public bool DynamicMacroEnabled { get; set; } = true; // Tính năng 11: Dynamic Snippets ({date}, {clipboard}...)
+        public bool InlineMathEvaluator { get; set; } = true; // Tính năng 12: Tính toán biểu thức inline (vd: 125*45=)
+        public bool EnableCaretIndicator { get; set; } = true; // Tính năng 16: Chỉ báo ngôn ngữ bám theo con trỏ soạn thảo
+        public bool EnableKeySound { get; set; } = false; // Tính năng 17: Âm thanh phím cơ Cyberpunk
+        public string SyncFolderPath { get; set; } = string.Empty; // Tính năng 20: Thư mục đồng bộ P2P/Local
+
         // Chế độ thu nhỏ Compact HUD
         public bool IsCompactMode { get; set; } = false;
 

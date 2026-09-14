@@ -124,11 +124,42 @@ namespace ModernKey.Core
                         }
                     }
 
+                    if (rep != null && rep.IndexOf('{') >= 0)
+                    {
+                        rep = ExpandDynamicPlaceholders(rep);
+                    }
+
                     replacement = rep;
                     return true;
                 }
             }
             return false;
+        }
+
+        public static string ExpandDynamicPlaceholders(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+            DateTime now = DateTime.Now;
+            text = text.Replace("{date}", now.ToString("dd/MM/yyyy"))
+                       .Replace("{time}", now.ToString("HH:mm:ss"))
+                       .Replace("{datetime}", now.ToString("dd/MM/yyyy HH:mm:ss"))
+                       .Replace("{year}", now.ToString("yyyy"))
+                       .Replace("{guid}", Guid.NewGuid().ToString());
+
+            if (text.Contains("{clipboard}"))
+            {
+                string clipText = string.Empty;
+                try
+                {
+                    if (System.Windows.Clipboard.ContainsText())
+                    {
+                        clipText = System.Windows.Clipboard.GetText();
+                    }
+                }
+                catch { }
+                text = text.Replace("{clipboard}", clipText);
+            }
+            return text;
         }
 
         public bool TryGetMacro(string word, out string replacement)
