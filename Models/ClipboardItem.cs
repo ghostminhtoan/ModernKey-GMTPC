@@ -257,7 +257,7 @@ namespace ModernKey.Models
             }
         }
 
-        private string _blurMode = "Blur"; // "Blur" hoặc "Pixelate"
+        private string _blurMode = "None"; // "None", "Blur" hoặc "Pixelate"
         public string BlurMode
         {
             get => _blurMode;
@@ -265,13 +265,13 @@ namespace ModernKey.Models
             {
                 if (_blurMode != value)
                 {
-                    _blurMode = value ?? "Blur";
+                    _blurMode = value ?? "None";
                     OnPropertyChanged(nameof(BlurMode));
                 }
             }
         }
 
-        private double _blurRadius = 12.0;
+        private double _blurRadius = 0.0;
         public double BlurRadius
         {
             get => _blurRadius;
@@ -285,7 +285,7 @@ namespace ModernKey.Models
             }
         }
 
-        private double _pixelateSize = 14.0;
+        private double _pixelateSize = 0.0;
         public double PixelateSize
         {
             get => _pixelateSize;

@@ -21,6 +21,7 @@ namespace ModernKey.Core
                 if (string.IsNullOrEmpty(imagePath) || !File.Exists(imagePath))
                     return string.Empty;
 
+                string tempEnhancedPath = null;
                 try
                 {
                     // 1. Kiểm tra nếu có Tesseract OCR standalone trên máy
@@ -40,7 +41,32 @@ namespace ModernKey.Core
                     }
 
                     // 2. Fallback sang Windows Native OCR (Windows.Media.Ocr)
-                    string escapedPath = imagePath.Replace("'", "''");
+                    string pathToOcr = imagePath;
+                    try
+                    {
+                        using (var origBmp = new System.Drawing.Bitmap(imagePath))
+                        {
+                            if (origBmp.Width > 0 && origBmp.Height > 0 && (origBmp.Width < 500 || origBmp.Height < 300))
+                            {
+                                int targetW = origBmp.Width * 2;
+                                int targetH = origBmp.Height * 2;
+                                tempEnhancedPath = Path.Combine(Path.GetTempPath(), "mk_ocr_" + Guid.NewGuid().ToString("N") + ".png");
+                                using (var enhancedBmp = new System.Drawing.Bitmap(targetW, targetH))
+                                using (var g = System.Drawing.Graphics.FromImage(enhancedBmp))
+                                {
+                                    g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+                                    g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                                    g.DrawImage(origBmp, 0, 0, targetW, targetH);
+                                    enhancedBmp.Save(tempEnhancedPath, System.Drawing.Imaging.ImageFormat.Png);
+                                }
+                                pathToOcr = tempEnhancedPath;
+                            }
+                        }
+                    }
+                    catch { }
+
+                    string escapedPath = pathToOcr.Replace("'", "''");
                     string langFilterScript;
                     if (language == "en")
                     {
@@ -141,6 +167,13 @@ try {
                 {
                     Debug.WriteLine("OCR Error: " + ex.Message);
                     return string.Empty;
+                }
+                finally
+                {
+                    if (!string.IsNullOrEmpty(tempEnhancedPath) && File.Exists(tempEnhancedPath))
+                    {
+                        try { File.Delete(tempEnhancedPath); } catch { }
+                    }
                 }
             });
         }
@@ -248,7 +281,7 @@ try {
 
         /// <summary>
         /// Chuẩn hóa các ký tự nhận dạng OCR đặc thù khi hệ thống dùng engine Latin nhận dạng tiếng Việt
-        /// và tự động sửa các lỗi chính tả tiếng Việt phổ biến sinh ra từ nhận dạng OCR font màn hình.
+        /// và tự động phục hồi dấu, sửa các lỗi chính tả tiếng Việt phổ biến sinh ra từ nhận dạng OCR font màn hình.
         /// </summary>
         public static string PostProcessVietnamese(string input)
         {
@@ -256,13 +289,67 @@ try {
 
             string text = input;
 
-            // 1. Xử lý các ký tự dính lỗi OCR phổ biến từ font màn hình
+            // 1. Phục hồi các ký tự có dấu đặc thù mà Windows Latin OCR gán cho ký tự tiếng Việt
+            var charDecodings = new (string pattern, string replacement)[]
+            {
+                (@"\btåi\b", "tải"), (@"\bTåi\b", "Tải"),
+                (@"\bbån\b", "bản"), (@"\bBån\b", "Bản"),
+                (@"\bsän\b", "sẵn"), (@"\bSän\b", "Sẵn"),
+                (@"\bcüi\b", "cùi"), (@"\bCüi\b", "Cùi"),
+                (@"\bphåi\b", "phải"), (@"\bPhåi\b", "Phải"),
+                (@"\bcå\b", "cả"), (@"\bCå\b", "Cả"),
+                (@"\bquå\b", "quả"), (@"\bQuå\b", "Quả"),
+                (@"\bchå\b", "chả"), (@"\bChå\b", "Chả"),
+                (@"\bkhå\b", "khả"), (@"\bKhå\b", "Khả"),
+                (@"\bmång\b", "mảng"), (@"\bMång\b", "Mảng"),
+                (@"\bbång\b", "bảng"), (@"\bBång\b", "Bảng"),
+                (@"\btång\b", "tảng"), (@"\bTång\b", "Tảng"),
+                (@"\bthåo\b", "thảo"), (@"\bThåo\b", "Thảo"),
+                (@"\bbåo\b", "bảo"), (@"\bBåo\b", "Bảo"),
+                (@"\bhåi\b", "hải"), (@"\bHåi\b", "Hải"),
+                (@"\bmåt\b", "mắt"), (@"\bMåt\b", "Mắt"),
+                (@"\bdåt\b", "đặt"), (@"\bDåt\b", "Đặt"),
+                (@"\btü\b", "từ"), (@"\bTü\b", "Từ"),
+                (@"\bdü\b", "dù"), (@"\bDü\b", "Dù"),
+                (@"\bngü\b", "ngủ"), (@"\bNgü\b", "Ngủ"),
+                (@"\bgüi\b", "gửi"), (@"\bGüi\b", "Gửi"),
+                (@"\bchü\b", "chữ"), (@"\bChü\b", "Chữ"),
+                (@"\bmüi\b", "mùi"), (@"\bMüi\b", "Mùi"),
+                (@"\bthü\b", "thử"), (@"\bThü\b", "Thử"),
+                (@"\bsü\b", "sự"), (@"\bSü\b", "Sự"),
+                (@"\bgiö\b", "giờ"), (@"\bGiö\b", "Giờ"),
+                (@"\bmö\b", "mở"), (@"\bMö\b", "Mở"),
+                (@"\bchö\b", "chờ"), (@"\bChö\b", "Chờ"),
+                (@"\bnhö\b", "nhỏ"), (@"\bNhö\b", "Nhỏ"),
+                (@"\bnöi\b", "nơi"), (@"\bNöi\b", "Nơi"),
+                (@"\blöi\b", "lời"), (@"\bLöi\b", "Lời"),
+                (@"\bdöi\b", "đời"), (@"\bDöi\b", "Đời"),
+                (@"\bhöi\b", "hỏi"), (@"\bHöi\b", "Hỏi"),
+                (@"\bdë\b", "để"), (@"\bDë\b", "Để"),
+                (@"\bvë\b", "về"), (@"\bVë\b", "Về"),
+                (@"\bthë\b", "thể"), (@"\bThë\b", "Thể"),
+                (@"\bdä\b", "đã"), (@"\bDä\b", "Đã"),
+                (@"\bmät\b", "mặt"), (@"\bMät\b", "Mặt"),
+                (@"\bchät\b", "chặt"), (@"\bChät\b", "Chặt"),
+                (@"\bläi\b", "lại"), (@"\bLäi\b", "Lại")
+            };
+
+            foreach (var item in charDecodings)
+            {
+                text = Regex.Replace(text, item.pattern, item.replacement);
+            }
+
+            // Dọn dẹp các ký tự Latinh còn sót lại nếu chưa được khớp
             text = text.Replace("ø", "o").Replace("Ø", "O");
             text = text.Replace("å", "a").Replace("Å", "A");
             text = text.Replace("ä", "a").Replace("Ä", "A");
             text = text.Replace("ö", "o").Replace("Ö", "O");
             text = text.Replace("ü", "u").Replace("Ü", "U");
             text = text.Replace("•", " ");
+
+            // Sửa lỗi nhận diện nhầm font màn hình phổ biến
+            text = Regex.Replace(text, @"\bmeng\b", "mạng", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"\bheng\b", "hạng", RegexOptions.IgnoreCase);
 
             // Nối dòng bị gãy giữa từ bởi dấu gạch ngang
             text = Regex.Replace(text, @"(\w+)-\r?\n(\w+)", "$1$2");
@@ -326,9 +413,96 @@ try {
                 text = Regex.Replace(text, $@"\b[cC][tT]{Regex.Escape(w)}\b", "đ" + w);
             }
 
-            // Sửa các cặp từ tiếng Việt thông dụng thường bị OCR Latin làm mất dấu hoặc sai chính tả
+            // 4. Sửa các cặp từ & cụm từ tiếng Việt thông dụng thường bị OCR Latin làm mất dấu hoặc sai chính tả
             var phraseCorrections = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
+                // Cụm từ mạng / công nghệ / hệ thống
+                { "mạng cui", "mạng cùi" },
+                { "mang cui", "mạng cùi" },
+                { "cui bap", "cùi bắp" },
+                { "cui mia", "cùi mía" },
+                { "tai san ban", "tải sẵn bản" },
+                { "tai san", "tải sẵn" },
+                { "san ban", "sẵn bản" },
+                { "co san", "có sẵn" },
+                { "san sang", "sẵn sàng" },
+                { "cho nhe", "cho nhẹ" },
+                { "rat nhe", "rất nhẹ" },
+                { "kha nhe", "khá nhẹ" },
+                { "nhe may", "nhẹ máy" },
+                { "nhe nhang", "nhẹ nhàng" },
+                { "chay nhe", "chạy nhẹ" },
+                { "ban offline", "bản offline" },
+                { "ban online", "bản online" },
+                { "ban cai dat", "bản cài đặt" },
+                { "ban moi nhat", "bản mới nhất" },
+                { "ban cap nhat", "bản cập nhật" },
+                { "ban quyen", "bản quyền" },
+                { "ban dung thu", "bản dùng thử" },
+                { "tai ve", "tải về" },
+                { "tai xuong", "tải xuống" },
+                { "tai len", "tải lên" },
+                { "mang lag", "mạng lag" },
+                { "mang cham", "mạng chậm" },
+                { "mang yeu", "mạng yếu" },
+                { "mang nhanh", "mạng nhanh" },
+                { "mang internet", "mạng internet" },
+                { "mang xa hoi", "mạng xã hội" },
+                { "phan mem", "phần mềm" },
+                { "ung dung", "ứng dụng" },
+                { "cai dat", "cài đặt" },
+                { "go cai dat", "gỡ cài đặt" },
+                { "khoi dong", "khởi động" },
+                { "may tinh", "máy tính" },
+                { "thiet bi", "thiết bị" },
+                { "dien thoai", "điện thoại" },
+                { "man hinh", "màn hình" },
+                { "ban phim", "bàn phím" },
+                { "chuot", "chuột" },
+                { "o cung", "ổ cứng" },
+                { "bo nho", "bộ nhớ" },
+                { "tai lieu", "tài liệu" },
+                { "hinh anh", "hình ảnh" },
+                { "am thanh", "âm thanh" },
+                { "tep tin", "tệp tin" },
+                { "thu muc", "thư mục" },
+                { "ket noi", "kết nối" },
+                { "dang nhap", "đăng nhập" },
+                { "dang ky", "đăng ký" },
+                { "mat khau", "mật khẩu" },
+                { "tai khoan", "tài khoản" },
+                { "nguoi dung", "người dùng" },
+                { "quan tri", "quản trị" },
+                { "he thong", "hệ thống" },
+                { "thong tin", "thông tin" },
+                { "du lieu", "dữ liệu" },
+                { "bao cao", "báo cáo" },
+                { "thong ke", "thống kê" },
+                { "chi tiet", "chi tiết" },
+                { "huong dan", "hướng dẫn" },
+                { "tro giup", "trợ giúp" },
+                { "ho tro", "hỗ trợ" },
+                { "lien he", "liên hệ" },
+                { "thanh cong", "thành công" },
+                { "that bai", "thất bại" },
+                { "hoan thanh", "hoàn thành" },
+                { "xac nhan", "xác nhận" },
+                { "huy bo", "hủy bỏ" },
+                { "tiep tuc", "tiếp tục" },
+                { "quay lai", "quay lại" },
+                { "chia se", "chia sẻ" },
+                { "binh luan", "bình luận" },
+                { "danh gia", "đánh giá" },
+                { "thong bao", "thông báo" },
+                { "tin nhan", "tin nhắn" },
+                { "trang chu", "trang chủ" },
+                { "tim kiem", "tìm kiếm" },
+                { "cau hinh", "cấu hình" },
+                { "mac dinh", "mặc định" },
+                { "phien ban", "phiên bản" },
+                { "dung luong", "dung lượng" },
+                { "kich thuoc", "kích thước" },
+                { "thoi gian", "thời gian" },
                 { "muc dich", "mục đích" },
                 { "mục dích", "mục đích" },
                 { "sao ke", "sao kê" },
@@ -341,29 +515,31 @@ try {
                 { "ro ràng", "rõ ràng" },
                 { "nguoi", "người" },
                 { "người ta", "người ta" },
-                { "tai khoan", "tài khoản" },
                 { "ung ho", "ủng hộ" },
                 { "cong dong", "cộng đồng" },
                 { "bao chi", "báo chí" },
                 { "chinh quyen", "chính quyền" },
                 { "chinh xac", "chính xác" },
-                { "thong tin", "thông tin" },
-                { "du lieu", "dữ liệu" },
                 { "phat trien", "phát triển" },
                 { "cong khai", "công khai" },
                 { "minh bach", "minh bạch" },
-                { "chi tiet", "chi tiết" },
                 { "thuc hien", "thực hiện" },
                 { "hoat dong", "hoạt động" },
-                { "thoi gian", "thời gian" },
                 { "tuong tu", "tương tự" },
-                { "huong dan", "hướng dẫn" },
                 { "su dung", "sử dụng" },
-                { "ung dung", "ứng dụng" },
-                { "tro giup", "trợ giúp" },
                 { "khong", "không" },
                 { "trieu", "triệu" },
-                { "ti le", "tỉ lệ" }
+                { "ti le", "tỉ lệ" },
+                { "mien phi", "miễn phí" },
+                { "giam gia", "giảm giá" },
+                { "khuyen mai", "khuyến mãi" },
+                { "thanh toan", "thanh toán" },
+                { "hoa don", "hóa đơn" },
+                { "chuyen khoan", "chuyển khoản" },
+                { "ngan hang", "ngân hàng" },
+                { "tien mat", "tiền mặt" },
+                { "dong y", "đồng ý" },
+                { "tu choi", "từ chối" }
             };
 
             foreach (var kv in phraseCorrections)
@@ -381,7 +557,18 @@ try {
                 }, RegexOptions.IgnoreCase);
             }
 
-            // 4. Áp dụng từ điển sửa lỗi chính tả nếu có cấu hình tùy chỉnh
+            // 5. Regex ngữ cảnh đặc biệt
+            // Regex cho "bản + số" (ví dụ: ban 2021 -> bản 2021, ban 10 -> bản 10)
+            text = Regex.Replace(text, @"\bban\s+(\d+)\b", "bản $1", RegexOptions.IgnoreCase);
+
+            // Regex cho các cụm kết thúc bằng nhẹ
+            text = Regex.Replace(text, @"\bcho\s+nhe\b", "cho nhẹ", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"\b(rat|kha|chay)\s+nhe\b", "$1 nhẹ", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"\b(tai|co)\s+san\b", "$1 sẵn", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"\btai\s+(ve|xuong|len)\b", "tải $1", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"\b(mang|meng)\s+cui\b", "mạng cùi", RegexOptions.IgnoreCase);
+
+            // 6. Áp dụng từ điển sửa lỗi chính tả nếu có cấu hình tùy chỉnh
             try
             {
                 var dictManager = SpellingCorrectionManager.Instance;

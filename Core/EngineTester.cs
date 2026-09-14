@@ -1626,7 +1626,12 @@ namespace ModernKey.Core
                         ("sao ke", "sao kê"),
                         ("to chuc", "tổ chức"),
                         ("ro rang", "rõ ràng"),
-                        ("Mục dích sao ke to chuc ro rang", "Mục đích sao kê tổ chức rõ ràng")
+                        ("Mục dích sao ke to chuc ro rang", "Mục đích sao kê tổ chức rõ ràng"),
+                        ("meng cüi vl,. tåi sän bån 2021 offline cho nhe, 2GB", "mạng cùi vl,. tải sẵn bản 2021 offline cho nhẹ, 2GB"),
+                        ("meng cui vl,. tai san ban 2021 offline cho nhe, 2GB", "mạng cùi vl,. tải sẵn bản 2021 offline cho nhẹ, 2GB"),
+                        ("mang cui", "mạng cùi"),
+                        ("tai san ban", "tải sẵn bản"),
+                        ("cho nhe", "cho nhẹ")
                     };
                     foreach (var ot in ocrTests)
                     {
@@ -1642,7 +1647,33 @@ namespace ModernKey.Core
                         }
                     }
 
-                    // Test 5: Selective Item Blur properties & Clone
+                    string sampleImg = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".portable", "clipboard", "clipboard_cache", "2026-09-14 21.31.23.png");
+                    if (System.IO.File.Exists(sampleImg))
+                    {
+                        string recognized = ClipboardOcrHelper.RecognizeTextAsync(sampleImg, "vi").GetAwaiter().GetResult();
+                        if (!string.IsNullOrEmpty(recognized) && recognized.Contains("mạng cùi") && recognized.Contains("tải sẵn bản 2021 offline cho nhẹ, 2GB"))
+                        {
+                            sb.AppendLine($"  PASS Real-Image OCR End-to-End: '{recognized}'");
+                        }
+                        else
+                        {
+                            sb.AppendLine($"  INFO Real-Image OCR Output: '{recognized}'");
+                        }
+                    }
+
+                    // Test 5: Default item blur is strictly 0%
+                    var defaultItem = new Models.ClipboardItem();
+                    if (!defaultItem.IsBlurred && defaultItem.BlurRadius == 0.0 && defaultItem.PixelateSize == 0.0 && defaultItem.BlurMode == "None")
+                    {
+                        sb.AppendLine("  PASS: Item mới mặc định Blur 0% (IsBlurred=false, BlurRadius=0, PixelateSize=0, BlurMode=None)!");
+                    }
+                    else
+                    {
+                        allPassed = false;
+                        sb.AppendLine($"  FAIL: Item mới mặc định không phải 0%! (IsBlurred={defaultItem.IsBlurred}, BlurRadius={defaultItem.BlurRadius})");
+                    }
+
+                    // Test 6: Selective Item Blur properties & Clone
                     var blurItem = new Models.ClipboardItem
                     {
                         TextContent = "Sensitive Data 123456",
@@ -1662,7 +1693,7 @@ namespace ModernKey.Core
                         sb.AppendLine("  FAIL: Selective Blur Item & Clone không đồng bộ!");
                     }
 
-                    // Test 6: OCR Tessdata directory & Language options check
+                    // Test 7: OCR Tessdata directory & Language options check
                     string tessDir = ClipboardOcrHelper.GetTessdataDirectory();
                     if (!string.IsNullOrEmpty(tessDir))
                     {

@@ -173,7 +173,11 @@ namespace ModernKey.Core
                     Timestamp = DateTime.Now,
                     CharCount = text.Length,
                     ByteSize = byteSize,
-                    IsFavorite = false
+                    IsFavorite = false,
+                    IsBlurred = false,
+                    BlurMode = "None",
+                    BlurRadius = 0.0,
+                    PixelateSize = 0.0
                 };
 
                 item.DetectMetadata();
@@ -251,7 +255,11 @@ namespace ModernKey.Core
                     Timestamp = DateTime.Now,
                     CharCount = filePaths.Count,
                     ByteSize = totalByteSize,
-                    IsFavorite = false
+                    IsFavorite = false,
+                    IsBlurred = false,
+                    BlurMode = "None",
+                    BlurRadius = 0.0,
+                    PixelateSize = 0.0
                 };
 
                 InsertItem(item);
@@ -340,7 +348,11 @@ namespace ModernKey.Core
                     Timestamp = DateTime.Now,
                     CharCount = 0,
                     ByteSize = pngBytes.Length,
-                    IsFavorite = false
+                    IsFavorite = false,
+                    IsBlurred = false,
+                    BlurMode = "None",
+                    BlurRadius = 0.0,
+                    PixelateSize = 0.0
                 };
 
                 InsertItem(item);
@@ -1116,9 +1128,9 @@ namespace ModernKey.Core
                 item.ByteSize = ExtractJsonLong(block, "ByteSize", 0);
                 item.IsFavorite = ExtractJsonBool(block, "IsFavorite", false);
                 item.IsBlurred = ExtractJsonBool(block, "IsBlurred", false);
-                item.BlurMode = ExtractJsonString(block, "BlurMode") ?? "Blur";
-                item.BlurRadius = ExtractJsonDouble(block, "BlurRadius", 12.0);
-                item.PixelateSize = ExtractJsonDouble(block, "PixelateSize", 14.0);
+                item.BlurMode = ExtractJsonString(block, "BlurMode") ?? "None";
+                item.BlurRadius = ExtractJsonDouble(block, "BlurRadius", 0.0);
+                item.PixelateSize = ExtractJsonDouble(block, "PixelateSize", 0.0);
                 item.GroupName = ExtractJsonString(block, "GroupName") ?? string.Empty;
                 item.ImagePath = ResolveCachePath(ExtractJsonString(block, "ImagePath"));
                 item.ThumbPath = ResolveCachePath(ExtractJsonString(block, "ThumbPath"));

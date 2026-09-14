@@ -1136,6 +1136,18 @@ namespace ModernKey
                 int lineCount = (item.TextContent ?? "").Split('\n').Length;
                 if (TxtMetaInfo != null) TxtMetaInfo.Text = $"Văn bản{appPart} • {item.CharCount} ký tự • {lineCount} dòng • {item.ByteSize} B • {item.TimeDisplay}";
             }
+
+            // Đồng bộ hiệu ứng làm mờ lên khung Preview: nếu không mờ thì Effect = null (100% rõ nét)
+            if (item != null && item.IsBlurred)
+            {
+                ApplyBlurToHost(ImgPreview, item);
+                ApplyBlurToHost(TxtPreview, item);
+            }
+            else
+            {
+                if (ImgPreview != null) ImgPreview.Effect = null;
+                if (TxtPreview != null) TxtPreview.Effect = null;
+            }
         }
 
         private void ClearPreview()
@@ -1148,11 +1160,13 @@ namespace ModernKey
             {
                 TxtPreview.Visibility = Visibility.Visible;
                 TxtPreview.Text = string.Empty;
+                TxtPreview.Effect = null;
             }
             if (ImgPreview != null)
             {
                 ImgPreview.Visibility = Visibility.Collapsed;
                 ImgPreview.Source = null;
+                ImgPreview.Effect = null;
             }
             if (TxtMetaInfo != null)
             {
@@ -2751,13 +2765,13 @@ namespace ModernKey
                 }
                 if (SliderBlurRadius != null)
                 {
-                    SliderBlurRadius.Value = primary.BlurRadius > 0.5 ? primary.BlurRadius : 12;
-                    if (TxtBlurPercent != null) TxtBlurPercent.Text = $"{(int)SliderBlurRadius.Value}px";
+                    SliderBlurRadius.Value = primary.IsBlurred ? primary.BlurRadius : 0;
+                    if (TxtBlurPercent != null) TxtBlurPercent.Text = $"{(int)SliderBlurRadius.Value}%";
                 }
                 if (SliderPixelSize != null)
                 {
-                    SliderPixelSize.Value = primary.PixelateSize > 0.5 ? primary.PixelateSize : 14;
-                    if (TxtPixelPercent != null) TxtPixelPercent.Text = $"{(int)SliderPixelSize.Value}px";
+                    SliderPixelSize.Value = primary.IsBlurred ? primary.PixelateSize : 0;
+                    if (TxtPixelPercent != null) TxtPixelPercent.Text = $"{(int)SliderPixelSize.Value}%";
                 }
             }
             finally
@@ -2777,19 +2791,46 @@ namespace ModernKey
             foreach (var it in selectedList)
             {
                 it.IsBlurred = newBlurred;
-                if (newBlurred && it.BlurRadius <= 0.5) it.BlurRadius = 12;
+                if (newBlurred)
+                {
+                    if (it.BlurRadius <= 0.5 && it.PixelateSize <= 0.5)
+                    {
+                        it.BlurRadius = 30.0;
+                        it.BlurMode = "Blur";
+                    }
+                }
+                else
+                {
+                    it.BlurRadius = 0.0;
+                    it.PixelateSize = 0.0;
+                    it.BlurMode = "None";
+                }
             }
 
             if (MnuToggleBlur != null)
             {
                 MnuToggleBlur.Header = newBlurred ? "✓ Tắt làm mờ mục này" : "Bật làm mờ mục này";
             }
+            if (SliderBlurRadius != null)
+            {
+                SliderBlurRadius.Value = newBlurred ? selectedList[0].BlurRadius : 0;
+                if (TxtBlurPercent != null) TxtBlurPercent.Text = $"{(int)SliderBlurRadius.Value}%";
+            }
+            if (SliderPixelSize != null)
+            {
+                SliderPixelSize.Value = newBlurred ? selectedList[0].PixelateSize : 0;
+                if (TxtPixelPercent != null) TxtPixelPercent.Text = $"{(int)SliderPixelSize.Value}%";
+            }
 
             _historyManager.SaveHistoryAsync();
             _itemsView?.Refresh();
+            if (LstClipboard.SelectedItem is ClipboardItem curItem && selectedList.Contains(curItem))
+            {
+                UpdatePreview(curItem);
+            }
             if (TxtStatus != null)
             {
-                TxtStatus.Text = newBlurred ? $"✓ Đã bật làm mờ bảo vệ cho {selectedList.Count} mục đã chọn!" : $"✓ Đã gỡ làm mờ cho {selectedList.Count} mục đã chọn.";
+                TxtStatus.Text = newBlurred ? $"✓ Đã bật làm mờ bảo vệ cho {selectedList.Count} mục đã chọn!" : $"✓ Đã gỡ làm mờ cho {selectedList.Count} mục đã chọn (0%).";
             }
         }
 
@@ -2805,12 +2846,12 @@ namespace ModernKey
             if (selectedList == null || selectedList.Count == 0) return;
 
             double radius = e.NewValue;
-            if (TxtBlurPercent != null) TxtBlurPercent.Text = $"{(int)radius}px";
+            if (TxtBlurPercent != null) TxtBlurPercent.Text = $"{(int)radius}%";
 
             foreach (var it in selectedList)
             {
                 it.BlurRadius = radius;
-                it.BlurMode = "Blur";
+                it.BlurMode = (radius > 0.5) ? "Blur" : "None";
                 it.IsBlurred = (radius > 0.5);
             }
 
@@ -2821,6 +2862,10 @@ namespace ModernKey
 
             _historyManager.SaveHistoryAsync();
             _itemsView?.Refresh();
+            if (LstClipboard.SelectedItem is ClipboardItem curItem && selectedList.Contains(curItem))
+            {
+                UpdatePreview(curItem);
+            }
         }
 
         private void SliderPixelSize_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -2830,12 +2875,12 @@ namespace ModernKey
             if (selectedList == null || selectedList.Count == 0) return;
 
             double size = e.NewValue;
-            if (TxtPixelPercent != null) TxtPixelPercent.Text = $"{(int)size}px";
+            if (TxtPixelPercent != null) TxtPixelPercent.Text = $"{(int)size}%";
 
             foreach (var it in selectedList)
             {
                 it.PixelateSize = size;
-                it.BlurMode = "Pixelate";
+                it.BlurMode = (size > 0.5) ? "Pixelate" : "None";
                 it.IsBlurred = (size > 0.5);
             }
 
@@ -2846,6 +2891,10 @@ namespace ModernKey
 
             _historyManager.SaveHistoryAsync();
             _itemsView?.Refresh();
+            if (LstClipboard.SelectedItem is ClipboardItem curItem && selectedList.Contains(curItem))
+            {
+                UpdatePreview(curItem);
+            }
         }
 
         private void ItemContent_Loaded(object sender, RoutedEventArgs e)
@@ -2883,7 +2932,7 @@ namespace ModernKey
                 {
                     host.Effect = new System.Windows.Media.Effects.BlurEffect
                     {
-                        Radius = Math.Max(1.0, item.BlurRadius * 0.4),
+                        Radius = Math.Max(1.0, (item.BlurRadius / 100.0) * 35.0),
                         KernelType = System.Windows.Media.Effects.KernelType.Gaussian
                     };
                 }
@@ -2891,7 +2940,7 @@ namespace ModernKey
                 {
                     host.Effect = new System.Windows.Media.Effects.BlurEffect
                     {
-                        Radius = Math.Max(2.0, item.PixelateSize * 0.5),
+                        Radius = Math.Max(2.0, (item.PixelateSize / 100.0) * 30.0),
                         KernelType = System.Windows.Media.Effects.KernelType.Box
                     };
                 }

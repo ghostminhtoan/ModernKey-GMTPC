@@ -340,9 +340,9 @@
                                             <StackPanel Width="230" Margin="0,2">
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
                                                     <TextBlock Text="Độ mờ Blur:" Foreground="{StaticResource CyberNeonCyan}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" />
-                                                    <TextBlock x:Name="TxtBlurPercent" Text="12px" Foreground="{StaticResource CyberNeonYellow}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" Margin="8,0,0,0" />
+                                                    <TextBlock x:Name="TxtBlurPercent" Text="0%" Foreground="{StaticResource CyberNeonYellow}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" Margin="8,0,0,0" />
                                                 </StackPanel>
-                                                <Slider x:Name="SliderBlurRadius" Minimum="0" Maximum="50" Value="12" ValueChanged="SliderBlurRadius_ValueChanged" Margin="0,4,0,2" />
+                                                <Slider x:Name="SliderBlurRadius" Minimum="0" Maximum="100" Value="0" ValueChanged="SliderBlurRadius_ValueChanged" Margin="0,4,0,2" />
                                             </StackPanel>
                                         </MenuItem.Header>
                                     </MenuItem>
@@ -352,9 +352,9 @@
                                             <StackPanel Width="230" Margin="0,2">
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
                                                     <TextBlock Text="Pixelated:" Foreground="{StaticResource CyberNeonPink}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" />
-                                                    <TextBlock x:Name="TxtPixelPercent" Text="14px" Foreground="{StaticResource CyberNeonYellow}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" Margin="8,0,0,0" />
+                                                    <TextBlock x:Name="TxtPixelPercent" Text="0%" Foreground="{StaticResource CyberNeonYellow}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" Margin="8,0,0,0" />
                                                 </StackPanel>
-                                                <Slider x:Name="SliderPixelSize" Minimum="0" Maximum="50" Value="14" ValueChanged="SliderPixelSize_ValueChanged" Margin="0,4,0,2" />
+                                                <Slider x:Name="SliderPixelSize" Minimum="0" Maximum="100" Value="0" ValueChanged="SliderPixelSize_ValueChanged" Margin="0,4,0,2" />
                                             </StackPanel>
                                         </MenuItem.Header>
                                     </MenuItem>
