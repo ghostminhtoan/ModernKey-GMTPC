@@ -11,7 +11,7 @@ namespace ModernKey.Core
         private static readonly HashSet<string> CommonWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             // Từ vựng IT & Lập trình
-            "post", "posts", "cost", "costs", "host", "hosts", "test", "tests", "best", "fast",
+            "post", "posts", "cost", "costs", "host", "hosts", "tests", "best", "fast",
             "last", "past", "cast", "guest", "west", "east", "rest", "dust", "trust", "just",
             "list", "lists", "most", "lost", "must", "risk", "task", "mask", "desk", "disk",
             "scale", "server", "client", "game", "pass", "clear", "link", "free", "like",

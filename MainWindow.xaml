@@ -454,7 +454,7 @@
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <CheckBox x:Name="ChkShortcutF6" Grid.Column="0" Content="F6 (Kiểu gõ 1):" VerticalAlignment="Center" Margin="0,0,8,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Kích hoạt kiểu gõ 1 khi ấn phím F6 (Mặc định: Telex)" />
+                                        <RadioButton x:Name="RadShortcutF6" GroupName="ShortcutInputMethodGroup" Grid.Column="0" Content="F6 (Kiểu gõ 1):" VerticalAlignment="Center" Margin="0,0,8,0" Checked="RadShortcutF6_Checked" ToolTip="Chọn kiểu gõ 1 khi ấn phím F6 (Mặc định: Telex)" />
                                         <ComboBox x:Name="CmbShortcutF6InputMethod" Grid.Column="1" SelectionChanged="CmbShortcutF6InputMethod_SelectionChanged" ToolTip="Chọn kiểu gõ 1 kích hoạt khi ấn phím F6 (Mặc định: Telex)" />
                                     </Grid>
 
@@ -464,7 +464,7 @@
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <CheckBox x:Name="ChkShortcutF7" Grid.Column="0" Content="F7 (Kiểu gõ 2):" VerticalAlignment="Center" Margin="0,0,8,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Kích hoạt kiểu gõ 2 khi ấn phím F7 (Mặc định: VNI)" />
+                                        <RadioButton x:Name="RadShortcutF7" GroupName="ShortcutInputMethodGroup" Grid.Column="0" Content="F7 (Kiểu gõ 2):" VerticalAlignment="Center" Margin="0,0,8,0" Checked="RadShortcutF7_Checked" ToolTip="Chọn kiểu gõ 2 khi ấn phím F7 (Mặc định: VNI)" />
                                         <ComboBox x:Name="CmbShortcutF7InputMethod" Grid.Column="1" SelectionChanged="CmbShortcutF7InputMethod_SelectionChanged" ToolTip="Chọn kiểu gõ 2 kích hoạt khi ấn phím F7 (Mặc định: VNI)" />
                                     </Grid>
 

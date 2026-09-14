@@ -32,6 +32,7 @@ namespace ModernKey.Core
         private bool _inNumberSequence = false;
         private int _upperCaseSentenceStatus = 2; // 0: binh thuong, 1: vua gap dau cham/hoi/than, 2: dau cau (khoi tao mac dinh la 2 de viet hoa tu dau tien)
         private bool _isFirstWordOfSentence = false;
+        private bool _isRawWordOnScreen = false;
 
         public VietnameseEngine(AppSettings settings, MacroManager macroManager)
         {
@@ -46,6 +47,7 @@ namespace ModernKey.Core
             _inNumberSequence = false;
             _isFirstWordOfSentence = false;
             _upperCaseSentenceStatus = 0;
+            _isRawWordOnScreen = false;
         }
 
         public bool HasPendingWord => _charBuffer.Count > 0;
@@ -265,6 +267,7 @@ namespace ModernKey.Core
             // 3. Phím Backspace
             if (vkCode == 0x08)
             {
+                _isRawWordOnScreen = false;
                 if (_macroBuffer.Count > 0) _macroBuffer.RemoveAt(_macroBuffer.Count - 1);
                 string currentDisplay = GetDisplayWord(_charBuffer);
                 if (string.IsNullOrEmpty(currentDisplay) || currentDisplay.Length <= 1)
@@ -326,6 +329,12 @@ namespace ModernKey.Core
             // 4.1. Xử lý khi nhấn Phím ngắt từ: Space, Enter, Tab
             if (isSpace || isReturn || isTab)
             {
+                if (_isRawWordOnScreen)
+                {
+                    Reset();
+                    return false;
+                }
+
                 if (_settings.UpperCaseFirstChar)
                 {
                     if (_upperCaseSentenceStatus == 1 || isReturn)
@@ -444,6 +453,12 @@ namespace ModernKey.Core
             // 4.2. Xử lý khi gõ Dấu câu / Ký hiệu (Punctuation)
             if (isPunctuation)
             {
+                if (_isRawWordOnScreen)
+                {
+                    Reset();
+                    return false;
+                }
+
                 // 12. Inline Math Evaluator: Tự động tính biểu thức toán học khi gõ dấu '=' (vd: 125*45/2=)
                 if (_settings.InlineMathEvaluator && ch == '=')
                 {
@@ -888,6 +903,15 @@ namespace ModernKey.Core
         private string GetDisplayWord(List<char> buffer)
         {
             if (buffer == null || buffer.Count == 0) return string.Empty;
+            if (_isRawWordOnScreen && buffer == _charBuffer)
+            {
+                string raw = new string(buffer.ToArray());
+                if (_isFirstWordOfSentence && raw.Length > 0)
+                {
+                    raw = char.ToUpper(raw[0]) + (raw.Length > 1 ? raw.Substring(1) : "");
+                }
+                return raw;
+            }
             string transformed = TransformWord(buffer, _settings.CurrentInputMethod, _settings.ModernToneRules, _settings.CustomRules);
             string res = transformed ?? new string(buffer.ToArray());
             if (_isFirstWordOfSentence && res.Length > 0)
@@ -904,6 +928,7 @@ namespace ModernKey.Core
 
             // 1. Lấy từ đang hiển thị trên màn hình TRƯỚC KHI gõ phím ch
             string prevDisplayWord = GetDisplayWord(_charBuffer);
+            _isRawWordOnScreen = false;
 
             // 2. Kỳ vọng chuỗi nếu là gõ phím thông thường (không biến đổi dấu)
             string expectedNormal = prevDisplayWord + ch;
@@ -928,6 +953,7 @@ namespace ModernKey.Core
                     {
                         backspaceCount = Math.Min(prevDisplayWord.Length, 15);
                         newString = CharsetConverter.FromUnicode(EnforceCasingConsistency(rawWord, _charBuffer), _settings.CurrentCharset);
+                        _isRawWordOnScreen = true;
                         return true;
                     }
                 }
@@ -1274,7 +1300,7 @@ namespace ModernKey.Core
                 if (IsTbtTogglePair(lastRawKey, c) && (c == '6' || c == '7' || c == '8' || c == '9' || c == '[' || c == ']' ||
                                                        c == '^' || c == '&' || c == '*' || c == '(' || c == '{' || c == '}'))
                 {
-                    if (sb.Length > 0)
+                    if (sb.Length > 0 && sb[sb.Length - 1] != c)
                     {
                         sb[sb.Length - 1] = c;
                         lastRawKey = '\0';
@@ -1284,14 +1310,34 @@ namespace ModernKey.Core
                     }
                 }
 
-                // 2. Dấu thanh: 1..5 (chỉ khi sb đã có nguyên âm)
+                // 2. Dấu thanh: 1..5 hoặc s, f, r, x, j (chỉ khi sb đã có nguyên âm)
                 bool hasVowelSoFar = HasAnyVowel(sb);
 
-                if (hasVowelSoFar && (c == '1' || c == '2' || c == '3' || c == '4' || c == '5'))
+                int tbtTargetTone = 0;
+                if (c >= '1' && c <= '5')
                 {
-                    int targetTone = c - '0';
-                    // Toggle dấu: gõ lặp lại cùng phím dấu thì xóa dấu
-                    tone = (tone == targetTone ? 0 : targetTone);
+                    tbtTargetTone = c - '0';
+                }
+                else if (hasVowelSoFar)
+                {
+                    if (lower == 's') tbtTargetTone = 1;
+                    else if (lower == 'f') tbtTargetTone = 2;
+                    else if (lower == 'r') tbtTargetTone = 3;
+                    else if (lower == 'x') tbtTargetTone = 4;
+                    else if (lower == 'j') tbtTargetTone = 5;
+                }
+
+                if (hasVowelSoFar && tbtTargetTone > 0)
+                {
+                    if (tone == tbtTargetTone)
+                    {
+                        tone = 0;
+                        sb.Append(c);
+                    }
+                    else
+                    {
+                        tone = tbtTargetTone;
+                    }
                     lastRawKey = c;
                     wasStandaloneAtStart = false;
                     modified = true;
@@ -1315,7 +1361,7 @@ namespace ModernKey.Core
 
                 // Kiểm tra xem ký tự trước đó có phải là phụ âm tiếng Việt không (Consonant Context)
                 // C++ OpenKey: IS_CONSONANT || (key == KEY_I && prev == KEY_G) || (key == KEY_U && prev == KEY_Q)
-                bool prevIsConsonant = sb.Length > 0 && IsConsonant(sb[sb.Length - 1]);
+                bool prevIsConsonant = sb.Length > 0 && IsVietnameseConsonant(sb[sb.Length - 1]);
                 bool prevIsGi = sb.Length >= 2 && char.ToLower(sb[sb.Length - 1]) == 'i' && char.ToLower(sb[sb.Length - 2]) == 'g';
                 bool prevIsQu = sb.Length >= 2 && char.ToLower(sb[sb.Length - 1]) == 'u' && char.ToLower(sb[sb.Length - 2]) == 'q';
                 bool isInitialGi = prevIsGi && sb.Length == 2;
@@ -1709,7 +1755,7 @@ namespace ModernKey.Core
 
                 // Nếu có phụ âm cuối đi sau 'uơ' (như thu]ng -> thương, thu]c -> thước):
                 // tự động nâng cấp 'uơ' thành 'ươ' vì tiếng Việt không có vần 'uơng' / 'uơc'
-                if (sb.Length >= 2 && IsConsonant(c))
+                if (sb.Length >= 2 && IsVietnameseConsonant(c))
                 {
                     string curCheck = sb.ToString().ToLower();
                     if (curCheck.EndsWith("uơ"))
@@ -2312,6 +2358,176 @@ namespace ModernKey.Core
             return char.IsLetter(c) && !IsVowel(c);
         }
 
+        private static bool IsVietnameseConsonant(char c)
+        {
+            char lower = char.ToLower(c);
+            return lower == 'b' || lower == 'c' || lower == 'd' || lower == 'đ' ||
+                   lower == 'g' || lower == 'h' || lower == 'k' || lower == 'l' ||
+                   lower == 'm' || lower == 'n' || lower == 'p' || lower == 'q' ||
+                   lower == 'r' || lower == 's' || lower == 't' || lower == 'v' ||
+                   lower == 'x';
+        }
+
+        private static bool TryApplyDStrokeFreeMark(StringBuilder sb)
+        {
+            if (sb == null || sb.Length == 0) return false;
+            for (int i = 0; i < sb.Length; i++)
+            {
+                if (sb[i] == 'd') { sb[i] = 'đ'; return true; }
+                if (sb[i] == 'D') { sb[i] = 'Đ'; return true; }
+            }
+            return false;
+        }
+
+        private static bool TryApplyHookFreeMarkVni(StringBuilder sb)
+        {
+            if (sb == null || sb.Length == 0) return false;
+            // 1. uo -> ươ
+            for (int i = 0; i < sb.Length - 1; i++)
+            {
+                char c1 = char.ToLower(sb[i]);
+                char c2 = char.ToLower(sb[i + 1]);
+                if (c1 == 'u' && c2 == 'o')
+                {
+                    bool isQu = (i > 0 && char.ToLower(sb[i - 1]) == 'q');
+                    if (isQu)
+                    {
+                        bool oUpper = char.IsUpper(sb[i + 1]);
+                        sb[i + 1] = oUpper ? 'Ơ' : 'ơ';
+                        return true;
+                    }
+                    else
+                    {
+                        bool uUpper = char.IsUpper(sb[i]);
+                        bool oUpper = char.IsUpper(sb[i + 1]);
+                        sb[i] = uUpper ? 'Ư' : 'ư';
+                        sb[i + 1] = oUpper ? 'Ơ' : 'ơ';
+                        return true;
+                    }
+                }
+            }
+
+            // 2. u -> ư
+            for (int i = sb.Length - 1; i >= 0; i--)
+            {
+                if (char.ToLower(sb[i]) == 'u')
+                {
+                    if (i > 0 && char.ToLower(sb[i - 1]) == 'q') continue;
+                    bool uUpper = char.IsUpper(sb[i]);
+                    sb[i] = uUpper ? 'Ư' : 'ư';
+                    return true;
+                }
+            }
+
+            // 3. o -> ơ
+            for (int i = sb.Length - 1; i >= 0; i--)
+            {
+                if (char.ToLower(sb[i]) == 'o')
+                {
+                    bool oUpper = char.IsUpper(sb[i]);
+                    sb[i] = oUpper ? 'Ơ' : 'ơ';
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryApplyHatFreeMark(StringBuilder sb)
+        {
+            if (sb == null || sb.Length == 0) return false;
+            for (int i = sb.Length - 1; i >= 0; i--)
+            {
+                char c = sb[i];
+                char lower = char.ToLower(c);
+                bool upper = char.IsUpper(c);
+                if (lower == 'a') { sb[i] = upper ? 'Â' : 'â'; return true; }
+                if (lower == 'e') { sb[i] = upper ? 'Ê' : 'ê'; return true; }
+                if (lower == 'o') { sb[i] = upper ? 'Ô' : 'ô'; return true; }
+            }
+            return false;
+        }
+
+        private static bool TryApplyBreveFreeMark(StringBuilder sb)
+        {
+            if (sb == null || sb.Length == 0) return false;
+            for (int i = sb.Length - 1; i >= 0; i--)
+            {
+                char c = sb[i];
+                if (char.ToLower(c) == 'a')
+                {
+                    sb[i] = char.IsUpper(c) ? 'Ă' : 'ă';
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static bool TryApplyVowelHookFreeMark(StringBuilder sb)
+        {
+            if (sb == null || sb.Length < 2) return false;
+            // 1. Tìm cặp 'uo' / 'Uo' / 'ƯO'
+            for (int i = 0; i < sb.Length - 1; i++)
+            {
+                char c1 = char.ToLower(sb[i]);
+                char c2 = char.ToLower(sb[i + 1]);
+                if (c1 == 'u' && c2 == 'o')
+                {
+                    bool isQu = (i > 0 && char.ToLower(sb[i - 1]) == 'q');
+                    if (isQu)
+                    {
+                        bool oUpper = char.IsUpper(sb[i + 1]);
+                        sb[i + 1] = oUpper ? 'Ơ' : 'ơ';
+                        return true;
+                    }
+                    else
+                    {
+                        bool uUpper = char.IsUpper(sb[i]);
+                        bool oUpper = char.IsUpper(sb[i + 1]);
+                        sb[i] = uUpper ? 'Ư' : 'ư';
+                        sb[i + 1] = oUpper ? 'Ơ' : 'ơ';
+                        return true;
+                    }
+                }
+            }
+
+            // 2. Tìm 'u' (không đứng sau 'q')
+            for (int i = sb.Length - 1; i >= 0; i--)
+            {
+                if (char.ToLower(sb[i]) == 'u')
+                {
+                    if (i > 0 && char.ToLower(sb[i - 1]) == 'q') continue;
+                    bool uUpper = char.IsUpper(sb[i]);
+                    sb[i] = uUpper ? 'Ư' : 'ư';
+                    return true;
+                }
+            }
+
+            // 3. Tìm 'o'
+            for (int i = sb.Length - 1; i >= 0; i--)
+            {
+                if (char.ToLower(sb[i]) == 'o')
+                {
+                    bool oUpper = char.IsUpper(sb[i]);
+                    sb[i] = oUpper ? 'Ơ' : 'ơ';
+                    return true;
+                }
+            }
+
+            // 4. Tìm 'a'
+            for (int i = sb.Length - 1; i >= 0; i--)
+            {
+                if (char.ToLower(sb[i]) == 'a')
+                {
+                    bool aUpper = char.IsUpper(sb[i]);
+                    sb[i] = aUpper ? 'Ă' : 'ă';
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static string ProcessTelexOrVni(List<char> keys, InputMethod method, bool modernTone)
         {
             if (keys.Count == 0) return null;
@@ -2345,26 +2561,46 @@ namespace ModernKey.Core
 
                     if (hasVowelSoFar && canTakeTone)
                     {
-                        // Nếu đang ở sau phụ âm cuối (vd sau 't' trong "pot"):
-                        // Phím dấu CHỈ có tác dụng khử dấu (tone > 0 -> 0).
-                        // Nếu tone == 0 (đã khử dấu), phím dấu sẽ được chèn thành ký tự thô thay vì luân phiên bật lại dấu!
-                        if (isAfterConsonant)
+                        if (lower == 's')
                         {
-                            if (lower == 's' && tone == 1) { tone = 0; modified = true; continue; }
-                            if (lower == 'f' && tone == 2) { tone = 0; modified = true; continue; }
-                            if (lower == 'r' && tone == 3) { tone = 0; modified = true; continue; }
-                            if (lower == 'x' && tone == 4) { tone = 0; modified = true; continue; }
-                            if (lower == 'j' && tone == 5) { tone = 0; modified = true; continue; }
-                            if (lower == 'z') { tone = 0; modified = true; continue; }
+                            if (tone == 1) { tone = 0; sb.Append(c); }
+                            else tone = 1;
+                            modified = true;
+                            continue;
                         }
-                        else
+                        if (lower == 'f')
                         {
-                            if (lower == 's') { tone = (tone == 1 ? 0 : 1); modified = true; continue; }
-                            if (lower == 'f') { tone = (tone == 2 ? 0 : 2); modified = true; continue; }
-                            if (lower == 'r') { tone = (tone == 3 ? 0 : 3); modified = true; continue; }
-                            if (lower == 'x') { tone = (tone == 4 ? 0 : 4); modified = true; continue; }
-                            if (lower == 'j') { tone = (tone == 5 ? 0 : 5); modified = true; continue; }
-                            if (lower == 'z') { tone = 0; modified = true; continue; }
+                            if (tone == 2) { tone = 0; sb.Append(c); }
+                            else tone = 2;
+                            modified = true;
+                            continue;
+                        }
+                        if (lower == 'r')
+                        {
+                            if (tone == 3) { tone = 0; sb.Append(c); }
+                            else tone = 3;
+                            modified = true;
+                            continue;
+                        }
+                        if (lower == 'x')
+                        {
+                            if (tone == 4) { tone = 0; sb.Append(c); }
+                            else tone = 4;
+                            modified = true;
+                            continue;
+                        }
+                        if (lower == 'j')
+                        {
+                            if (tone == 5) { tone = 0; sb.Append(c); }
+                            else tone = 5;
+                            modified = true;
+                            continue;
+                        }
+                        if (lower == 'z')
+                        {
+                            tone = 0;
+                            modified = true;
+                            continue;
                         }
                     }
 
@@ -2460,9 +2696,15 @@ namespace ModernKey.Core
                         modified = true;
                         continue;
                     }
-                    // w -> ư / aw -> ă / ow -> ơ
+                    // w -> ư / aw -> ă / ow -> ơ / uo+w -> ươ
                     if (lower == 'w')
                     {
+                        if (method == InputMethod.SimpleTelex && sb.Length == 0)
+                        {
+                            sb.Append(c);
+                            continue;
+                        }
+
                         bool isCaps = IsCapsLockActive();
                         if (sb.Length > 0)
                         {
@@ -2510,6 +2752,13 @@ namespace ModernKey.Core
                                 modified = true;
                                 continue;
                             }
+
+                            // Free Mark Hook: nếu phía trước là phụ âm cuối (như trong "duoc", "nuoc", "muot")
+                            if (TryApplyVowelHookFreeMark(sb))
+                            {
+                                modified = true;
+                                continue;
+                            }
                         }
                         sb.Append((char.IsUpper(c) || isCaps) ? 'Ư' : 'ư');
                         modified = true;
@@ -2521,11 +2770,21 @@ namespace ModernKey.Core
                     // VNI: 1..5 dấu thanh (chỉ khi đã có nguyên âm)
                     if (hasVowelSoFar)
                     {
-                        if (c == '1') { tone = (tone == 1 ? 0 : 1); modified = true; continue; }
-                        if (c == '2') { tone = (tone == 2 ? 0 : 2); modified = true; continue; }
-                        if (c == '3') { tone = (tone == 3 ? 0 : 3); modified = true; continue; }
-                        if (c == '4') { tone = (tone == 4 ? 0 : 4); modified = true; continue; }
-                        if (c == '5') { tone = (tone == 5 ? 0 : 5); modified = true; continue; }
+                        if (c >= '1' && c <= '5')
+                        {
+                            int targetTone = c - '0';
+                            if (tone == targetTone)
+                            {
+                                tone = 0;
+                                sb.Append(c);
+                            }
+                            else
+                            {
+                                tone = targetTone;
+                            }
+                            modified = true;
+                            continue;
+                        }
                         if (c == '0') { tone = 0; modified = true; continue; }
                     }
 
@@ -2538,6 +2797,13 @@ namespace ModernKey.Core
                         if (prevLower == 'a') { sb.Remove(sb.Length - 1, 1); sb.Append(isUpper ? 'Â' : 'â'); modified = true; continue; }
                         if (prevLower == 'e') { sb.Remove(sb.Length - 1, 1); sb.Append(isUpper ? 'Ê' : 'ê'); modified = true; continue; }
                         if (prevLower == 'o') { sb.Remove(sb.Length - 1, 1); sb.Append(isUpper ? 'Ô' : 'ô'); modified = true; continue; }
+
+                        // Free mark: quét ngược tìm a, e, o để đội mũ
+                        if (TryApplyHatFreeMark(sb))
+                        {
+                            modified = true;
+                            continue;
+                        }
                     }
                     // 7: móc o, u
                     if (c == '7' && sb.Length > 0)
@@ -2563,6 +2829,13 @@ namespace ModernKey.Core
                             continue;
                         }
                         if (prevLower == 'u') { sb.Remove(sb.Length - 1, 1); sb.Append(isUpper ? 'Ư' : 'ư'); modified = true; continue; }
+
+                        // Free mark: quét tìm uo -> ươ, u -> ư, o -> ơ
+                        if (TryApplyHookFreeMarkVni(sb))
+                        {
+                            modified = true;
+                            continue;
+                        }
                     }
                     // 8: trăng a -> ă
                     if (c == '8' && sb.Length > 0)
@@ -2576,6 +2849,13 @@ namespace ModernKey.Core
                             modified = true;
                             continue;
                         }
+
+                        // Free mark: quét tìm a để thêm trăng ă
+                        if (TryApplyBreveFreeMark(sb))
+                        {
+                            modified = true;
+                            continue;
+                        }
                     }
                     // 9: đ
                     if (c == '9' && sb.Length > 0)
@@ -2586,6 +2866,13 @@ namespace ModernKey.Core
                             bool isUpper = char.IsUpper(prev) || IsCapsLockActive() || (sb.Length > 1 && IsAllLettersUpper(sb));
                             sb.Remove(sb.Length - 1, 1);
                             sb.Append(isUpper ? 'Đ' : 'đ');
+                            modified = true;
+                            continue;
+                        }
+
+                        // Free mark: quét tìm chữ d/D đầu từ để gạch ngang thành đ/Đ
+                        if (TryApplyDStrokeFreeMark(sb))
+                        {
                             modified = true;
                             continue;
                         }

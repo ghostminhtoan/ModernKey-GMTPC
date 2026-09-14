@@ -271,17 +271,25 @@ namespace ModernKey
                     CmbShortcutF4Charset.IsEnabled = (ChkShortcutF4?.IsChecked == true);
                 }
                 if (ChkShortcutF5 != null) ChkShortcutF5.IsChecked = (_settings.ShortcutEnableMask & (1 << 5)) != 0;
-                if (ChkShortcutF6 != null) ChkShortcutF6.IsChecked = (_settings.ShortcutEnableMask & (1 << 6)) != 0;
+                bool isF6 = (_settings.CurrentInputMethod == _settings.ShortcutF6InputMethod) || ((_settings.ShortcutEnableMask & (1 << 6)) != 0 && (_settings.ShortcutEnableMask & (1 << 7)) == 0);
+                bool isF7 = (_settings.CurrentInputMethod == _settings.ShortcutF7InputMethod) || ((_settings.ShortcutEnableMask & (1 << 7)) != 0 && (_settings.ShortcutEnableMask & (1 << 6)) == 0);
+                if (isF7)
+                {
+                    if (RadShortcutF7 != null) RadShortcutF7.IsChecked = true;
+                }
+                else
+                {
+                    if (RadShortcutF6 != null) RadShortcutF6.IsChecked = true;
+                }
                 if (CmbShortcutF6InputMethod != null)
                 {
                     CmbShortcutF6InputMethod.SelectedItem = _settings.ShortcutF6InputMethod;
-                    CmbShortcutF6InputMethod.IsEnabled = (ChkShortcutF6?.IsChecked == true);
+                    CmbShortcutF6InputMethod.IsEnabled = true;
                 }
-                if (ChkShortcutF7 != null) ChkShortcutF7.IsChecked = (_settings.ShortcutEnableMask & (1 << 7)) != 0;
                 if (CmbShortcutF7InputMethod != null)
                 {
                     CmbShortcutF7InputMethod.SelectedItem = _settings.ShortcutF7InputMethod;
-                    CmbShortcutF7InputMethod.IsEnabled = (ChkShortcutF7?.IsChecked == true);
+                    CmbShortcutF7InputMethod.IsEnabled = true;
                 }
                 if (ChkShortcutF8 != null) ChkShortcutF8.IsChecked = (_settings.ShortcutEnableMask & (1 << 8)) != 0;
                 if (ChkShortcutF9 != null) ChkShortcutF9.IsChecked = (_settings.ShortcutEnableMask & (1 << 9)) != 0;
@@ -384,8 +392,8 @@ namespace ModernKey
             if (ChkShortcutF3?.IsChecked == true) fMask |= (1 << 3);
             if (ChkShortcutF4?.IsChecked == true) fMask |= (1 << 4);
             if (ChkShortcutF5?.IsChecked == true) fMask |= (1 << 5);
-            if (ChkShortcutF6?.IsChecked == true) fMask |= (1 << 6);
-            if (ChkShortcutF7?.IsChecked == true) fMask |= (1 << 7);
+            if (RadShortcutF6?.IsChecked == true) fMask |= (1 << 6);
+            if (RadShortcutF7?.IsChecked == true) fMask |= (1 << 7);
             if (ChkShortcutF8?.IsChecked == true) fMask |= (1 << 8);
             if (ChkShortcutF9?.IsChecked == true) fMask |= (1 << 9);
             if (ChkShortcutF11?.IsChecked == true) fMask |= (1 << 11);
@@ -403,7 +411,7 @@ namespace ModernKey
 
             if (CmbShortcutF6InputMethod != null)
             {
-                CmbShortcutF6InputMethod.IsEnabled = (ChkShortcutF6?.IsChecked == true);
+                CmbShortcutF6InputMethod.IsEnabled = true;
                 if (CmbShortcutF6InputMethod.SelectedItem is InputMethod f6im)
                 {
                     _settings.ShortcutF6InputMethod = f6im;
@@ -412,7 +420,7 @@ namespace ModernKey
 
             if (CmbShortcutF7InputMethod != null)
             {
-                CmbShortcutF7InputMethod.IsEnabled = (ChkShortcutF7?.IsChecked == true);
+                CmbShortcutF7InputMethod.IsEnabled = true;
                 if (CmbShortcutF7InputMethod.SelectedItem is InputMethod f7im)
                 {
                     _settings.ShortcutF7InputMethod = f7im;
@@ -459,6 +467,23 @@ namespace ModernKey
             if (CmbInputMethod.SelectedItem is InputMethod im)
             {
                 _settings.CurrentInputMethod = im;
+                _isUpdatingUi = true;
+                try
+                {
+                    if (CmbCompactInputMethod != null) CmbCompactInputMethod.SelectedItem = im;
+                    if (im == _settings.ShortcutF6InputMethod && RadShortcutF6 != null)
+                    {
+                        RadShortcutF6.IsChecked = true;
+                    }
+                    else if (im == _settings.ShortcutF7InputMethod && RadShortcutF7 != null)
+                    {
+                        RadShortcutF7.IsChecked = true;
+                    }
+                }
+                finally
+                {
+                    _isUpdatingUi = false;
+                }
                 SettingsManager.SaveSettings(_settings);
                 _trayManager?.UpdateTrayIcon();
                 _trayManager?.BuildContextMenu();
@@ -504,12 +529,74 @@ namespace ModernKey
             }
         }
 
+        private void RadShortcutF6_Checked(object sender, RoutedEventArgs e)
+        {
+            if (_isUpdatingUi) return;
+            _settings.ShortcutEnableMask = (_settings.ShortcutEnableMask | (1 << 6)) & ~(1 << 7);
+            _settings.CurrentInputMethod = _settings.ShortcutF6InputMethod;
+            SettingsManager.SaveSettings(_settings);
+
+            _isUpdatingUi = true;
+            try
+            {
+                if (CmbInputMethod != null) CmbInputMethod.SelectedItem = _settings.CurrentInputMethod;
+                if (CmbCompactInputMethod != null) CmbCompactInputMethod.SelectedItem = _settings.CurrentInputMethod;
+            }
+            finally
+            {
+                _isUpdatingUi = false;
+            }
+
+            _trayManager?.UpdateTrayIcon();
+            _trayManager?.BuildContextMenu();
+            (Application.Current as App)?.ShowStatusOsd(_settings.IsVietnamese);
+        }
+
+        private void RadShortcutF7_Checked(object sender, RoutedEventArgs e)
+        {
+            if (_isUpdatingUi) return;
+            _settings.ShortcutEnableMask = (_settings.ShortcutEnableMask | (1 << 7)) & ~(1 << 6);
+            _settings.CurrentInputMethod = _settings.ShortcutF7InputMethod;
+            SettingsManager.SaveSettings(_settings);
+
+            _isUpdatingUi = true;
+            try
+            {
+                if (CmbInputMethod != null) CmbInputMethod.SelectedItem = _settings.CurrentInputMethod;
+                if (CmbCompactInputMethod != null) CmbCompactInputMethod.SelectedItem = _settings.CurrentInputMethod;
+            }
+            finally
+            {
+                _isUpdatingUi = false;
+            }
+
+            _trayManager?.UpdateTrayIcon();
+            _trayManager?.BuildContextMenu();
+            (Application.Current as App)?.ShowStatusOsd(_settings.IsVietnamese);
+        }
+
         private void CmbShortcutF6InputMethod_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_isUpdatingUi) return;
             if (CmbShortcutF6InputMethod.SelectedItem is InputMethod im)
             {
                 _settings.ShortcutF6InputMethod = im;
+                if (RadShortcutF6?.IsChecked == true)
+                {
+                    _settings.CurrentInputMethod = im;
+                    _isUpdatingUi = true;
+                    try
+                    {
+                        if (CmbInputMethod != null) CmbInputMethod.SelectedItem = im;
+                        if (CmbCompactInputMethod != null) CmbCompactInputMethod.SelectedItem = im;
+                    }
+                    finally
+                    {
+                        _isUpdatingUi = false;
+                    }
+                    _trayManager?.UpdateTrayIcon();
+                    _trayManager?.BuildContextMenu();
+                }
                 SettingsManager.SaveSettings(_settings);
             }
         }
@@ -520,6 +607,22 @@ namespace ModernKey
             if (CmbShortcutF7InputMethod.SelectedItem is InputMethod im)
             {
                 _settings.ShortcutF7InputMethod = im;
+                if (RadShortcutF7?.IsChecked == true)
+                {
+                    _settings.CurrentInputMethod = im;
+                    _isUpdatingUi = true;
+                    try
+                    {
+                        if (CmbInputMethod != null) CmbInputMethod.SelectedItem = im;
+                        if (CmbCompactInputMethod != null) CmbCompactInputMethod.SelectedItem = im;
+                    }
+                    finally
+                    {
+                        _isUpdatingUi = false;
+                    }
+                    _trayManager?.UpdateTrayIcon();
+                    _trayManager?.BuildContextMenu();
+                }
                 SettingsManager.SaveSettings(_settings);
             }
         }

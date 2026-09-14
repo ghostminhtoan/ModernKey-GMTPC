@@ -1180,6 +1180,148 @@ namespace ModernKey.Core
                 sb.AppendLine($"  FAIL Custom Input Method: {ex.Message}\n{ex.StackTrace}");
             }
 
+                // 20. TEST CÁC YÊU CẦU MỚI: Free Mark, Case Duplication, SimpleTelex w, Tu Binh Tran f6-f9, maf->maf
+                sb.AppendLine("[TEST YEU CAU MOI: FREE MARK, CASE DUPLICATION, SIMPLETELEX W, TBT F6-F9, MAF->MAF]");
+                try
+                {
+                    // A. Test case -> case (không bị ccase khi nhấn space) và tét không bị chuyển thành test
+                    var telexSmartEngSettings = new AppSettings
+                    {
+                        IsVietnamese = true,
+                        CurrentInputMethod = InputMethod.Telex,
+                        SmartEnglishBypass = true
+                    };
+                    var telexSmartEngine = new VietnameseEngine(telexSmartEngSettings, new MacroManager());
+                    string caseRes = SimulateTypingSentence(telexSmartEngine, "case ");
+                    string tetRes = SimulateTypingWord(telexSmartEngine, "tets");
+                    if (caseRes == "case " && tetRes == "tét")
+                    {
+                        sb.AppendLine($"  PASS: 'case ' -> '{caseRes}' (không bị 'ccase') và 'tets' -> '{tetRes}' (không bị ép thành 'test')!");
+                    }
+                    else
+                    {
+                        allPassed = false;
+                        sb.AppendLine($"  FAIL: case='{caseRes}' (exp 'case '), tets='{tetRes}' (exp 'tét')");
+                    }
+
+                    // B. Test maf -> mà, maff -> maf, mafff -> maff
+                    string maf1 = SimulateTypingWord(telexSmartEngine, "maf");
+                    string maf2 = SimulateTypingWord(telexSmartEngine, "maff");
+                    string maf3 = SimulateTypingWord(telexSmartEngine, "mafff");
+                    if (maf1 == "mà" && maf2 == "maf" && maf3 == "maff")
+                    {
+                        sb.AppendLine($"  PASS: Hủy dấu lặp phím: 'maf'->'{maf1}', 'maff'->'{maf2}', 'mafff'->'{maf3}'");
+                    }
+                    else
+                    {
+                        allPassed = false;
+                        sb.AppendLine($"  FAIL: Hủy dấu lặp phím: maf='{maf1}' (exp 'mà'), maff='{maf2}' (exp 'maf'), mafff='{maf3}' (exp 'maff')");
+                    }
+
+                    // C. Test SimpleTelex w (giữ nguyên w đầu từ, w làm móc auo)
+                    var simpleTelexSettings = new AppSettings
+                    {
+                        IsVietnamese = true,
+                        CurrentInputMethod = InputMethod.SimpleTelex,
+                        ModernToneRules = true
+                    };
+                    var simpleEngine = new VietnameseEngine(simpleTelexSettings, new MacroManager());
+                    var simpleCases = new (string input, string expected)[]
+                    {
+                        ("w", "w"),
+                        ("wa", "wa"),
+                        ("win", "win"),
+                        ("aw", "ă"),
+                        ("uw", "ư"),
+                        ("ow", "ơ"),
+                        ("uow", "ươ"),
+                        ("duocwj", "dược"),
+                        ("dduocwj", "được")
+                    };
+                    foreach (var sc in simpleCases)
+                    {
+                        string res = SimulateTypingWord(simpleEngine, sc.input);
+                        if (res == sc.expected)
+                        {
+                            sb.AppendLine($"  PASS SimpleTelex: '{sc.input}' -> '{res}'");
+                        }
+                        else
+                        {
+                            allPassed = false;
+                            sb.AppendLine($"  FAIL SimpleTelex: '{sc.input}' -> '{res}' (Mong doi: '{sc.expected}')");
+                        }
+                    }
+
+                    // D. Test VNI Free Mark: duoc975, duoc759, d9uo75c
+                    var vniFreeMarkSettings = new AppSettings
+                    {
+                        IsVietnamese = true,
+                        CurrentInputMethod = InputMethod.Vni,
+                        ModernToneRules = true
+                    };
+                    var vniFreeMarkEngine = new VietnameseEngine(vniFreeMarkSettings, new MacroManager());
+                    var vniCases = new (string input, string expected)[]
+                    {
+                        ("d9uo75c", "được"),
+                        ("duoc975", "được"),
+                        ("duoc759", "được")
+                    };
+                    foreach (var vc in vniCases)
+                    {
+                        string res = SimulateTypingWord(vniFreeMarkEngine, vc.input);
+                        if (res == vc.expected)
+                        {
+                            sb.AppendLine($"  PASS VNI Free Mark: '{vc.input}' -> '{res}'");
+                        }
+                        else
+                        {
+                            allPassed = false;
+                            sb.AppendLine($"  FAIL VNI Free Mark: '{vc.input}' -> '{res}' (Mong doi: '{vc.expected}')");
+                        }
+                    }
+
+                    // E. Test Tư Bình Trần: f6..f9, f66..f99, dd[]5c, d[]cjd, d[]c5d
+                    var tbtNewSettings = new AppSettings
+                    {
+                        IsVietnamese = true,
+                        CurrentInputMethod = InputMethod.TuBinhTran,
+                        ModernToneRules = true
+                    };
+                    var tbtNewEngine = new VietnameseEngine(tbtNewSettings, new MacroManager());
+                    var tbtCases = new (string input, string expected)[]
+                    {
+                        ("f6", "f6"),
+                        ("f7", "f7"),
+                        ("f8", "f8"),
+                        ("f9", "f9"),
+                        ("f66", "f66"),
+                        ("f77", "f77"),
+                        ("f88", "f88"),
+                        ("f99", "f99"),
+                        ("dd[]5c", "được"),
+                        ("d[]cjd", "được"),
+                        ("d[]c5d", "được")
+                    };
+                    foreach (var tc in tbtCases)
+                    {
+                        string res = SimulateTypingWord(tbtNewEngine, tc.input);
+                        if (res == tc.expected)
+                        {
+                            sb.AppendLine($"  PASS Tư Bình Trần: '{tc.input}' -> '{res}'");
+                        }
+                        else
+                        {
+                            allPassed = false;
+                            sb.AppendLine($"  FAIL Tư Bình Trần: '{tc.input}' -> '{res}' (Mong doi: '{tc.expected}')");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    allPassed = false;
+                    sb.AppendLine($"  FAIL New Requirements Test: {ex.Message}\n{ex.StackTrace}");
+                }
+
             sb.AppendLine(allPassed ? "=== TAT CA CAC TEST DEU PASS 100% ===" : "=== CO TEST THAT BAI ===");
             report = sb.ToString();
             return allPassed;

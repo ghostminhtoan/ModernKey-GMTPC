@@ -250,7 +250,7 @@ namespace ModernKey
                 }));
             };
 
-            // Lắng nghe sự kiện đổi kiểu gõ từ phím F6
+            // Lắng nghe sự kiện đổi kiểu gõ từ phím F6/F7
             KeyboardHook.InputMethodChanged += (im) =>
             {
                 Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
@@ -258,6 +258,10 @@ namespace ModernKey
                     string imName = im == InputMethod.TuBinhTran ? "Tư Bình Trần" : (im == InputMethod.Telex ? "Telex" : (im == InputMethod.Vni ? "VNI" : im.ToString()));
                     _statusOsdWindow?.ShowMessage($"Kiểu gõ: {imName}", "#00F0FF");
                     _trayManager?.UpdateTrayIcon();
+                    if (_mainWindow != null && _mainWindow.IsLoaded)
+                    {
+                        _mainWindow.RefreshState();
+                    }
                 }));
             };
 
