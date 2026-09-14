@@ -352,6 +352,21 @@ namespace ModernKey.Core
                     else if (!isSpace)
                         _upperCaseSentenceStatus = 0;
                 }
+
+                // Tự sửa lỗi chính tả theo từ điển spelling_correction.txt (chỉ áp dụng cho Telex / Simple Telex khi bấm Space hoặc Enter)
+                if ((isSpace || isReturn) && (_settings.CurrentInputMethod == InputMethod.Telex || _settings.CurrentInputMethod == InputMethod.SimpleTelex) && _charBuffer.Count > 0)
+                {
+                    string displayWord = GetDisplayWord(_charBuffer);
+                    if (!string.IsNullOrEmpty(displayWord) && SpellingCorrectionManager.Instance.TryCorrect(displayWord, out string correctedWord))
+                    {
+                        backspaceCount = displayWord.Length;
+                        newString = correctedWord;
+                        trailingVkCode = isSpace ? 0x20 : 0x0D;
+                        Reset();
+                        return true;
+                    }
+                }
+
                 // Kiểm tra Macro khi ấn phím ngắt theo MacroTriggerMask
                 if (_settings.UseMacro)
                 {
@@ -942,7 +957,7 @@ namespace ModernKey.Core
                 }
                 return raw;
             }
-            string transformed = TransformWord(buffer, _settings.CurrentInputMethod, _settings.ModernToneRules, _settings.CustomRules, _lastCommittedWord);
+            string transformed = TransformWord(buffer, _settings.CurrentInputMethod, _settings.ModernToneRules, _settings.CustomRules, _lastCommittedWord, _settings.FreeMark);
             string res = transformed ?? new string(buffer.ToArray());
             if (_isFirstWordOfSentence && res.Length > 0)
             {
@@ -965,7 +980,7 @@ namespace ModernKey.Core
 
             // 3. Thêm trực tiếp ký tự ch vào buffer để phân tích, tránh cấp phát List<char> mới trên Heap
             _charBuffer.Add(ch);
-            string transformed = TransformWord(_charBuffer, _settings.CurrentInputMethod, _settings.ModernToneRules, _settings.CustomRules, _lastCommittedWord);
+            string transformed = TransformWord(_charBuffer, _settings.CurrentInputMethod, _settings.ModernToneRules, _settings.CustomRules, _lastCommittedWord, _settings.FreeMark);
             string actualDisplayWord = transformed ?? new string(_charBuffer.ToArray());
             if (_isFirstWordOfSentence && actualDisplayWord.Length > 0)
             {
@@ -1031,14 +1046,29 @@ namespace ModernKey.Core
             return true;
         }
 
-        public static string TransformWord(List<char> keys, InputMethod method, bool modernTone, List<CustomInputRule> customRules = null, string lastWord = null)
+        public static string TransformWord(List<char> keys, InputMethod method, bool modernTone, List<CustomInputRule> customRules = null, string lastWord = null, bool freeMark = true)
         {
             if (keys == null || keys.Count == 0) return null;
+
+            // Xử lý riêng theo yêu cầu: gõ "did" sẽ thành "di" (kiểu gõ TBT, Telex, Simple Telex)
+            if (keys.Count == 3 &&
+                (method == InputMethod.Telex || method == InputMethod.SimpleTelex || method == InputMethod.TuBinhTran) &&
+                char.ToLowerInvariant(keys[0]) == 'd' &&
+                char.ToLowerInvariant(keys[1]) == 'i' &&
+                char.ToLowerInvariant(keys[2]) == 'd')
+            {
+                bool isUpper0 = char.IsUpper(keys[0]);
+                bool isUpper1 = char.IsUpper(keys[1]);
+                bool isUpper2 = char.IsUpper(keys[2]);
+                if (isUpper0 && isUpper1 && isUpper2) return "DI";
+                if (isUpper0) return "Di";
+                return "di";
+            }
 
             string result = null;
             if (method == InputMethod.TuBinhTran)
             {
-                result = ProcessTuBinhTran(keys, modernTone);
+                result = ProcessTuBinhTran(keys, modernTone, freeMark);
             }
             else if (method == InputMethod.Custom)
             {
@@ -1046,7 +1076,7 @@ namespace ModernKey.Core
             }
             else
             {
-                result = ProcessTelexOrVni(keys, method, modernTone, lastWord);
+                result = ProcessTelexOrVni(keys, method, modernTone, lastWord, freeMark);
             }
 
             if (!string.IsNullOrEmpty(result))
@@ -1059,7 +1089,7 @@ namespace ModernKey.Core
 
         public static string TransformWord(List<char> keys, InputMethod method, bool modernTone)
         {
-            return TransformWord(keys, method, modernTone, null, null);
+            return TransformWord(keys, method, modernTone, null, null, true);
         }
 
         private static string EnforceCasingConsistency(string transformedWord, List<char> originalKeys)
@@ -1259,7 +1289,7 @@ namespace ModernKey.Core
             return OpenKeySpelling.IsValidWord(candidate, forceCheckVowel: true);
         }
 
-        private static string ProcessTuBinhTran(List<char> keys, bool modernTone)
+        private static string ProcessTuBinhTran(List<char> keys, bool modernTone, bool freeMark = true)
         {
             if (keys.Count == 0) return null;
 
@@ -1272,7 +1302,7 @@ namespace ModernKey.Core
                 }
                 var subKeys = new List<char>(keys.Count - 2);
                 for (int s = 2; s < keys.Count; s++) subKeys.Add(keys[s]);
-                string subResult = ProcessTuBinhTran(subKeys, modernTone);
+                string subResult = ProcessTuBinhTran(subKeys, modernTone, freeMark);
                 return keys[0] + (subResult ?? new string(subKeys.ToArray()));
             }
 
@@ -1291,7 +1321,7 @@ namespace ModernKey.Core
                     {
                         var subKeys = new List<char>(keys.Count - 1);
                         for (int s = 1; s < keys.Count; s++) subKeys.Add(keys[s]);
-                        string subResult = ProcessTuBinhTran(subKeys, modernTone);
+                        string subResult = ProcessTuBinhTran(subKeys, modernTone, freeMark);
                         return '(' + (subResult ?? new string(subKeys.ToArray()));
                     }
                 }
@@ -1309,7 +1339,7 @@ namespace ModernKey.Core
                     {
                         var subKeys = new List<char>(keys.Count - 1);
                         for (int s = 1; s < keys.Count; s++) subKeys.Add(keys[s]);
-                        string subResult = ProcessTuBinhTran(subKeys, modernTone);
+                        string subResult = ProcessTuBinhTran(subKeys, modernTone, freeMark);
                         return '{' + (subResult ?? new string(subKeys.ToArray()));
                     }
                 }
@@ -1447,7 +1477,7 @@ namespace ModernKey.Core
                         }
                     }
 
-                    if (dIdx == 0 && CanTransformTrailingD(sb, c, tone, modernTone))
+                    if (freeMark && dIdx == 0 && CanTransformTrailingD(sb, c, tone, modernTone))
                     {
                         bool isUpper = (sb[0] == 'D') || char.IsUpper(c) || IsCapsLockActive();
                         sb[0] = isUpper ? 'Đ' : 'đ';
@@ -2511,7 +2541,7 @@ namespace ModernKey.Core
             return false;
         }
 
-        private static string ProcessTelexOrVni(List<char> keys, InputMethod method, bool modernTone, string lastWord = null)
+        private static string ProcessTelexOrVni(List<char> keys, InputMethod method, bool modernTone, string lastWord = null, bool freeMark = true)
         {
             if (keys.Count == 0) return null;
 
@@ -2532,7 +2562,11 @@ namespace ModernKey.Core
                     // không nhận diện s/f/r/x/j là dấu thanh mà giữ nguyên ký tự thường!
                     bool canTakeTone = true;
                     bool isAfterConsonant = sb.Length > 0 && !IsVowel(sb[sb.Length - 1]);
-                    if (isAfterConsonant)
+                    if (!freeMark && isAfterConsonant)
+                    {
+                        canTakeTone = false;
+                    }
+                    else if (isAfterConsonant)
                     {
                         char endChar = char.ToLowerInvariant(sb[sb.Length - 1]);
                         if (endChar != 'c' && endChar != 'm' && endChar != 'n' && endChar != 'p' && endChar != 't' &&
@@ -2716,7 +2750,7 @@ namespace ModernKey.Core
                                     continue;
                                 }
 
-                                if (CanTransformTrailingD(sb, c, tone, modernTone))
+                                if (freeMark && CanTransformTrailingD(sb, c, tone, modernTone))
                                 {
                                     bool isUpper = (sb[0] == 'D') || char.IsUpper(c) || IsCapsLockActive();
                                     sb[0] = isUpper ? 'Đ' : 'đ';
@@ -2839,7 +2873,7 @@ namespace ModernKey.Core
                             }
 
                             // Free Mark Hook: nếu phía trước là phụ âm cuối (như trong "duoc", "nuoc", "muot")
-                            if (TryApplyVowelHookFreeMark(sb))
+                            if (freeMark && TryApplyVowelHookFreeMark(sb))
                             {
                                 modified = true;
                                 continue;
@@ -2884,7 +2918,7 @@ namespace ModernKey.Core
                         if (prevLower == 'o') { sb.Remove(sb.Length - 1, 1); sb.Append(isUpper ? 'Ô' : 'ô'); modified = true; continue; }
 
                         // Free mark: quét ngược tìm a, e, o để đội mũ
-                        if (TryApplyHatFreeMark(sb))
+                        if (freeMark && TryApplyHatFreeMark(sb))
                         {
                             modified = true;
                             continue;
@@ -2916,7 +2950,7 @@ namespace ModernKey.Core
                         if (prevLower == 'u') { sb.Remove(sb.Length - 1, 1); sb.Append(isUpper ? 'Ư' : 'ư'); modified = true; continue; }
 
                         // Free mark: quét tìm uo -> ươ, u -> ư, o -> ơ
-                        if (TryApplyHookFreeMarkVni(sb))
+                        if (freeMark && TryApplyHookFreeMarkVni(sb))
                         {
                             modified = true;
                             continue;
@@ -2936,7 +2970,7 @@ namespace ModernKey.Core
                         }
 
                         // Free mark: quét tìm a để thêm trăng ă
-                        if (TryApplyBreveFreeMark(sb))
+                        if (freeMark && TryApplyBreveFreeMark(sb))
                         {
                             modified = true;
                             continue;
@@ -2956,7 +2990,7 @@ namespace ModernKey.Core
                         }
 
                         // Free mark: quét tìm chữ d/D đầu từ để gạch ngang thành đ/Đ
-                        if (TryApplyDStrokeFreeMark(sb))
+                        if (freeMark && TryApplyDStrokeFreeMark(sb))
                         {
                             modified = true;
                             continue;
@@ -2982,7 +3016,7 @@ namespace ModernKey.Core
             }
 
             // Hậu xử lý cho cơ chế ghép dấu tự do (Free Mark) Telex & SimpleTelex
-            if (method == InputMethod.Telex || method == InputMethod.SimpleTelex)
+            if (freeMark && (method == InputMethod.Telex || method == InputMethod.SimpleTelex))
             {
                 string postProcessed = PostProcessFreeMarkWord(currentResult, method, lastWord);
                 if (postProcessed != currentResult)
@@ -3180,9 +3214,6 @@ namespace ModernKey.Core
                 case "ddayq":
                 case "đâyq":
                     return (isUpper ? "Đầy" : "đầy") + punct;
-
-                case "di":
-                    return (isUpper ? "Đi" : "đi") + punct;
 
                 case "do":
                     return (isUpper ? "Đo" : "đo") + punct;

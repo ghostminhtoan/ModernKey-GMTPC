@@ -95,10 +95,11 @@ namespace ModernKey
 
             base.OnStartup(e);
 
-            // 1. Tải cấu hình và macro
+            // 1. Tải cấu hình, macro và từ điển sửa lỗi chính tả
             _settings = SettingsManager.LoadSettings();
             _macroManager = new MacroManager();
             _clipboardHistory = new ClipboardHistoryManager(_settings);
+            SpellingCorrectionManager.Instance.InitializeDictionary();
 
             // 2. Khởi tạo Engine và Hook
             _engine = new VietnameseEngine(_settings, _macroManager);

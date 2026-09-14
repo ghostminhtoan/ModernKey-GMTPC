@@ -172,6 +172,7 @@ namespace ModernKey
                 if (ChkCheckSpelling != null) ChkCheckSpelling.IsChecked = _settings.CheckSpelling;
                 if (ChkRestoreIfWrongSpelling != null) ChkRestoreIfWrongSpelling.IsChecked = _settings.RestoreIfWrongSpelling;
                 if (ChkModernTone != null) ChkModernTone.IsChecked = _settings.ModernToneRules;
+                if (ChkFreeMark != null) ChkFreeMark.IsChecked = _settings.FreeMark;
                 if (ChkAllowConsonantZFWJ != null) ChkAllowConsonantZFWJ.IsChecked = _settings.AllowConsonantZFWJ;
                 if (ChkUpperCaseFirstChar != null) ChkUpperCaseFirstChar.IsChecked = _settings.UpperCaseFirstChar;
                 if (ChkFixRecommendBrowser != null) ChkFixRecommendBrowser.IsChecked = _settings.FixRecommendBrowser;
@@ -331,6 +332,7 @@ namespace ModernKey
             if (ChkCheckSpelling != null) _settings.CheckSpelling = ChkCheckSpelling.IsChecked == true;
             if (ChkRestoreIfWrongSpelling != null) _settings.RestoreIfWrongSpelling = ChkRestoreIfWrongSpelling.IsChecked == true;
             if (ChkModernTone != null) _settings.ModernToneRules = ChkModernTone.IsChecked == true;
+            if (ChkFreeMark != null) _settings.FreeMark = ChkFreeMark.IsChecked == true;
             if (ChkAllowConsonantZFWJ != null) _settings.AllowConsonantZFWJ = ChkAllowConsonantZFWJ.IsChecked == true;
             if (ChkUpperCaseFirstChar != null) _settings.UpperCaseFirstChar = ChkUpperCaseFirstChar.IsChecked == true;
             if (ChkFixRecommendBrowser != null) _settings.FixRecommendBrowser = ChkFixRecommendBrowser.IsChecked == true;
@@ -509,6 +511,11 @@ namespace ModernKey
                 SettingsManager.SaveSettings(_settings);
                 _trayManager?.BuildContextMenu();
             }
+        }
+
+        private void BtnOpenSpellingDict_Click(object sender, RoutedEventArgs e)
+        {
+            SpellingCorrectionManager.Instance.OpenDictionaryFile();
         }
 
         private void TxtSwitchKeyChar_TextChanged(object sender, TextChangedEventArgs e)

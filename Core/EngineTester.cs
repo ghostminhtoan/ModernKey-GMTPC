@@ -1336,7 +1336,7 @@ namespace ModernKey.Core
 
                     string expectedSentence = "Đông đến, đường đi đầy đá, đoàn đường xa đến đâu được mà đừng đứng đợi. Đại đồng đồng lòng đi đầu, đô đốc đứng đó đo đếm đại đội đang đóng đồn.";
                     string line1Input = "DDoong ddeesn, ddwowfng ddi ddaaqy ddaas, ddoafn ddwowfng xa ddeesn ddaaqu ddwwowjcc maaf ddwwfwng dduwawjng ddowjqi. DDaji ddoofng ddoofng loofng ddi ddaafu, ddoas ddoosc dduwawjng ddoas ddo ddeesm ddaji ddooji ddaang ddoasng ddoofn.";
-                    string line2Input = "densd ddesn, duongwf di ddayq dass, doanf duongwf xa densd dauq duocwj maf dungwf dungwf doiwj. Daij dongf dongf longf di dauf, docs docs dungwf dos do deams daij doij dang doangs donf.";
+                    string line2Input = "densd ddesn, duongwf ddi ddayq dass, doanf duongwf xa densd dauq duocwj maf dungwf dungwf doiwj. Daij dongf dongf longf ddi dauf, docs docs dungwf dos do deams daij doij dang doangs donf.";
 
                     string actualLine1 = SimulateTypingSentence(telexUserEngine, line1Input);
                     if (actualLine1 == expectedSentence)
@@ -1358,6 +1358,94 @@ namespace ModernKey.Core
                     {
                         allPassed = false;
                         sb.AppendLine($"  FAIL Kiểu ghép dấu tự do: '{actualLine2}'\n   (Mong doi: '{expectedSentence}')");
+                    }
+
+                    // G. Test tính năng mới: di không thành đi; did thành di; đi + d thành did (Telex, SimpleTelex, TBT)
+                    var methodsToTest = new[] { InputMethod.Telex, InputMethod.SimpleTelex, InputMethod.TuBinhTran };
+                    foreach (var m in methodsToTest)
+                    {
+                        var eng = new VietnameseEngine(new AppSettings
+                        {
+                            IsVietnamese = true,
+                            CurrentInputMethod = m,
+                            ModernToneRules = true,
+                            FreeMark = true
+                        }, new MacroManager());
+
+                        // 1. Gõ di -> phải ra di (không thành đi)
+                        string resDi = SimulateTypingWord(eng, "di");
+                        if (resDi == "di")
+                        {
+                            sb.AppendLine($"  PASS {m}: 'di' -> '{resDi}'");
+                        }
+                        else
+                        {
+                            allPassed = false;
+                            sb.AppendLine($"  FAIL {m}: 'di' -> '{resDi}' (Mong doi: 'di')");
+                        }
+
+                        // 2. Gõ did -> phải thành di
+                        string resDid = SimulateTypingWord(eng, "did");
+                        if (resDid == "di")
+                        {
+                            sb.AppendLine($"  PASS {m}: 'did' -> '{resDid}'");
+                        }
+                        else
+                        {
+                            allPassed = false;
+                            sb.AppendLine($"  FAIL {m}: 'did' -> '{resDid}' (Mong doi: 'di')");
+                        }
+
+                        // 3. Đang chữ đi (gõ ddi) gõ thêm d -> thành did
+                        string resDdid = SimulateTypingWord(eng, "ddid");
+                        if (resDdid == "did")
+                        {
+                            sb.AppendLine($"  PASS {m}: 'ddid' -> '{resDdid}'");
+                        }
+                        else
+                        {
+                            allPassed = false;
+                            sb.AppendLine($"  FAIL {m}: 'ddid' -> '{resDdid}' (Mong doi: 'did')");
+                        }
+                    }
+
+                    // H. Test từ điển sửa lỗi chính tả khi bấm Space hoặc Enter (Telex & SimpleTelex)
+                    var spellingEngine = new VietnameseEngine(new AppSettings
+                    {
+                        IsVietnamese = true,
+                        CurrentInputMethod = InputMethod.Telex,
+                        ModernToneRules = true
+                    }, new MacroManager());
+
+                    SpellingCorrectionManager.Instance.InitializeDictionary();
+
+                    var spellingTests = new (string input, string expected)[]
+                    {
+                        ("pót ", "post "),
+                        ("cáe ", "case "),
+                        ("pát ", "past "),
+                        ("fêt ", "feet "),
+                        ("mêt ", "meet "),
+                        ("nêd ", "need "),
+                        ("kêp ", "keep "),
+                        ("dơn ", "down "),
+                        ("shơ ", "show "),
+                        ("tơn ", "town "),
+                        ("cáe\n", "case\n")
+                    };
+
+                    foreach (var st in spellingTests)
+                    {
+                        string resSpelling = SimulateTypingSentence(spellingEngine, st.input);
+                        if (resSpelling == st.expected)
+                        {
+                            sb.AppendLine($"  PASS Sửa lỗi chính tả: '{st.input.Replace("\n", "\\n")}' -> '{resSpelling.Replace("\n", "\\n")}'");
+                        }
+                        else
+                        {
+                            allPassed = false;
+                            sb.AppendLine($"  FAIL Sửa lỗi chính tả: '{st.input.Replace("\n", "\\n")}' -> '{resSpelling.Replace("\n", "\\n")}' (Mong doi: '{st.expected.Replace("\n", "\\n")}')");
+                        }
                     }
                 }
                 catch (Exception ex)

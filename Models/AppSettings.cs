@@ -24,6 +24,7 @@ namespace ModernKey.Models
         public bool SendViaClipboard { get; set; } = false;
         public bool ModernDarkTheme { get; set; } = true;
         public bool ModernToneRules { get; set; } = true; // oa` -> oà vs o`a -> òa
+        public bool FreeMark { get; set; } = true; // Đặt dấu tự do (Free Mark)
         public bool AllowNumberInWordBreak { get; set; } = true; // Bao ve so thuan theo workflow.md
         public bool RestoreIfWrongSpelling { get; set; } = true;
         public bool SwitchBeep { get; set; } = false;

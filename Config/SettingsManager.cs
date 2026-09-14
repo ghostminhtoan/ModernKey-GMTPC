@@ -322,6 +322,9 @@ namespace ModernKey.Config
                         case "ModernToneRules":
                             if (bool.TryParse(val, out var mtr)) settings.ModernToneRules = mtr;
                             break;
+                        case "FreeMark":
+                            if (bool.TryParse(val, out var fm)) settings.FreeMark = fm;
+                            break;
                         case "RestoreIfWrongSpelling":
                             if (bool.TryParse(val, out var rws)) settings.RestoreIfWrongSpelling = rws;
                             break;
@@ -554,6 +557,7 @@ namespace ModernKey.Config
                 sb.AppendLine("SendViaClipboard=" + settings.SendViaClipboard);
                 sb.AppendLine("ModernDarkTheme=" + settings.ModernDarkTheme);
                 sb.AppendLine("ModernToneRules=" + settings.ModernToneRules);
+                sb.AppendLine("FreeMark=" + settings.FreeMark);
                 sb.AppendLine("RestoreIfWrongSpelling=" + settings.RestoreIfWrongSpelling);
                 sb.AppendLine("SwitchBeep=" + settings.SwitchBeep);
                 sb.AppendLine("AutoCapsMacro=" + settings.AutoCapsMacro);
@@ -643,6 +647,7 @@ namespace ModernKey.Config
                 sb.AppendLine($"  \"CheckSpelling\": {settings.CheckSpelling.ToString().ToLower()},");
                 sb.AppendLine($"  \"RestoreIfWrongSpelling\": {settings.RestoreIfWrongSpelling.ToString().ToLower()},");
                 sb.AppendLine($"  \"ModernToneRules\": {settings.ModernToneRules.ToString().ToLower()},");
+                sb.AppendLine($"  \"FreeMark\": {settings.FreeMark.ToString().ToLower()},");
                 sb.AppendLine($"  \"UseMacro\": {settings.UseMacro.ToString().ToLower()},");
                 sb.AppendLine($"  \"AutoCapsMacro\": {settings.AutoCapsMacro.ToString().ToLower()},");
                 sb.AppendLine($"  \"SmartCodePassthrough\": {settings.SmartCodePassthrough.ToString().ToLower()},");
@@ -688,6 +693,7 @@ namespace ModernKey.Config
                         case "CheckSpelling": if (bool.TryParse(v, out var csb)) targetSettings.CheckSpelling = csb; break;
                         case "RestoreIfWrongSpelling": if (bool.TryParse(v, out var rws)) targetSettings.RestoreIfWrongSpelling = rws; break;
                         case "ModernToneRules": if (bool.TryParse(v, out var mtr)) targetSettings.ModernToneRules = mtr; break;
+                        case "FreeMark": if (bool.TryParse(v, out var fm)) targetSettings.FreeMark = fm; break;
                         case "UseMacro": if (bool.TryParse(v, out var um)) targetSettings.UseMacro = um; break;
                         case "AutoCapsMacro": if (bool.TryParse(v, out var acm)) targetSettings.AutoCapsMacro = acm; break;
                         case "SmartCodePassthrough": if (bool.TryParse(v, out var scp)) targetSettings.SmartCodePassthrough = scp; break;

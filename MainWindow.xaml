@@ -165,6 +165,7 @@
                             <CheckBox x:Name="ChkCheckSpelling" Content="Bật kiểm tra chính tả khi gõ" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
                             <CheckBox x:Name="ChkRestoreIfWrongSpelling" Content="Tự động khôi phục phím nếu từ sai chính tả" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
                             <CheckBox x:Name="ChkModernTone" Content="Bỏ dấu thanh kiểu mới (oà, uý thay vì òa, úy)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                            <CheckBox x:Name="ChkFreeMark" Content="Đặt dấu tự do (Free Mark)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Cho phép gõ phím dấu thanh hoặc mũ ở cuối từ bất kỳ lúc nào" />
                             <CheckBox x:Name="ChkAllowConsonantZFWJ" Content="Cho phép các phụ âm Z, F, W, J trong từ tiếng Việt" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
                             <CheckBox x:Name="ChkUpperCaseFirstChar" Content="Tự động viết hoa chữ cái đầu câu" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
                             <CheckBox x:Name="ChkFixRecommendBrowser" Content="Khắc phục gợi ý / autocomplete trên trình duyệt" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
@@ -181,6 +182,11 @@
                             <CheckBox x:Name="ChkEnableCaretIndicator" Content="Hiện huy hiệu [VI]/[EN] bám sát con trỏ soạn thảo (Caret HUD)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Huy hiệu mini luôn nổi cạnh con trỏ văn bản tại ứng dụng đang soạn thảo" />
                             <CheckBox x:Name="ChkEnableKeySound" Content="Phát âm thanh gõ phím cơ Cyberpunk siêu nhẹ (&lt;2ms)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Âm click cơ học phát trực tiếp trong bộ nhớ RAM qua winmm.dll không gây lag" />
                         </WrapPanel>
+
+                        <Separator Background="{StaticResource CyberBorderDim}" Margin="0,4,0,12" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                            <Button x:Name="BtnOpenSpellingDict" Content="MỞ TỪ ĐIỂN SỬA LỖI CHÍNH TẢ (TXT)..." Click="BtnOpenSpellingDict_Click" Padding="14,6" Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" FontFamily="Consolas" FontWeight="Bold" ToolTip="Mở file spelling_correction.txt (UTF-8 without BOM) để chỉnh sửa các từ sửa lỗi chính tả" />
+                        </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
