@@ -2711,10 +2711,6 @@ namespace ModernKey
 
         public void ApplyBlurModeUI()
         {
-            if (MnuBlurNone != null) MnuBlurNone.IsChecked = (_settings.ClipboardBlurMode == "None");
-            if (MnuBlurBlur != null) MnuBlurBlur.IsChecked = (_settings.ClipboardBlurMode == "Blur");
-            if (MnuBlurPixel != null) MnuBlurPixel.IsChecked = (_settings.ClipboardBlurMode == "Pixelate");
-
             if (SliderBlurRadius != null) SliderBlurRadius.Value = _settings.ClipboardBlurRadius;
             if (TxtBlurPercent != null) TxtBlurPercent.Text = $"{(int)_settings.ClipboardBlurRadius}%";
 
@@ -2724,36 +2720,25 @@ namespace ModernKey
             _itemsView?.Refresh();
         }
 
-        private void MnuBlurNone_Click(object sender, RoutedEventArgs e)
-        {
-            _settings.ClipboardBlurMode = "None";
-            ApplyBlurModeUI();
-            SettingsManager.SaveSettings(_settings);
-        }
-
-        private void MnuBlurBlur_Click(object sender, RoutedEventArgs e)
-        {
-            _settings.ClipboardBlurMode = "Blur";
-            ApplyBlurModeUI();
-            SettingsManager.SaveSettings(_settings);
-        }
-
-        private void MnuBlurPixel_Click(object sender, RoutedEventArgs e)
-        {
-            _settings.ClipboardBlurMode = "Pixelate";
-            ApplyBlurModeUI();
-            SettingsManager.SaveSettings(_settings);
-        }
-
         private void SliderBlurRadius_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             if (_settings == null) return;
-            _settings.ClipboardBlurRadius = e.NewValue;
-            if (TxtBlurPercent != null) TxtBlurPercent.Text = $"{(int)e.NewValue}%";
-            _settings.ClipboardBlurMode = "Blur";
-            if (MnuBlurNone != null) MnuBlurNone.IsChecked = false;
-            if (MnuBlurBlur != null) MnuBlurBlur.IsChecked = true;
-            if (MnuBlurPixel != null) MnuBlurPixel.IsChecked = false;
+            if (e.NewValue <= 0.5)
+            {
+                _settings.ClipboardBlurRadius = 0;
+                if (_settings.ClipboardPixelateSize <= 0.5)
+                {
+                    _settings.ClipboardBlurMode = "None";
+                }
+                if (TxtBlurPercent != null) TxtBlurPercent.Text = "0%";
+            }
+            else
+            {
+                _settings.ClipboardBlurRadius = e.NewValue;
+                _settings.ClipboardBlurMode = "Blur";
+                if (TxtBlurPercent != null) TxtBlurPercent.Text = $"{(int)e.NewValue}%";
+            }
+
             SettingsManager.SaveSettings(_settings);
             _itemsView?.Refresh();
         }
@@ -2761,12 +2746,22 @@ namespace ModernKey
         private void SliderPixelSize_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             if (_settings == null) return;
-            _settings.ClipboardPixelateSize = e.NewValue;
-            if (TxtPixelPercent != null) TxtPixelPercent.Text = $"{(int)e.NewValue}px";
-            _settings.ClipboardBlurMode = "Pixelate";
-            if (MnuBlurNone != null) MnuBlurNone.IsChecked = false;
-            if (MnuBlurBlur != null) MnuBlurBlur.IsChecked = false;
-            if (MnuBlurPixel != null) MnuBlurPixel.IsChecked = true;
+            if (e.NewValue <= 0.5)
+            {
+                _settings.ClipboardPixelateSize = 0;
+                if (_settings.ClipboardBlurRadius <= 0.5)
+                {
+                    _settings.ClipboardBlurMode = "None";
+                }
+                if (TxtPixelPercent != null) TxtPixelPercent.Text = "0px";
+            }
+            else
+            {
+                _settings.ClipboardPixelateSize = e.NewValue;
+                _settings.ClipboardBlurMode = "Pixelate";
+                if (TxtPixelPercent != null) TxtPixelPercent.Text = $"{(int)e.NewValue}px";
+            }
+
             SettingsManager.SaveSettings(_settings);
             _itemsView?.Refresh();
         }
@@ -2798,7 +2793,7 @@ namespace ModernKey
         private void ApplyBlurToHost(FrameworkElement host)
         {
             if (_settings == null || host == null) return;
-            if (_settings.ClipboardBlurMode == "Blur")
+            if (_settings.ClipboardBlurMode == "Blur" && _settings.ClipboardBlurRadius > 0.5)
             {
                 host.Effect = new System.Windows.Media.Effects.BlurEffect
                 {
@@ -2806,7 +2801,7 @@ namespace ModernKey
                     KernelType = System.Windows.Media.Effects.KernelType.Gaussian
                 };
             }
-            else if (_settings.ClipboardBlurMode == "Pixelate")
+            else if (_settings.ClipboardBlurMode == "Pixelate" && _settings.ClipboardPixelateSize > 0.5)
             {
                 host.Effect = new System.Windows.Media.Effects.BlurEffect
                 {

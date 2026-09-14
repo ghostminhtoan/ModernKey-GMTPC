@@ -394,6 +394,7 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
                         <!-- Khối 1: Phím bổ trợ (Modifiers) -->
@@ -428,9 +429,9 @@
 
                                 <!-- Cột Trái -->
                                 <StackPanel Grid.Row="1" Grid.Column="0">
-                                    <CheckBox x:Name="ChkShortcutF1" Content="F1 (Bật Tiếng Việt)" Margin="0,0,0,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Kích hoạt ngay chế độ gõ Tiếng Việt" />
-                                    <CheckBox x:Name="ChkShortcutF2" Content="F2 (Tắt Tiếng Việt - Tiếng Anh)" Margin="0,0,0,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Chuyển ngay sang chế độ gõ Tiếng Anh" />
-                                    <CheckBox x:Name="ChkShortcutF3" Content="F3 (Chuyển Bảng mã Unicode)" Margin="0,0,0,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Chuyển nhanh sang bảng mã chuẩn Unicode" />
+                                    <CheckBox x:Name="ChkShortcutF1" Content="F1 (Chuyển sang Tiếng Việt)" Margin="0,0,0,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Kích hoạt chế độ gõ Tiếng Việt" />
+                                    <CheckBox x:Name="ChkShortcutF2" Content="F2 (Chuyển sang Tiếng Anh)" Margin="0,0,0,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Kích hoạt chế độ gõ Tiếng Anh" />
+                                    <CheckBox x:Name="ChkShortcutF3" Content="F3 (Chuyển sang Unicode)" Margin="0,0,0,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Đổi bảng mã sang Unicode dựng sẵn" />
                                     
                                     <!-- F4 kèm ComboBox chọn bảng mã -->
                                     <Grid Margin="0,0,0,6">
@@ -447,14 +448,24 @@
                                 <StackPanel Grid.Row="1" Grid.Column="2">
                                     <CheckBox x:Name="ChkShortcutF5" Content="F5 (Mở Cài đặt ModernKey)" Margin="0,0,0,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Hiện bảng điều khiển chính của ModernKey" />
 
-                                    <!-- F6 kèm ComboBox chọn kiểu gõ (mặc định Tư Bình Trần) -->
+                                    <!-- F6: Kiểu gõ 1 (Mặc định: Telex) -->
                                     <Grid Margin="0,0,0,10">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <CheckBox x:Name="ChkShortcutF6" Grid.Column="0" Content="F6:" VerticalAlignment="Center" Margin="0,0,8,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Chuyển sang kiểu gõ tùy chọn bên cạnh" />
-                                        <ComboBox x:Name="CmbShortcutF6InputMethod" Grid.Column="1" SelectionChanged="CmbShortcutF6InputMethod_SelectionChanged" ToolTip="Chọn kiểu gõ kích hoạt khi ấn phím F6 (Mặc định: Tư Bình Trần)" />
+                                        <CheckBox x:Name="ChkShortcutF6" Grid.Column="0" Content="F6 (Kiểu gõ 1):" VerticalAlignment="Center" Margin="0,0,8,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Kích hoạt kiểu gõ 1 khi ấn phím F6 (Mặc định: Telex)" />
+                                        <ComboBox x:Name="CmbShortcutF6InputMethod" Grid.Column="1" SelectionChanged="CmbShortcutF6InputMethod_SelectionChanged" ToolTip="Chọn kiểu gõ 1 kích hoạt khi ấn phím F6 (Mặc định: Telex)" />
+                                    </Grid>
+
+                                    <!-- F7: Kiểu gõ 2 (Mặc định: VNI) -->
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox x:Name="ChkShortcutF7" Grid.Column="0" Content="F7 (Kiểu gõ 2):" VerticalAlignment="Center" Margin="0,0,8,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Kích hoạt kiểu gõ 2 khi ấn phím F7 (Mặc định: VNI)" />
+                                        <ComboBox x:Name="CmbShortcutF7InputMethod" Grid.Column="1" SelectionChanged="CmbShortcutF7InputMethod_SelectionChanged" ToolTip="Chọn kiểu gõ 2 kích hoạt khi ấn phím F7 (Mặc định: VNI)" />
                                     </Grid>
 
                                     <CheckBox x:Name="ChkShortcutF8" Content="F8 (Mở Bảng gõ tắt)" Margin="0,0,0,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Mở bảng điều khiển và chọn ngay Tab Gõ tắt" />
@@ -465,8 +476,49 @@
                             </Grid>
                         </Border>
 
+                        <!-- Khối 2.5: Phím tắt Game Mode & Quick Text Transform -->
+                        <Border Grid.Row="2" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="14,10" Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock Text="[TÙY CHỈNH PHÍM TẮT GAME MODE &amp; QUICK TEXT]:" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,10" />
+
+                                <!-- Phím tắt Game Mode -->
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="190" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Game Mode (Zero-Latency):" VerticalAlignment="Center" FontFamily="Consolas" FontWeight="SemiBold" Foreground="{StaticResource CyberNeonYellow}" />
+                                    <WrapPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <CheckBox x:Name="ChkGameModeCtrl" Content="Ctrl" Margin="0,0,12,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                                        <CheckBox x:Name="ChkGameModeAlt" Content="Alt" Margin="0,0,12,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                                        <CheckBox x:Name="ChkGameModeWin" Content="Win" Margin="0,0,12,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                                        <CheckBox x:Name="ChkGameModeShift" Content="Shift" Margin="0,0,12,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                                        <TextBlock Text="+" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{StaticResource CyberTextSecondary}" />
+                                        <TextBox x:Name="TxtGameModeKeyChar" Width="60" Height="24" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontFamily="Consolas" FontWeight="Bold" Background="#0C1A24" Foreground="{StaticResource CyberNeonCyan}" BorderBrush="{StaticResource CyberBorderDim}" TextChanged="TxtGameModeKeyChar_TextChanged" ToolTip="Phím ký tự (ví dụ: F11, G...). Để trống nếu chỉ dùng tổ hợp phím bổ trợ (Ctrl/Shift/Alt/Win)" />
+                                    </WrapPanel>
+                                </Grid>
+
+                                <!-- Phím tắt Quick Text Transform -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="190" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Quick Text Transform:" VerticalAlignment="Center" FontFamily="Consolas" FontWeight="SemiBold" Foreground="{StaticResource CyberNeonPink}" />
+                                    <WrapPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <CheckBox x:Name="ChkQuickTextCtrl" Content="Ctrl" Margin="0,0,12,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                                        <CheckBox x:Name="ChkQuickTextAlt" Content="Alt" Margin="0,0,12,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                                        <CheckBox x:Name="ChkQuickTextWin" Content="Win" Margin="0,0,12,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                                        <CheckBox x:Name="ChkQuickTextShift" Content="Shift" Margin="0,0,12,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                                        <TextBlock Text="+" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{StaticResource CyberTextSecondary}" />
+                                        <TextBox x:Name="TxtQuickTextKeyChar" Width="60" Height="24" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontFamily="Consolas" FontWeight="Bold" Background="#240B18" Foreground="{StaticResource CyberNeonPink}" BorderBrush="{StaticResource CyberBorderDim}" TextChanged="TxtQuickTextKeyChar_TextChanged" ToolTip="Phím ký tự (ví dụ: U, T...). Để trống nếu chỉ dùng tổ hợp phím bổ trợ (Ctrl/Shift/Alt/Win)" />
+                                    </WrapPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
                         <!-- Khối 3: Ghi chú HUD Tip -->
-                        <Border Grid.Row="2" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="12,10">
+                        <Border Grid.Row="3" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="12,10">
                             <StackPanel>
                                 <TextBlock Text="[HUD SYSTEM INFO]:" FontWeight="Bold" Foreground="{StaticResource CyberNeonYellow}" FontFamily="Consolas" />
                                 <TextBlock Text="• Các phím tắt trên hoạt động toàn cục trên mọi ứng dụng khi bạn nhấn cùng lúc với các phím bổ trợ (Ctrl / Shift / Alt / Win)."

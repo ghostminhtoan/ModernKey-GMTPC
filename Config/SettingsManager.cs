@@ -358,6 +358,51 @@ namespace ModernKey.Config
                         case "ShortcutF4Charset":
                             if (Enum.TryParse<Charset>(val, out var scfc)) settings.ShortcutF4Charset = scfc;
                             break;
+                        case "ShortcutF6InputMethod":
+                            if (Enum.TryParse<InputMethod>(val, out var scf6)) settings.ShortcutF6InputMethod = scf6;
+                            break;
+                        case "ShortcutF7InputMethod":
+                            if (Enum.TryParse<InputMethod>(val, out var scf7)) settings.ShortcutF7InputMethod = scf7;
+                            break;
+                        case "GameModeCtrl":
+                            if (bool.TryParse(val, out var gmctrl)) settings.GameModeCtrl = gmctrl;
+                            break;
+                        case "GameModeAlt":
+                            if (bool.TryParse(val, out var gmalt)) settings.GameModeAlt = gmalt;
+                            break;
+                        case "GameModeWin":
+                            if (bool.TryParse(val, out var gmwin)) settings.GameModeWin = gmwin;
+                            break;
+                        case "GameModeShift":
+                            if (bool.TryParse(val, out var gmshift)) settings.GameModeShift = gmshift;
+                            break;
+                        case "GameModeKeyChar":
+                            settings.GameModeKeyChar = val ?? "F11";
+                            break;
+                        case "QuickTextCtrl":
+                            if (bool.TryParse(val, out var qtctrl)) settings.QuickTextCtrl = qtctrl;
+                            break;
+                        case "QuickTextAlt":
+                            if (bool.TryParse(val, out var qtalt)) settings.QuickTextAlt = qtalt;
+                            break;
+                        case "QuickTextWin":
+                            if (bool.TryParse(val, out var qtwin)) settings.QuickTextWin = qtwin;
+                            break;
+                        case "QuickTextShift":
+                            if (bool.TryParse(val, out var qtshift)) settings.QuickTextShift = qtshift;
+                            break;
+                        case "QuickTextKeyChar":
+                            settings.QuickTextKeyChar = val ?? "U";
+                            break;
+                        case "ClipboardBlurMode":
+                            settings.ClipboardBlurMode = string.IsNullOrEmpty(val) ? "None" : val;
+                            break;
+                        case "ClipboardBlurRadius":
+                            if (double.TryParse(val, out var cbr)) settings.ClipboardBlurRadius = cbr;
+                            break;
+                        case "ClipboardPixelateSize":
+                            if (double.TryParse(val, out var cps)) settings.ClipboardPixelateSize = cps;
+                            break;
                         case "AutoExcludeEnabled":
                             if (bool.TryParse(val, out var aee)) settings.AutoExcludeEnabled = aee;
                             break;
@@ -475,6 +520,12 @@ namespace ModernKey.Config
                 Debug.WriteLine("Error reading settings: " + ex.Message);
             }
 
+            // Tránh đúp OSD: Nếu cả EnableStatusOsd và EnableCaretIndicator đều true, ưu tiên CaretIndicator và tắt StatusOsd
+            if (settings.EnableStatusOsd && settings.EnableCaretIndicator)
+            {
+                settings.EnableStatusOsd = false;
+            }
+
             return settings;
         }
 
@@ -515,6 +566,21 @@ namespace ModernKey.Config
                 sb.AppendLine("ShortcutModifier=" + settings.ShortcutModifier);
                 sb.AppendLine("ShortcutEnableMask=" + settings.ShortcutEnableMask);
                 sb.AppendLine("ShortcutF4Charset=" + settings.ShortcutF4Charset);
+                sb.AppendLine("ShortcutF6InputMethod=" + settings.ShortcutF6InputMethod);
+                sb.AppendLine("ShortcutF7InputMethod=" + settings.ShortcutF7InputMethod);
+                sb.AppendLine("GameModeCtrl=" + settings.GameModeCtrl);
+                sb.AppendLine("GameModeAlt=" + settings.GameModeAlt);
+                sb.AppendLine("GameModeWin=" + settings.GameModeWin);
+                sb.AppendLine("GameModeShift=" + settings.GameModeShift);
+                sb.AppendLine("GameModeKeyChar=" + (settings.GameModeKeyChar ?? "F11"));
+                sb.AppendLine("QuickTextCtrl=" + settings.QuickTextCtrl);
+                sb.AppendLine("QuickTextAlt=" + settings.QuickTextAlt);
+                sb.AppendLine("QuickTextWin=" + settings.QuickTextWin);
+                sb.AppendLine("QuickTextShift=" + settings.QuickTextShift);
+                sb.AppendLine("QuickTextKeyChar=" + (settings.QuickTextKeyChar ?? "U"));
+                sb.AppendLine("ClipboardBlurMode=" + settings.ClipboardBlurMode);
+                sb.AppendLine("ClipboardBlurRadius=" + settings.ClipboardBlurRadius);
+                sb.AppendLine("ClipboardPixelateSize=" + settings.ClipboardPixelateSize);
                 sb.AppendLine("AutoExcludeEnabled=" + settings.AutoExcludeEnabled);
                 sb.AppendLine("ExcludedApps=" + (settings.ExcludedApps != null ? string.Join(";", settings.ExcludedApps) : ""));
                 sb.AppendLine("EnableStatusOsd=" + settings.EnableStatusOsd);

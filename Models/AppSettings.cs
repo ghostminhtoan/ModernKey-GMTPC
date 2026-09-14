@@ -45,8 +45,24 @@ namespace ModernKey.Models
         public int ShortcutEnableMask { get; set; } = 0x1FFF;
         // Bảng mã chuyển nhanh khi bấm F4 (mặc định VNI Windows theo OpenKey C++)
         public Charset ShortcutF4Charset { get; set; } = Charset.VniWindows;
-        // Kiểu gõ chuyển nhanh khi bấm F6 (mặc định Tư Bình Trần theo yêu cầu)
-        public InputMethod ShortcutF6InputMethod { get; set; } = InputMethod.TuBinhTran;
+        // Kiểu gõ chuyển nhanh khi bấm F6 (Kiểu gõ 1, mặc định Telex theo yêu cầu)
+        public InputMethod ShortcutF6InputMethod { get; set; } = InputMethod.Telex;
+        // Kiểu gõ chuyển nhanh khi bấm F7 (Kiểu gõ 2, mặc định VNI theo yêu cầu)
+        public InputMethod ShortcutF7InputMethod { get; set; } = InputMethod.Vni;
+
+        // Tùy chỉnh phím tắt Game Mode Zero-Latency
+        public bool GameModeCtrl { get; set; } = true;
+        public bool GameModeAlt { get; set; } = false;
+        public bool GameModeWin { get; set; } = false;
+        public bool GameModeShift { get; set; } = true;
+        public string GameModeKeyChar { get; set; } = "F11";
+
+        // Tùy chỉnh phím tắt Quick Text Transform Toolbar
+        public bool QuickTextCtrl { get; set; } = true;
+        public bool QuickTextAlt { get; set; } = false;
+        public bool QuickTextWin { get; set; } = false;
+        public bool QuickTextShift { get; set; } = true;
+        public string QuickTextKeyChar { get; set; } = "U";
 
         // Danh sách quy tắc kiểu gõ tự định nghĩa (Custom Input Method)
         public System.Collections.Generic.List<CustomInputRule> CustomRules { get; set; } = CustomInputRule.GetPreset(0);
@@ -70,10 +86,10 @@ namespace ModernKey.Models
         public int ClipboardMaxItems { get; set; } = 200;
 
         // Làm mờ Clipboard (Blur / Pixelated) với slider từ 0 đến 100
-        // Mode: "None", "Blur", "Pixelate"
+        // Mode: "None", "Blur", "Pixelate" (Mặc định: None - Không làm mờ)
         public string ClipboardBlurMode { get; set; } = "None";
-        public double ClipboardBlurRadius { get; set; } = 20.0;
-        public double ClipboardPixelateSize { get; set; } = 15.0;
+        public double ClipboardBlurRadius { get; set; } = 0.0;
+        public double ClipboardPixelateSize { get; set; } = 0.0;
 
         // Tùy chọn gộp Clipboard khi chọn nhiều mục (Ctrl+C / Paste)
         // 0: Không đánh số, 1: Số thường (1. 2. 3.), 2: Số La Mã (I. II. III.), 3: Alphabet thường (a. b. c.), 4: Alphabet hoa (A. B. C.)

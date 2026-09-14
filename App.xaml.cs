@@ -110,6 +110,31 @@ namespace ModernKey
             _statusOsdWindow = new StatusOsdWindow();
             _clipboardListener = new ClipboardListener(_clipboardHistory, _settings);
 
+            // 4. Kiểm tra xung đột với bộ gõ tiếng Việt khác đang chạy ngầm (OpenKey, UniKey, EVKey)
+            try
+            {
+                int curPid = Process.GetCurrentProcess().Id;
+                var conflict = Process.GetProcesses().FirstOrDefault(p =>
+                {
+                    try
+                    {
+                        if (p.Id == curPid) return false;
+                        string n = p.ProcessName.ToLowerInvariant();
+                        return (n.Contains("openkey") || n.Contains("unikey") || n.Contains("evkey")) && !n.Contains("modernkey");
+                    }
+                    catch { return false; }
+                });
+
+                if (conflict != null)
+                {
+                    Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(() =>
+                    {
+                        _statusOsdWindow?.ShowMessage($"⚠ Phát hiện {conflict.ProcessName} đang chạy, hãy tắt bớt để tránh đúp [VI]/[EN]!", "#FFAA00");
+                    }));
+                }
+            }
+            catch { }
+
             // Đồng bộ trạng thái khi phím tắt chuyển đổi chế độ V/E bất đồng bộ (Non-blocking Hook Thread)
             _keyboardHook.LanguageChanged += () =>
             {
@@ -234,22 +259,6 @@ namespace ModernKey
                     _statusOsdWindow?.ShowMessage($"Kiểu gõ: {imName}", "#00F0FF");
                     _trayManager?.UpdateTrayIcon();
                 }));
-            };
-
-            // Floating Caret Indicator bám theo con trỏ soạn thảo
-            KeyboardHook.RequestShowCaretIndicator += () =>
-            {
-                if (_settings != null && _settings.EnableCaretIndicator)
-                {
-                    Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
-                    {
-                        if (_caretIndicatorWindow == null)
-                        {
-                            _caretIndicatorWindow = new CaretIndicatorWindow();
-                        }
-                        _caretIndicatorWindow.ShowIndicator(_settings.IsVietnamese);
-                    }));
-                }
             };
 
             // Lắng nghe đồng bộ cấu hình từ bên ngoài (P2P / Local Folder Sync)
@@ -435,7 +444,16 @@ namespace ModernKey
 
         public void ShowStatusOsd(bool isVietnamese)
         {
-            if (_settings != null && _settings.EnableStatusOsd)
+            if (_settings == null) return;
+            if (_settings.EnableCaretIndicator)
+            {
+                if (_caretIndicatorWindow == null)
+                {
+                    _caretIndicatorWindow = new CaretIndicatorWindow();
+                }
+                _caretIndicatorWindow.ShowIndicator(isVietnamese);
+            }
+            else if (_settings.EnableStatusOsd)
             {
                 _statusOsdWindow?.ShowStatus(isVietnamese);
             }

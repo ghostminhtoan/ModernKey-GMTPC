@@ -96,6 +96,11 @@ namespace ModernKey
             {
                 CmbShortcutF6InputMethod.ItemsSource = Enum.GetValues(typeof(InputMethod));
             }
+            // Kiểu gõ cho phím F7 (Tab Phím tắt)
+            if (CmbShortcutF7InputMethod != null)
+            {
+                CmbShortcutF7InputMethod.ItemsSource = Enum.GetValues(typeof(InputMethod));
+            }
 
             // Compact Mode ComboBoxes
             if (CmbCompactCharset != null)
@@ -272,10 +277,29 @@ namespace ModernKey
                     CmbShortcutF6InputMethod.SelectedItem = _settings.ShortcutF6InputMethod;
                     CmbShortcutF6InputMethod.IsEnabled = (ChkShortcutF6?.IsChecked == true);
                 }
+                if (ChkShortcutF7 != null) ChkShortcutF7.IsChecked = (_settings.ShortcutEnableMask & (1 << 7)) != 0;
+                if (CmbShortcutF7InputMethod != null)
+                {
+                    CmbShortcutF7InputMethod.SelectedItem = _settings.ShortcutF7InputMethod;
+                    CmbShortcutF7InputMethod.IsEnabled = (ChkShortcutF7?.IsChecked == true);
+                }
                 if (ChkShortcutF8 != null) ChkShortcutF8.IsChecked = (_settings.ShortcutEnableMask & (1 << 8)) != 0;
                 if (ChkShortcutF9 != null) ChkShortcutF9.IsChecked = (_settings.ShortcutEnableMask & (1 << 9)) != 0;
                 if (ChkShortcutF11 != null) ChkShortcutF11.IsChecked = (_settings.ShortcutEnableMask & (1 << 11)) != 0;
                 if (ChkShortcutF12 != null) ChkShortcutF12.IsChecked = (_settings.ShortcutEnableMask & (1 << 12)) != 0;
+
+                // Đồng bộ phím tắt Game Mode & Quick Text
+                if (ChkGameModeCtrl != null) ChkGameModeCtrl.IsChecked = _settings.GameModeCtrl;
+                if (ChkGameModeAlt != null) ChkGameModeAlt.IsChecked = _settings.GameModeAlt;
+                if (ChkGameModeWin != null) ChkGameModeWin.IsChecked = _settings.GameModeWin;
+                if (ChkGameModeShift != null) ChkGameModeShift.IsChecked = _settings.GameModeShift;
+                if (TxtGameModeKeyChar != null) TxtGameModeKeyChar.Text = _settings.GameModeKeyChar ?? "F11";
+
+                if (ChkQuickTextCtrl != null) ChkQuickTextCtrl.IsChecked = _settings.QuickTextCtrl;
+                if (ChkQuickTextAlt != null) ChkQuickTextAlt.IsChecked = _settings.QuickTextAlt;
+                if (ChkQuickTextWin != null) ChkQuickTextWin.IsChecked = _settings.QuickTextWin;
+                if (ChkQuickTextShift != null) ChkQuickTextShift.IsChecked = _settings.QuickTextShift;
+                if (TxtQuickTextKeyChar != null) TxtQuickTextKeyChar.Text = _settings.QuickTextKeyChar ?? "U";
             }
             finally
             {
@@ -361,6 +385,7 @@ namespace ModernKey
             if (ChkShortcutF4?.IsChecked == true) fMask |= (1 << 4);
             if (ChkShortcutF5?.IsChecked == true) fMask |= (1 << 5);
             if (ChkShortcutF6?.IsChecked == true) fMask |= (1 << 6);
+            if (ChkShortcutF7?.IsChecked == true) fMask |= (1 << 7);
             if (ChkShortcutF8?.IsChecked == true) fMask |= (1 << 8);
             if (ChkShortcutF9?.IsChecked == true) fMask |= (1 << 9);
             if (ChkShortcutF11?.IsChecked == true) fMask |= (1 << 11);
@@ -384,6 +409,27 @@ namespace ModernKey
                     _settings.ShortcutF6InputMethod = f6im;
                 }
             }
+
+            if (CmbShortcutF7InputMethod != null)
+            {
+                CmbShortcutF7InputMethod.IsEnabled = (ChkShortcutF7?.IsChecked == true);
+                if (CmbShortcutF7InputMethod.SelectedItem is InputMethod f7im)
+                {
+                    _settings.ShortcutF7InputMethod = f7im;
+                }
+            }
+
+            if (ChkGameModeCtrl != null) _settings.GameModeCtrl = ChkGameModeCtrl.IsChecked == true;
+            if (ChkGameModeAlt != null) _settings.GameModeAlt = ChkGameModeAlt.IsChecked == true;
+            if (ChkGameModeWin != null) _settings.GameModeWin = ChkGameModeWin.IsChecked == true;
+            if (ChkGameModeShift != null) _settings.GameModeShift = ChkGameModeShift.IsChecked == true;
+            if (TxtGameModeKeyChar != null) _settings.GameModeKeyChar = TxtGameModeKeyChar.Text.Trim();
+
+            if (ChkQuickTextCtrl != null) _settings.QuickTextCtrl = ChkQuickTextCtrl.IsChecked == true;
+            if (ChkQuickTextAlt != null) _settings.QuickTextAlt = ChkQuickTextAlt.IsChecked == true;
+            if (ChkQuickTextWin != null) _settings.QuickTextWin = ChkQuickTextWin.IsChecked == true;
+            if (ChkQuickTextShift != null) _settings.QuickTextShift = ChkQuickTextShift.IsChecked == true;
+            if (TxtQuickTextKeyChar != null) _settings.QuickTextKeyChar = TxtQuickTextKeyChar.Text.Trim();
         }
 
         private void BtnQuickLangToggle_Click(object sender, RoutedEventArgs e)
@@ -468,6 +514,36 @@ namespace ModernKey
             }
         }
 
+        private void CmbShortcutF7InputMethod_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isUpdatingUi) return;
+            if (CmbShortcutF7InputMethod.SelectedItem is InputMethod im)
+            {
+                _settings.ShortcutF7InputMethod = im;
+                SettingsManager.SaveSettings(_settings);
+            }
+        }
+
+        private void TxtGameModeKeyChar_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isUpdatingUi) return;
+            if (TxtGameModeKeyChar != null)
+            {
+                _settings.GameModeKeyChar = TxtGameModeKeyChar.Text.Trim();
+                SettingsManager.SaveSettings(_settings);
+            }
+        }
+
+        private void TxtQuickTextKeyChar_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isUpdatingUi) return;
+            if (TxtQuickTextKeyChar != null)
+            {
+                _settings.QuickTextKeyChar = TxtQuickTextKeyChar.Text.Trim();
+                SettingsManager.SaveSettings(_settings);
+            }
+        }
+
         public void SelectMacroTab()
         {
             if (MainTabControl != null)
@@ -479,6 +555,16 @@ namespace ModernKey
         private void SettingCheckChanged(object sender, RoutedEventArgs e)
         {
             if (_isUpdatingUi) return;
+
+            // Loại trừ tương hỗ giữa OSD chuột và Caret HUD để không bao giờ bị hiện đúp 2 huy hiệu [VI]
+            if (sender == ChkEnableStatusOsd && ChkEnableStatusOsd.IsChecked == true && ChkEnableCaretIndicator != null)
+            {
+                ChkEnableCaretIndicator.IsChecked = false;
+            }
+            else if (sender == ChkEnableCaretIndicator && ChkEnableCaretIndicator.IsChecked == true && ChkEnableStatusOsd != null)
+            {
+                ChkEnableStatusOsd.IsChecked = false;
+            }
 
             SyncUiToSettings();
             SettingsManager.SaveSettings(_settings);

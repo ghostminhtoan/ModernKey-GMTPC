@@ -295,30 +295,28 @@
                                 <MenuItem Header="🔍 Trích xuất chữ từ ảnh (OCR)..." Click="CtxMenuOcr_Click" Style="{StaticResource CyberMenuItem}" />
                                 
                                 <Separator Style="{StaticResource CyberMenuSeparator}" />
-                                <!-- Tính năng Làm mờ Clipboard với slider 0-100 -->
-                                <MenuItem Header="🎭 Làm mờ Clipboard (Privacy Blur)..." Style="{StaticResource CyberMenuItem}">
-                                    <MenuItem x:Name="MnuBlurNone" Header="Không làm mờ (Mặc định)" IsCheckable="True" Click="MnuBlurNone_Click" Style="{StaticResource CyberMenuItem}" />
-                                    <Separator Style="{StaticResource CyberMenuSeparator}" />
-                                    <MenuItem x:Name="MnuBlurBlur" IsCheckable="True" Click="MnuBlurBlur_Click" Style="{StaticResource CyberMenuItem}">
+                                <!-- Tính năng Làm mờ Clipboard: 2 suboption Pixelated và Blur (mỗi option có slider 0-100) -->
+                                <MenuItem Header="🎭 Làm mờ Clipboard" Style="{StaticResource CyberMenuItem}">
+                                    <MenuItem x:Name="MnuBlurPixel" Style="{StaticResource CyberMenuItem}">
                                         <MenuItem.Header>
                                             <StackPanel Width="230" Margin="0,2">
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
-                                                    <TextBlock Text="Làm mờ (Blur):" Foreground="{StaticResource CyberNeonCyan}" FontSize="11" FontFamily="Consolas" />
-                                                    <TextBlock x:Name="TxtBlurPercent" Text="20%" Foreground="{StaticResource CyberNeonYellow}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" Margin="8,0,0,0" />
+                                                    <TextBlock Text="Pixelated:" Foreground="{StaticResource CyberNeonPink}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" />
+                                                    <TextBlock x:Name="TxtPixelPercent" Text="0px" Foreground="{StaticResource CyberNeonYellow}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" Margin="8,0,0,0" />
                                                 </StackPanel>
-                                                <Slider x:Name="SliderBlurRadius" Minimum="0" Maximum="100" Value="20" ValueChanged="SliderBlurRadius_ValueChanged" Margin="0,4,0,2" />
+                                                <Slider x:Name="SliderPixelSize" Minimum="0" Maximum="100" Value="0" ValueChanged="SliderPixelSize_ValueChanged" Margin="0,4,0,2" />
                                             </StackPanel>
                                         </MenuItem.Header>
                                     </MenuItem>
                                     <Separator Style="{StaticResource CyberMenuSeparator}" />
-                                    <MenuItem x:Name="MnuBlurPixel" IsCheckable="True" Click="MnuBlurPixel_Click" Style="{StaticResource CyberMenuItem}">
+                                    <MenuItem x:Name="MnuBlurBlur" Style="{StaticResource CyberMenuItem}">
                                         <MenuItem.Header>
                                             <StackPanel Width="230" Margin="0,2">
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
-                                                    <TextBlock Text="Pixel hóa (Pixelated):" Foreground="{StaticResource CyberNeonPink}" FontSize="11" FontFamily="Consolas" />
-                                                    <TextBlock x:Name="TxtPixelPercent" Text="15px" Foreground="{StaticResource CyberNeonYellow}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" Margin="8,0,0,0" />
+                                                    <TextBlock Text="Blur:" Foreground="{StaticResource CyberNeonCyan}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" />
+                                                    <TextBlock x:Name="TxtBlurPercent" Text="0%" Foreground="{StaticResource CyberNeonYellow}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" Margin="8,0,0,0" />
                                                 </StackPanel>
-                                                <Slider x:Name="SliderPixelSize" Minimum="0" Maximum="100" Value="15" ValueChanged="SliderPixelSize_ValueChanged" Margin="0,4,0,2" />
+                                                <Slider x:Name="SliderBlurRadius" Minimum="0" Maximum="100" Value="0" ValueChanged="SliderBlurRadius_ValueChanged" Margin="0,4,0,2" />
                                             </StackPanel>
                                         </MenuItem.Header>
                                     </MenuItem>

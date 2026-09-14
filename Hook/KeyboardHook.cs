@@ -147,6 +147,76 @@ namespace ModernKey.Hook
             return 0;
         }
 
+        private int GetGameModeModifierMask()
+        {
+            int mask = 0;
+            if (_settings.GameModeCtrl) mask |= MASK_CTRL;
+            if (_settings.GameModeShift) mask |= MASK_SHIFT;
+            if (_settings.GameModeAlt) mask |= MASK_ALT;
+            if (_settings.GameModeWin) mask |= MASK_WIN;
+            return mask;
+        }
+
+        private int GetQuickTextModifierMask()
+        {
+            int mask = 0;
+            if (_settings.QuickTextCtrl) mask |= MASK_CTRL;
+            if (_settings.QuickTextShift) mask |= MASK_SHIFT;
+            if (_settings.QuickTextAlt) mask |= MASK_ALT;
+            if (_settings.QuickTextWin) mask |= MASK_WIN;
+            return mask;
+        }
+
+        private bool IsMatchingGameModeHotkey(uint vkCode)
+        {
+            string keyStr = (_settings.GameModeKeyChar ?? "").Trim().ToUpperInvariant();
+            if (string.IsNullOrEmpty(keyStr)) return false;
+
+            bool ctrlOk = !_settings.GameModeCtrl || (_modifierFlag & MASK_CTRL) != 0 || (GetAsyncKeyState(0x11) & 0x8000) != 0;
+            bool shiftOk = !_settings.GameModeShift || (_modifierFlag & MASK_SHIFT) != 0 || (GetAsyncKeyState(0x10) & 0x8000) != 0;
+            bool altOk = !_settings.GameModeAlt || (_modifierFlag & MASK_ALT) != 0 || (GetAsyncKeyState(0x12) & 0x8000) != 0;
+            bool winOk = !_settings.GameModeWin || (_modifierFlag & MASK_WIN) != 0 || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0;
+
+            if (!ctrlOk || !shiftOk || !altOk || !winOk) return false;
+
+            return MatchKeyString(vkCode, keyStr);
+        }
+
+        private bool IsMatchingQuickTextHotkey(uint vkCode)
+        {
+            string keyStr = (_settings.QuickTextKeyChar ?? "").Trim().ToUpperInvariant();
+            if (string.IsNullOrEmpty(keyStr)) return false;
+
+            bool ctrlOk = !_settings.QuickTextCtrl || (_modifierFlag & MASK_CTRL) != 0 || (GetAsyncKeyState(0x11) & 0x8000) != 0;
+            bool shiftOk = !_settings.QuickTextShift || (_modifierFlag & MASK_SHIFT) != 0 || (GetAsyncKeyState(0x10) & 0x8000) != 0;
+            bool altOk = !_settings.QuickTextAlt || (_modifierFlag & MASK_ALT) != 0 || (GetAsyncKeyState(0x12) & 0x8000) != 0;
+            bool winOk = !_settings.QuickTextWin || (_modifierFlag & MASK_WIN) != 0 || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0;
+
+            if (!ctrlOk || !shiftOk || !altOk || !winOk) return false;
+
+            return MatchKeyString(vkCode, keyStr);
+        }
+
+        private static bool MatchKeyString(uint vkCode, string keyStr)
+        {
+            if (string.IsNullOrEmpty(keyStr)) return false;
+            if (keyStr.StartsWith("F") && int.TryParse(keyStr.Substring(1), out int fNum) && fNum >= 1 && fNum <= 12)
+            {
+                return vkCode == (uint)(0x70 + fNum - 1);
+            }
+            if (keyStr == "SPACE") return vkCode == 0x20;
+            if (keyStr == "TAB") return vkCode == 0x09;
+            if (keyStr == "ENTER") return vkCode == 0x0D;
+            if (keyStr == "ESC" || keyStr == "ESCAPE") return vkCode == 0x1B;
+            if (keyStr.Length == 1)
+            {
+                char c = keyStr[0];
+                if (c >= 'A' && c <= 'Z') return vkCode == (uint)c;
+                if (c >= '0' && c <= '9') return vkCode == (uint)c;
+            }
+            return false;
+        }
+
         private void SyncModifierState()
         {
             int flag = 0;
@@ -183,12 +253,13 @@ namespace ModernKey.Hook
         public event Action OpenTextTransformRequested;
         public static event Action<InputMethod> InputMethodChanged;
         public static event Action<bool> GameModeChanged;
-        public static event Action RequestShowCaretIndicator;
 
         public void ToggleGameMode()
         {
             _settings.GameModeEnabled = !_settings.GameModeEnabled;
             _engine.Reset();
+            ResetModifierState();
+            SyncModifierState();
             GameModeChanged?.Invoke(_settings.GameModeEnabled);
         }
 
@@ -196,6 +267,8 @@ namespace ModernKey.Hook
         {
             _settings.GameModeEnabled = enable;
             _engine.Reset();
+            ResetModifierState();
+            SyncModifierState();
             GameModeChanged?.Invoke(_settings.GameModeEnabled);
         }
 
@@ -298,10 +371,6 @@ namespace ModernKey.Hook
                 catch { }
             }
             LanguageChanged?.Invoke();
-            if (_settings.EnableCaretIndicator)
-            {
-                RequestShowCaretIndicator?.Invoke();
-            }
         }
 
         private void OnForegroundWindowChanged(IntPtr hWnd)
@@ -455,8 +524,8 @@ namespace ModernKey.Hook
                     uint vkCode = hookStruct.vkCode;
                     uint scanCode = hookStruct.scanCode;
 
-                    // 0. Toggle Game Mode nhanh: Ctrl + Shift + F11 (Feature 4)
-                    if (vkCode == 0x7A /* F11 */ && (_modifierFlag & MASK_CTRL) != 0 && (_modifierFlag & MASK_SHIFT) != 0)
+                    // 0. Toggle Game Mode nhanh (bắt trước khi bypass để luôn toggle được kể cả khi Game Mode đang bật)
+                    if (IsMatchingGameModeHotkey(vkCode))
                     {
                         ToggleGameMode();
                         return (IntPtr)1;
@@ -588,10 +657,8 @@ namespace ModernKey.Hook
                         return (IntPtr)1;
                     }
 
-                    // 6.8. Phím tắt mở Quick Text Transform Popup: Win+Alt+T hoặc Ctrl+Shift+U / Ctrl+Shift+T (Feature 13)
-                    if (_settings.QuickTextTransformEnabled &&
-                        ((((_modifierFlag & (MASK_WIN | MASK_ALT)) == (MASK_WIN | MASK_ALT)) && vkCode == 0x54 /* T */) ||
-                         (((_modifierFlag & (MASK_CTRL | MASK_SHIFT)) == (MASK_CTRL | MASK_SHIFT)) && (vkCode == 0x55 /* U */ || vkCode == 0x54 /* T */))))
+                    // 6.8. Phím tắt mở Quick Text Transform Toolbar (Feature 13 - hỗ trợ phím tùy chỉnh)
+                    if (_settings.QuickTextTransformEnabled && IsMatchingQuickTextHotkey(vkCode))
                     {
                         KeySender.SuppressAltMenuActivation();
                         _engine.Reset();
@@ -664,9 +731,14 @@ namespace ModernKey.Hook
                                         OpenSettingsRequested?.Invoke();
                                         return (IntPtr)1;
 
-                                    case 6: // F6: Chuyển kiểu gõ tùy chọn (ShortcutF6InputMethod - Mặc định Tư Bình Trần)
+                                    case 6: // F6: Kiểu gõ 1 (ShortcutF6InputMethod - Mặc định Telex)
                                         _settings.CurrentInputMethod = _settings.ShortcutF6InputMethod;
                                         InputMethodChanged?.Invoke(_settings.ShortcutF6InputMethod);
+                                        return (IntPtr)1;
+
+                                    case 7: // F7: Kiểu gõ 2 (ShortcutF7InputMethod - Mặc định VNI)
+                                        _settings.CurrentInputMethod = _settings.ShortcutF7InputMethod;
+                                        InputMethodChanged?.Invoke(_settings.ShortcutF7InputMethod);
                                         return (IntPtr)1;
 
                                     case 8: // F8: Mở bảng gõ tắt
@@ -878,6 +950,20 @@ namespace ModernKey.Hook
                             if (targetSwitchMask != 0 && prevLastFlag == targetSwitchMask)
                             {
                                 TriggerLanguageSwitch();
+                            }
+
+                            // Toggle Game Mode thuần Modifier khi nhả phím (nếu không cấu hình phím ký tự)
+                            int gmMask = GetGameModeModifierMask();
+                            if (gmMask != 0 && string.IsNullOrWhiteSpace(_settings.GameModeKeyChar) && prevLastFlag == gmMask)
+                            {
+                                ToggleGameMode();
+                            }
+
+                            // Toggle Quick Text thuần Modifier khi nhả phím (nếu không cấu hình phím ký tự)
+                            int qtMask = GetQuickTextModifierMask();
+                            if (qtMask != 0 && string.IsNullOrWhiteSpace(_settings.QuickTextKeyChar) && prevLastFlag == qtMask)
+                            {
+                                OpenTextTransformRequested?.Invoke();
                             }
 
                             // Cập nhật lại _lastModifierFlag về trạng thái _modifierFlag hiện tại chuẩn OpenKey C++
