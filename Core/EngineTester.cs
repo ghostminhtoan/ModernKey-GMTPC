@@ -182,7 +182,7 @@ namespace ModernKey.Core
                 ("c6n", "cân"),
                 ("c8ng", "công"),
                 ("c9n", "căn"),
-                ("a62m", "ầm"),
+                ("6m2", "ầm"),
                 ("ai1", "ái"),
                 ("s[", "sư"),
                 ("dd[]ng2", "đường"),
@@ -201,17 +201,19 @@ namespace ModernKey.Core
                 ("chu6n3", "chuẩn"),
                 ("chu36n", "chuẩn"),
                 ("^n", "Ân"),
-                ("&-dde7", "Ê-đê"),
+                ("&-dd7", "Ê-đê"),
                 ("*n2", "Ồn"),
-                ("A9n", "Ăn"),
-                ("e7m", "êm"),
+                ("(n", "Ăn"),
                 ("7m", "êm"),
-                ("o8m", "ôm"),
                 ("8m", "ôm"),
-                ("a6p1", "ấp"),
-                ("a6m2", "ầm"),
-                ("o8n2", "ồn"),
-                ("a6y1", "ấy"),
+                ("6p1", "ấp"),
+                ("8n2", "ồn"),
+                ("6y1", "ấy"),
+                ("dosd", "dosd"),
+                ("a6", "a6"),
+                ("a9", "a9"),
+                ("e7", "e7"),
+                ("o8", "o8"),
                 ("[3", "ử"),
                 ("U[3", "Ử"),
                 ("]3", "ở"),
@@ -1280,7 +1282,7 @@ namespace ModernKey.Core
                         }
                     }
 
-                    // E. Test Tư Bình Trần: f6..f9, f66..f99, dd[]5c, d[]cjd, d[]c5d
+                    // E. Test Tư Bình Trần: độc lập hoàn toàn, không ăn rơ với Telex và VNI
                     var tbtNewSettings = new AppSettings
                     {
                         IsVietnamese = true,
@@ -1299,8 +1301,16 @@ namespace ModernKey.Core
                         ("f88", "f88"),
                         ("f99", "f99"),
                         ("dd[]5c", "được"),
-                        ("d[]cjd", "được"),
-                        ("d[]c5d", "được")
+                        ("d[]c5d", "được"),
+                        ("dosd", "dosd"),
+                        ("do1d", "đó"),
+                        ("a6", "a6"),
+                        ("a9", "a9"),
+                        ("e7", "e7"),
+                        ("o8", "o8"),
+                        ("c6n", "cân"),
+                        ("tr7n", "trên"),
+                        ("u8ng1", "uống")
                     };
                     foreach (var tc in tbtCases)
                     {

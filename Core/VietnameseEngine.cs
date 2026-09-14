@@ -1341,21 +1341,13 @@ namespace ModernKey.Core
                     }
                 }
 
-                // 2. Dấu thanh: 1..5 hoặc s, f, r, x, j (chỉ khi sb đã có nguyên âm)
+                // 2. Dấu thanh Tư Bình Trần: 1..5 (chỉ khi sb đã có nguyên âm, không dùng s/f/r/x/j của Telex)
                 bool hasVowelSoFar = HasAnyVowel(sb);
 
                 int tbtTargetTone = 0;
                 if (c >= '1' && c <= '5')
                 {
                     tbtTargetTone = c - '0';
-                }
-                else if (hasVowelSoFar)
-                {
-                    if (lower == 's') tbtTargetTone = 1;
-                    else if (lower == 'f') tbtTargetTone = 2;
-                    else if (lower == 'r') tbtTargetTone = 3;
-                    else if (lower == 'x') tbtTargetTone = 4;
-                    else if (lower == 'j') tbtTargetTone = 5;
                 }
 
                 if (hasVowelSoFar && tbtTargetTone > 0)
@@ -1403,7 +1395,7 @@ namespace ModernKey.Core
                 bool prevWasToneKey = i > 0 && (keys[i - 1] >= '1' && keys[i - 1] <= '5');
                 bool prevWasPureDigit = i > 0 && char.IsDigit(keys[i - 1]) && !prevWasToneKey;
 
-                if (c == '0' || lower == 'z')
+                if (c == '0')
                 {
                     if (tone > 0)
                     {
@@ -1566,7 +1558,7 @@ namespace ModernKey.Core
                     continue;
                 }
 
-                // 6 hoặc ^ (Shift+6): â / Â (ví dụ "a6" -> "â", "u6" -> "uâ", "c6n" -> "cân", "6n" -> "ân", "^n" -> "Ân", "gi6c" -> "giấc")
+                // 6 hoặc ^ (Shift+6): â / Â (ví dụ "u6" -> "uâ", "c6n" -> "cân", "6n" -> "ân", "^n" -> "Ân", "gi6c" -> "giấc")
                 if (c == '6' || c == '^')
                 {
                     if (prevWasPureDigit)
@@ -1584,16 +1576,6 @@ namespace ModernKey.Core
                         char pLower = char.ToLower(pChar);
                         bool pUpper = char.IsUpper(pChar);
 
-                        // a + 6 -> â
-                        if (pLower == 'a')
-                        {
-                            sb.Remove(sb.Length - 1, 1);
-                            sb.Append((pUpper || isUpperTarget) ? 'Â' : 'â');
-                            lastRawKey = c;
-                            wasStandaloneAtStart = false;
-                            modified = true;
-                            continue;
-                        }
                         // u + 6 -> uâ (chu6n -> chuẩn, xu6n -> xuân, qu6n -> quân, hu6n -> huân, khu6n -> khuân)
                         if (pLower == 'u')
                         {
@@ -1616,7 +1598,7 @@ namespace ModernKey.Core
                     }
                 }
 
-                // 7 hoặc & (Shift+7): ê / Ê (ví dụ "i7" -> "iê", "y7" -> "yê", "e7" -> "ê", "tr7n" -> "trên", "7m" -> "êm", "&-đê" -> "Ê-đê")
+                // 7 hoặc & (Shift+7): ê / Ê (ví dụ "i7" -> "iê", "y7" -> "yê", "tr7n" -> "trên", "7m" -> "êm", "&-đê" -> "Ê-đê")
                 if (c == '7' || c == '&')
                 {
                     if (prevWasPureDigit)
@@ -1634,16 +1616,6 @@ namespace ModernKey.Core
                         char pLower = char.ToLower(pChar);
                         bool pUpper = char.IsUpper(pChar);
 
-                        // e + 7 -> ê
-                        if (pLower == 'e')
-                        {
-                            sb.Remove(sb.Length - 1, 1);
-                            sb.Append((pUpper || isUpperTarget) ? 'Ê' : 'ê');
-                            lastRawKey = c;
-                            wasStandaloneAtStart = false;
-                            modified = true;
-                            continue;
-                        }
                         // i + 7 -> iê (ti7t -> tiết, si7ng -> siêng, chi7c -> chiếc, ki7m -> kiệm)
                         if (pLower == 'i' && !prevIsGi)
                         {
@@ -1684,7 +1656,7 @@ namespace ModernKey.Core
                     }
                 }
 
-                // 8 hoặc * (Shift+8): ô / Ô (ví dụ "u8" -> "uô", "o8" -> "ô", "c8ng" -> "công", "8m" -> "ôm", "*n" -> "Ôn", "*n2" -> "Ồn")
+                // 8 hoặc * (Shift+8): ô / Ô (ví dụ "u8" -> "uô", "c8ng" -> "công", "8m" -> "ôm", "*n" -> "Ôn", "*n2" -> "Ồn")
                 if (c == '8' || c == '*')
                 {
                     if (prevWasPureDigit)
@@ -1702,16 +1674,6 @@ namespace ModernKey.Core
                         char pLower = char.ToLower(pChar);
                         bool pUpper = char.IsUpper(pChar);
 
-                        // o + 8 -> ô
-                        if (pLower == 'o')
-                        {
-                            sb.Remove(sb.Length - 1, 1);
-                            sb.Append((pUpper || isUpperTarget) ? 'Ô' : 'ô');
-                            lastRawKey = c;
-                            wasStandaloneAtStart = false;
-                            modified = true;
-                            continue;
-                        }
                         // u + 8 -> uô (u8ng -> uống, tu8i -> tuổi, thu8c -> thuộc, gu8c -> guốc, lu8n -> luôn)
                         if (pLower == 'u' && !prevIsQu)
                         {
@@ -1734,7 +1696,7 @@ namespace ModernKey.Core
                     }
                 }
 
-                // 9 hoặc ( (Shift+9): ă / Ă (ví dụ "o9" -> "oă", "u9" -> "uă", "a9" -> "ă", "c9n" -> "căn", "9n" -> "ăn", "(n" -> "Ăn")
+                // 9 hoặc ( (Shift+9): ă / Ă (ví dụ "o9" -> "oă", "u9" -> "uă", "c9n" -> "căn", "9n" -> "ăn", "(n" -> "Ăn")
                 if (c == '9' || c == '(')
                 {
                     if (prevWasPureDigit)
@@ -1752,16 +1714,6 @@ namespace ModernKey.Core
                         char pLower = char.ToLower(pChar);
                         bool pUpper = char.IsUpper(pChar);
 
-                        // a + 9 -> ă
-                        if (pLower == 'a')
-                        {
-                            sb.Remove(sb.Length - 1, 1);
-                            sb.Append((pUpper || isUpperTarget) ? 'Ă' : 'ă');
-                            lastRawKey = c;
-                            wasStandaloneAtStart = false;
-                            modified = true;
-                            continue;
-                        }
                         // o + 9 -> oă (ho9c -> hoặc), u + 9 -> uă
                         if (pLower == 'o' || (pLower == 'u' && !prevIsQu))
                         {
