@@ -221,7 +221,18 @@ namespace ModernKey
             {
                 Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
                 {
-                    _statusOsdWindow?.ShowMessage(enabled ? "GAME MODE: ON (0ms)" : "GAME MODE: OFF (NORMAL)", enabled ? "#00FF66" : "#FF007F");
+                    _statusOsdWindow?.ShowMessage(enabled ? "🎮 GAME MODE: BẬT (Zero-Latency 0ms)" : "⌨️ GAME MODE: TẮT (Gõ tiếng Việt)", enabled ? "#00FF66" : "#FF007F");
+                }));
+            };
+
+            // Lắng nghe sự kiện đổi kiểu gõ từ phím F6
+            KeyboardHook.InputMethodChanged += (im) =>
+            {
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
+                {
+                    string imName = im == InputMethod.TuBinhTran ? "Tư Bình Trần" : (im == InputMethod.Telex ? "Telex" : (im == InputMethod.Vni ? "VNI" : im.ToString()));
+                    _statusOsdWindow?.ShowMessage($"Kiểu gõ: {imName}", "#00F0FF");
+                    _trayManager?.UpdateTrayIcon();
                 }));
             };
 

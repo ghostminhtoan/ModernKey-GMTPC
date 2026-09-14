@@ -5,6 +5,7 @@
         Width="50" Height="26"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ShowInTaskbar="False" IsHitTestVisible="False"
+        ShowActivated="False" Focusable="False"
         WindowStartupLocation="Manual">
     <Border x:Name="IndicatorBorder" Background="#E6080210" BorderBrush="{StaticResource CyberNeonCyan}" BorderThickness="1.5" CornerRadius="3">
         <TextBlock x:Name="TxtLang" Text="[VI]" FontWeight="Bold" FontSize="11" FontFamily="Consolas"

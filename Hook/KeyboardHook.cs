@@ -181,6 +181,7 @@ namespace ModernKey.Hook
         public event Action OpenClipboardFavoriteRequested;
         public Func<int, uint, bool> CheckClipboardShortcutRequested;
         public event Action OpenTextTransformRequested;
+        public static event Action<InputMethod> InputMethodChanged;
         public static event Action<bool> GameModeChanged;
         public static event Action RequestShowCaretIndicator;
 
@@ -297,6 +298,10 @@ namespace ModernKey.Hook
                 catch { }
             }
             LanguageChanged?.Invoke();
+            if (_settings.EnableCaretIndicator)
+            {
+                RequestShowCaretIndicator?.Invoke();
+            }
         }
 
         private void OnForegroundWindowChanged(IntPtr hWnd)
@@ -463,16 +468,10 @@ namespace ModernKey.Hook
                         return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
                     }
 
-                    // 17. Phát âm thanh click phím cơ Cyberpunk nếu được bật
+                    // 17. Phát âm thanh click phím cơ Cyberpunk nếu được bật (non-blocking)
                     if (_settings.EnableKeySound)
                     {
                         SoundManager.PlayKeyClick();
-                    }
-
-                    // 16. Báo hiệu hiển thị Caret Indicator khi bắt đầu gõ
-                    if (_settings.EnableCaretIndicator)
-                    {
-                        RequestShowCaretIndicator?.Invoke();
                     }
 
                     bool isModifierKey = (vkCode == 0x11 || vkCode == 0xA2 || vkCode == 0xA3 || // Ctrl
@@ -589,9 +588,10 @@ namespace ModernKey.Hook
                         return (IntPtr)1;
                     }
 
-                    // 6.8. Phím tắt mở Quick Text Transform Popup: Win+Alt+T hoặc Ctrl+Shift+T (Feature 13)
-                    if ((((_modifierFlag & (MASK_WIN | MASK_ALT)) == (MASK_WIN | MASK_ALT)) ||
-                         ((_modifierFlag & (MASK_CTRL | MASK_SHIFT)) == (MASK_CTRL | MASK_SHIFT))) && vkCode == 0x54 /* T */)
+                    // 6.8. Phím tắt mở Quick Text Transform Popup: Win+Alt+T hoặc Ctrl+Shift+U / Ctrl+Shift+T (Feature 13)
+                    if (_settings.QuickTextTransformEnabled &&
+                        ((((_modifierFlag & (MASK_WIN | MASK_ALT)) == (MASK_WIN | MASK_ALT)) && vkCode == 0x54 /* T */) ||
+                         (((_modifierFlag & (MASK_CTRL | MASK_SHIFT)) == (MASK_CTRL | MASK_SHIFT)) && (vkCode == 0x55 /* U */ || vkCode == 0x54 /* T */))))
                     {
                         KeySender.SuppressAltMenuActivation();
                         _engine.Reset();
@@ -662,6 +662,11 @@ namespace ModernKey.Hook
 
                                     case 5: // F5: Mở bảng cài đặt
                                         OpenSettingsRequested?.Invoke();
+                                        return (IntPtr)1;
+
+                                    case 6: // F6: Chuyển kiểu gõ tùy chọn (ShortcutF6InputMethod - Mặc định Tư Bình Trần)
+                                        _settings.CurrentInputMethod = _settings.ShortcutF6InputMethod;
+                                        InputMethodChanged?.Invoke(_settings.ShortcutF6InputMethod);
                                         return (IntPtr)1;
 
                                     case 8: // F8: Mở bảng gõ tắt

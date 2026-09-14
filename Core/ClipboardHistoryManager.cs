@@ -176,6 +176,7 @@ namespace ModernKey.Core
                     IsFavorite = false
                 };
 
+                item.DetectMetadata();
                 InsertItem(item);
             }
         }
@@ -788,6 +789,7 @@ namespace ModernKey.Core
                     Items.Clear();
                     foreach (var item in list)
                     {
+                        item.DetectMetadata();
                         Items.Add(item);
                     }
                     TrimLimit();
@@ -815,6 +817,7 @@ namespace ModernKey.Core
                     FavoriteItems.Clear();
                     foreach (var item in list)
                     {
+                        item.DetectMetadata();
                         item.IsFavorite = true;
                         FavoriteItems.Add(item);
                     }

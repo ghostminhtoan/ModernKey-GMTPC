@@ -45,6 +45,8 @@ namespace ModernKey.Models
         public int ShortcutEnableMask { get; set; } = 0x1FFF;
         // Bảng mã chuyển nhanh khi bấm F4 (mặc định VNI Windows theo OpenKey C++)
         public Charset ShortcutF4Charset { get; set; } = Charset.VniWindows;
+        // Kiểu gõ chuyển nhanh khi bấm F6 (mặc định Tư Bình Trần theo yêu cầu)
+        public InputMethod ShortcutF6InputMethod { get; set; } = InputMethod.TuBinhTran;
 
         // Danh sách quy tắc kiểu gõ tự định nghĩa (Custom Input Method)
         public System.Collections.Generic.List<CustomInputRule> CustomRules { get; set; } = CustomInputRule.GetPreset(0);
@@ -67,6 +69,12 @@ namespace ModernKey.Models
         public bool ClipboardPasteAsPlainText { get; set; } = false;
         public int ClipboardMaxItems { get; set; } = 200;
 
+        // Làm mờ Clipboard (Blur / Pixelated) với slider từ 0 đến 100
+        // Mode: "None", "Blur", "Pixelate"
+        public string ClipboardBlurMode { get; set; } = "None";
+        public double ClipboardBlurRadius { get; set; } = 20.0;
+        public double ClipboardPixelateSize { get; set; } = 15.0;
+
         // Tùy chọn gộp Clipboard khi chọn nhiều mục (Ctrl+C / Paste)
         // 0: Không đánh số, 1: Số thường (1. 2. 3.), 2: Số La Mã (I. II. III.), 3: Alphabet thường (a. b. c.), 4: Alphabet hoa (A. B. C.)
         public int ClipboardMergeNumbering { get; set; } = 0;
@@ -84,8 +92,18 @@ namespace ModernKey.Models
         public bool SmartEnglishBypass { get; set; } = true; // Tính năng 3: Song ngữ Anh - Việt thông minh
         public bool GameModeEnabled { get; set; } = false; // Tính năng 4: Game Mode Zero Latency
         public bool OneKeyUndoRaw { get; set; } = true; // Tính năng 5: Hoàn tác 1 phím về ASCII thô
-        public bool SensitiveDataMasking { get; set; } = true; // Tính năng 6: Bảo vệ dữ liệu nhạy cảm
-        public int SensitiveAutoPurgeMinutes { get; set; } = 5; // Tính năng 6: Tự động xóa dữ liệu nhạy cảm sau N phút
+        public bool DynamicMacroEnabled { get; set; } = true; // Tính năng 11: Dynamic Snippets ({date}, {clipboard}...)
+        public bool InlineMathEvaluator { get; set; } = true; // Tính năng 12: Tính toán biểu thức inline (vd: 125*45=)
+        public bool QuickTextTransformEnabled { get; set; } = true; // Tính năng 13: Quick Text Transform Toolbar (Ctrl+Shift+U)
+        public bool EnableCaretIndicator { get; set; } = false; // Tính năng 16: Chỉ báo ngôn ngữ bám theo con trỏ soạn thảo (Mặc định tắt để tối ưu hiệu năng)
+        public bool EnableKeySound { get; set; } = false; // Tính năng 17: Âm thanh phím cơ Cyberpunk
+        public bool TypingStatsEnabled { get; set; } = true; // Tính năng 18: Thống kê tốc độ gõ WPM & Heatmap
+        public string SyncFolderPath { get; set; } = string.Empty; // Tính năng 20: Thư mục đồng bộ P2P/Local
+        public bool P2PAutoSyncEnabled { get; set; } = false; // Tính năng 20: Tự động đồng bộ P2P khi có thay đổi
+
+        // Tương thích ngược cấu hình
+        public bool SensitiveDataMasking { get; set; } = false;
+        public int SensitiveAutoPurgeMinutes { get; set; } = 0;
         public bool ClipboardMaskSensitive
         {
             get => SensitiveDataMasking;
@@ -96,11 +114,6 @@ namespace ModernKey.Models
             get => SensitiveAutoPurgeMinutes > 0;
             set => SensitiveAutoPurgeMinutes = value ? 10 : 0;
         }
-        public bool DynamicMacroEnabled { get; set; } = true; // Tính năng 11: Dynamic Snippets ({date}, {clipboard}...)
-        public bool InlineMathEvaluator { get; set; } = true; // Tính năng 12: Tính toán biểu thức inline (vd: 125*45=)
-        public bool EnableCaretIndicator { get; set; } = true; // Tính năng 16: Chỉ báo ngôn ngữ bám theo con trỏ soạn thảo
-        public bool EnableKeySound { get; set; } = false; // Tính năng 17: Âm thanh phím cơ Cyberpunk
-        public string SyncFolderPath { get; set; } = string.Empty; // Tính năng 20: Thư mục đồng bộ P2P/Local
 
         // Chế độ thu nhỏ Compact HUD
         public bool IsCompactMode { get; set; } = false;

@@ -917,6 +917,22 @@ namespace ModernKey.Core
                 actualDisplayWord = char.ToUpper(actualDisplayWord[0]) + (actualDisplayWord.Length > 1 ? actualDisplayWord.Substring(1) : "");
             }
 
+            // 3.5. Smart English Bypass: Nếu toàn bộ từ thô tạo thành từ tiếng Anh thông dụng (vd: "post", "cost", "case", "test")
+            // CẦN KIỂM TRA TRƯỚC DELTA-CHANGE để không bị lọt các từ có phụ âm cuối như post, cost, test!
+            if (_settings.SmartEnglishBypass && _charBuffer.Count > 0)
+            {
+                string rawWord = new string(_charBuffer.ToArray());
+                if (EnglishDictionary.IsCommonEnglishWord(rawWord))
+                {
+                    if (actualDisplayWord != rawWord || (!string.IsNullOrEmpty(prevDisplayWord) && prevDisplayWord != rawWord.Substring(0, rawWord.Length - 1)))
+                    {
+                        backspaceCount = Math.Min(prevDisplayWord.Length, 15);
+                        newString = CharsetConverter.FromUnicode(EnforceCasingConsistency(rawWord, _charBuffer), _settings.CurrentCharset);
+                        return true;
+                    }
+                }
+            }
+
             // 4. SO SÁNH DELTA-CHANGE:
             // Nếu actualDisplayWord GIỐNG HỆT expectedNormal:
             // Phím ch KHÔNG làm biến đổi dấu hay mũ nào! Để Windows in ký tự tự nhiên!
@@ -946,22 +962,6 @@ namespace ModernKey.Core
                     newString = CharsetConverter.FromUnicode(rawBeforeZ, _settings.CurrentCharset);
                     Reset();
                     return true;
-                }
-            }
-
-            // 3. Smart English Bypass: Nếu toàn bộ từ thô tạo thành từ tiếng Anh thông dụng (vd: "post"), khôi phục lại không ép dấu
-            if (_settings.SmartEnglishBypass)
-            {
-                string rawWord = new string(_charBuffer.ToArray());
-                if (EnglishDictionary.IsCommonEnglishWord(rawWord))
-                {
-                    if (prevDisplayWord != rawWord.Substring(0, rawWord.Length - 1))
-                    {
-                        backspaceCount = Math.Min(prevDisplayWord.Length, 15);
-                        newString = CharsetConverter.FromUnicode(rawWord, _settings.CurrentCharset);
-                        return true;
-                    }
-                    return false;
                 }
             }
 
@@ -2332,7 +2332,8 @@ namespace ModernKey.Core
                     // Nếu ký tự cuối là phụ âm không hợp lệ trong tiếng Việt (như 'd' trong download, card, word, need):
                     // không nhận diện s/f/r/x/j là dấu thanh mà giữ nguyên ký tự thường!
                     bool canTakeTone = true;
-                    if (sb.Length > 0 && !IsVowel(sb[sb.Length - 1]))
+                    bool isAfterConsonant = sb.Length > 0 && !IsVowel(sb[sb.Length - 1]);
+                    if (isAfterConsonant)
                     {
                         char endChar = char.ToLowerInvariant(sb[sb.Length - 1]);
                         if (endChar != 'c' && endChar != 'm' && endChar != 'n' && endChar != 'p' && endChar != 't' &&
@@ -2344,12 +2345,27 @@ namespace ModernKey.Core
 
                     if (hasVowelSoFar && canTakeTone)
                     {
-                        if (lower == 's') { tone = (tone == 1 ? 0 : 1); modified = true; continue; }
-                        if (lower == 'f') { tone = (tone == 2 ? 0 : 2); modified = true; continue; }
-                        if (lower == 'r') { tone = (tone == 3 ? 0 : 3); modified = true; continue; }
-                        if (lower == 'x') { tone = (tone == 4 ? 0 : 4); modified = true; continue; }
-                        if (lower == 'j') { tone = (tone == 5 ? 0 : 5); modified = true; continue; }
-                        if (lower == 'z') { tone = 0; modified = true; continue; }
+                        // Nếu đang ở sau phụ âm cuối (vd sau 't' trong "pot"):
+                        // Phím dấu CHỈ có tác dụng khử dấu (tone > 0 -> 0).
+                        // Nếu tone == 0 (đã khử dấu), phím dấu sẽ được chèn thành ký tự thô thay vì luân phiên bật lại dấu!
+                        if (isAfterConsonant)
+                        {
+                            if (lower == 's' && tone == 1) { tone = 0; modified = true; continue; }
+                            if (lower == 'f' && tone == 2) { tone = 0; modified = true; continue; }
+                            if (lower == 'r' && tone == 3) { tone = 0; modified = true; continue; }
+                            if (lower == 'x' && tone == 4) { tone = 0; modified = true; continue; }
+                            if (lower == 'j' && tone == 5) { tone = 0; modified = true; continue; }
+                            if (lower == 'z') { tone = 0; modified = true; continue; }
+                        }
+                        else
+                        {
+                            if (lower == 's') { tone = (tone == 1 ? 0 : 1); modified = true; continue; }
+                            if (lower == 'f') { tone = (tone == 2 ? 0 : 2); modified = true; continue; }
+                            if (lower == 'r') { tone = (tone == 3 ? 0 : 3); modified = true; continue; }
+                            if (lower == 'x') { tone = (tone == 4 ? 0 : 4); modified = true; continue; }
+                            if (lower == 'j') { tone = (tone == 5 ? 0 : 5); modified = true; continue; }
+                            if (lower == 'z') { tone = 0; modified = true; continue; }
+                        }
                     }
 
                     // Xử lý phím 'd' / 'D' tạo chữ 'đ' / 'Đ' trong Telex:

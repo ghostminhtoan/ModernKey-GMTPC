@@ -349,17 +349,22 @@ namespace ModernKey.Models
 
             string trimmed = TextContent.Trim();
 
-            // 1. Nhận diện mã màu HEX, RGB
+            // 1. Nhận diện mã màu HEX (#FFF, #FFFFFF, 0xFFFFFF) và RGB / RGBA
             if (System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"))
             {
                 IsColorCode = true;
                 ColorHex = trimmed.Length == 4 ? $"#{trimmed[1]}{trimmed[1]}{trimmed[2]}{trimmed[2]}{trimmed[3]}{trimmed[3]}" : trimmed;
             }
-            else if (System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"^rgb\s*\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            else if (System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"^0x([0-9a-fA-F]{6})$", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            {
+                IsColorCode = true;
+                ColorHex = "#" + trimmed.Substring(2);
+            }
+            else if (System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"^rgba?\s*\(\s*\d+\s*,\s*\d+\s*,\s*\d+(?:\s*,\s*[0-9\.]+)?\s*\)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
             {
                 try
                 {
-                    var m = System.Text.RegularExpressions.Regex.Match(trimmed, @"rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    var m = System.Text.RegularExpressions.Regex.Match(trimmed, @"rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
                     if (m.Success)
                     {
                         int r = Math.Min(255, int.Parse(m.Groups[1].Value));
@@ -372,15 +377,8 @@ namespace ModernKey.Models
                 catch { }
             }
 
-            // 2. Nhận diện dữ liệu nhạy cảm (JWT Token, API Key, Thẻ tín dụng, OTP)
-            if (System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"^(eyJh[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*)$") ||
-                System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"^(sk_live_[0-9a-zA-Z]{20,}|ghp_[0-9a-zA-Z]{30,}|AKIA[0-9A-Z]{16})$") ||
-                System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"^(4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13})$") ||
-                (trimmed.Length == 6 && System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"^\d{6}$")))
-            {
-                IsSensitive = true;
-                IsMasked = true;
-            }
+            // Tắt tính năng tự động mask dữ liệu (Feature 6 cũ đã bỏ)
+            IsSensitive = false;
         }
 
         public System.Windows.Media.Brush ItemBackgroundBrush

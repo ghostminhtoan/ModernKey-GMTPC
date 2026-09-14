@@ -18,6 +18,7 @@ namespace ModernKey
         private readonly SystemTrayManager _trayManager;
         private bool _isRealExit = false;
         private bool _isUpdatingUi = false;
+        private readonly System.Windows.Threading.DispatcherTimer _statsTimer;
 
         private readonly SolidColorBrush _brushPink = new SolidColorBrush(Color.FromRgb(0xFF, 0x00, 0x55));
         private readonly SolidColorBrush _brushPinkBg = new SolidColorBrush(Color.FromRgb(0x2B, 0x09, 0x14));
@@ -38,6 +39,30 @@ namespace ModernKey
             }
             InitializeControls();
             RefreshState();
+
+            _statsTimer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(1)
+            };
+            _statsTimer.Tick += (s, e) =>
+            {
+                if (IsVisible && MainTabControl?.SelectedIndex == 6)
+                {
+                    RenderTypingStats();
+                }
+            };
+            _statsTimer.Start();
+
+            if (MainTabControl != null)
+            {
+                MainTabControl.SelectionChanged += (s, e) =>
+                {
+                    if (e.Source == MainTabControl && MainTabControl.SelectedIndex == 6)
+                    {
+                        RenderTypingStats();
+                    }
+                };
+            }
 
             _isUpdatingUi = false; // Mở khóa sau khi UI đã sẵn sàng hoàn toàn
         }
@@ -65,6 +90,11 @@ namespace ModernKey
             if (CmbShortcutF4Charset != null)
             {
                 CmbShortcutF4Charset.ItemsSource = Enum.GetValues(typeof(Charset));
+            }
+            // Kiểu gõ cho phím F6 (Tab Phím tắt)
+            if (CmbShortcutF6InputMethod != null)
+            {
+                CmbShortcutF6InputMethod.ItemsSource = Enum.GetValues(typeof(InputMethod));
             }
 
             // Compact Mode ComboBoxes
@@ -163,12 +193,16 @@ namespace ModernKey
                     TxtClipboardStoragePath.Text = "Thư mục lưu trữ: " + System.IO.Path.Combine(cfgDir, "clipboard");
                 }
 
-                // Các tính năng mở rộng Cyberpunk
+                // Các tính năng mở rộng Cyberpunk & Checkbox quản lý
                 if (ChkSmartEnglishBypass != null) ChkSmartEnglishBypass.IsChecked = _settings.SmartEnglishBypass;
                 if (ChkOneKeyUndoRaw != null) ChkOneKeyUndoRaw.IsChecked = _settings.OneKeyUndoRaw;
                 if (ChkInlineMathEvaluator != null) ChkInlineMathEvaluator.IsChecked = _settings.InlineMathEvaluator;
                 if (ChkEnableCaretIndicator != null) ChkEnableCaretIndicator.IsChecked = _settings.EnableCaretIndicator;
                 if (ChkEnableKeySound != null) ChkEnableKeySound.IsChecked = _settings.EnableKeySound;
+                if (ChkGameMode != null) ChkGameMode.IsChecked = _settings.GameModeEnabled;
+                if (ChkQuickTextTransform != null) ChkQuickTextTransform.IsChecked = _settings.QuickTextTransformEnabled;
+                if (ChkP2PAutoSync != null) ChkP2PAutoSync.IsChecked = _settings.P2PAutoSyncEnabled;
+                if (ChkTypingStats != null) ChkTypingStats.IsChecked = _settings.TypingStatsEnabled;
                 if (TxtSyncFolderPath != null && TxtSyncFolderPath.Text != _settings.SyncFolderPath)
                 {
                     TxtSyncFolderPath.Text = _settings.SyncFolderPath ?? string.Empty;
@@ -207,6 +241,7 @@ namespace ModernKey
                 if (ChkUseMacro != null) ChkUseMacro.IsChecked = _settings.UseMacro;
                 if (ChkUseMacroInEnglish != null) ChkUseMacroInEnglish.IsChecked = _settings.UseMacroInEnglish;
                 if (ChkAutoCapsMacro != null) ChkAutoCapsMacro.IsChecked = _settings.AutoCapsMacro;
+                if (ChkDynamicMacro != null) ChkDynamicMacro.IsChecked = _settings.DynamicMacroEnabled;
 
                 // Phím kích hoạt (Trigger Mask: bit 0=Space, bit 1=Enter, bit 2=2x LShift, bit 3=2x RShift)
                 if (ChkTriggerSpace != null) ChkTriggerSpace.IsChecked = (_settings.MacroTriggerMask & 0x01) != 0;
@@ -231,6 +266,12 @@ namespace ModernKey
                     CmbShortcutF4Charset.IsEnabled = (ChkShortcutF4?.IsChecked == true);
                 }
                 if (ChkShortcutF5 != null) ChkShortcutF5.IsChecked = (_settings.ShortcutEnableMask & (1 << 5)) != 0;
+                if (ChkShortcutF6 != null) ChkShortcutF6.IsChecked = (_settings.ShortcutEnableMask & (1 << 6)) != 0;
+                if (CmbShortcutF6InputMethod != null)
+                {
+                    CmbShortcutF6InputMethod.SelectedItem = _settings.ShortcutF6InputMethod;
+                    CmbShortcutF6InputMethod.IsEnabled = (ChkShortcutF6?.IsChecked == true);
+                }
                 if (ChkShortcutF8 != null) ChkShortcutF8.IsChecked = (_settings.ShortcutEnableMask & (1 << 8)) != 0;
                 if (ChkShortcutF9 != null) ChkShortcutF9.IsChecked = (_settings.ShortcutEnableMask & (1 << 9)) != 0;
                 if (ChkShortcutF11 != null) ChkShortcutF11.IsChecked = (_settings.ShortcutEnableMask & (1 << 11)) != 0;
@@ -278,18 +319,23 @@ namespace ModernKey
             if (ChkClipboardMaskSensitive != null) _settings.ClipboardMaskSensitive = ChkClipboardMaskSensitive.IsChecked == true;
             if (ChkClipboardAutoPurgeSensitive != null) _settings.ClipboardAutoPurgeSensitive = ChkClipboardAutoPurgeSensitive.IsChecked == true;
 
-            // Mở rộng Cyberpunk
+            // Mở rộng Cyberpunk & Checkbox quản lý
             if (ChkSmartEnglishBypass != null) _settings.SmartEnglishBypass = ChkSmartEnglishBypass.IsChecked == true;
             if (ChkOneKeyUndoRaw != null) _settings.OneKeyUndoRaw = ChkOneKeyUndoRaw.IsChecked == true;
             if (ChkInlineMathEvaluator != null) _settings.InlineMathEvaluator = ChkInlineMathEvaluator.IsChecked == true;
             if (ChkEnableCaretIndicator != null) _settings.EnableCaretIndicator = ChkEnableCaretIndicator.IsChecked == true;
             if (ChkEnableKeySound != null) _settings.EnableKeySound = ChkEnableKeySound.IsChecked == true;
+            if (ChkGameMode != null) _settings.GameModeEnabled = ChkGameMode.IsChecked == true;
+            if (ChkQuickTextTransform != null) _settings.QuickTextTransformEnabled = ChkQuickTextTransform.IsChecked == true;
+            if (ChkP2PAutoSync != null) _settings.P2PAutoSyncEnabled = ChkP2PAutoSync.IsChecked == true;
+            if (ChkTypingStats != null) _settings.TypingStatsEnabled = ChkTypingStats.IsChecked == true;
             if (TxtSyncFolderPath != null) _settings.SyncFolderPath = TxtSyncFolderPath.Text.Trim();
 
             // Tab Gõ tắt
             if (ChkUseMacro != null) _settings.UseMacro = ChkUseMacro.IsChecked == true;
             if (ChkUseMacroInEnglish != null) _settings.UseMacroInEnglish = ChkUseMacroInEnglish.IsChecked == true;
             if (ChkAutoCapsMacro != null) _settings.AutoCapsMacro = ChkAutoCapsMacro.IsChecked == true;
+            if (ChkDynamicMacro != null) _settings.DynamicMacroEnabled = ChkDynamicMacro.IsChecked == true;
 
             // Trigger Mask
             int mask = 0;
@@ -314,6 +360,7 @@ namespace ModernKey
             if (ChkShortcutF3?.IsChecked == true) fMask |= (1 << 3);
             if (ChkShortcutF4?.IsChecked == true) fMask |= (1 << 4);
             if (ChkShortcutF5?.IsChecked == true) fMask |= (1 << 5);
+            if (ChkShortcutF6?.IsChecked == true) fMask |= (1 << 6);
             if (ChkShortcutF8?.IsChecked == true) fMask |= (1 << 8);
             if (ChkShortcutF9?.IsChecked == true) fMask |= (1 << 9);
             if (ChkShortcutF11?.IsChecked == true) fMask |= (1 << 11);
@@ -326,6 +373,15 @@ namespace ModernKey
                 if (CmbShortcutF4Charset.SelectedItem is Charset f4cs)
                 {
                     _settings.ShortcutF4Charset = f4cs;
+                }
+            }
+
+            if (CmbShortcutF6InputMethod != null)
+            {
+                CmbShortcutF6InputMethod.IsEnabled = (ChkShortcutF6?.IsChecked == true);
+                if (CmbShortcutF6InputMethod.SelectedItem is InputMethod f6im)
+                {
+                    _settings.ShortcutF6InputMethod = f6im;
                 }
             }
         }
@@ -398,6 +454,16 @@ namespace ModernKey
             if (CmbShortcutF4Charset.SelectedItem is Charset cs)
             {
                 _settings.ShortcutF4Charset = cs;
+                SettingsManager.SaveSettings(_settings);
+            }
+        }
+
+        private void CmbShortcutF6InputMethod_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isUpdatingUi) return;
+            if (CmbShortcutF6InputMethod.SelectedItem is InputMethod im)
+            {
+                _settings.ShortcutF6InputMethod = im;
                 SettingsManager.SaveSettings(_settings);
             }
         }

@@ -13,6 +13,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using ModernKey.Config;
 using ModernKey.Core;
 using ModernKey.Hook;
 using ModernKey.Models;
@@ -178,6 +179,7 @@ namespace ModernKey
             }
 
             EnsureAppropriateSelection();
+            ApplyBlurModeUI();
         }
 
         private void ClipboardWindow_Deactivated(object sender, EventArgs e)
@@ -212,6 +214,7 @@ namespace ModernKey
 
             Topmost = _settings != null && _settings.ClipboardAlwaysOnTop;
             UpdateMergeOptionsButtonLabel();
+            ApplyBlurModeUI();
 
             if (!string.IsNullOrEmpty(targetMode))
             {
@@ -2691,6 +2694,129 @@ namespace ModernKey
             else
             {
                 if (TxtStatus != null) TxtStatus.Text = "⚠ Không trích xuất được chữ hoặc hình ảnh không có văn bản.";
+            }
+        }
+
+        private void BtnItemStickyNote_Click(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.DataContext is ClipboardItem item)
+            {
+                string text = item.ContentType == ClipboardContentType.Text ? item.TextContent : item.PreviewText;
+                var sticky = new StickyNoteWindow(text);
+                sticky.Show();
+                if (TxtStatus != null) TxtStatus.Text = "✓ Đã ghim thẻ Sticky Note lên màn hình!";
+            }
+        }
+
+
+        public void ApplyBlurModeUI()
+        {
+            if (MnuBlurNone != null) MnuBlurNone.IsChecked = (_settings.ClipboardBlurMode == "None");
+            if (MnuBlurBlur != null) MnuBlurBlur.IsChecked = (_settings.ClipboardBlurMode == "Blur");
+            if (MnuBlurPixel != null) MnuBlurPixel.IsChecked = (_settings.ClipboardBlurMode == "Pixelate");
+
+            if (SliderBlurRadius != null) SliderBlurRadius.Value = _settings.ClipboardBlurRadius;
+            if (TxtBlurPercent != null) TxtBlurPercent.Text = $"{(int)_settings.ClipboardBlurRadius}%";
+
+            if (SliderPixelSize != null) SliderPixelSize.Value = _settings.ClipboardPixelateSize;
+            if (TxtPixelPercent != null) TxtPixelPercent.Text = $"{(int)_settings.ClipboardPixelateSize}px";
+
+            _itemsView?.Refresh();
+        }
+
+        private void MnuBlurNone_Click(object sender, RoutedEventArgs e)
+        {
+            _settings.ClipboardBlurMode = "None";
+            ApplyBlurModeUI();
+            SettingsManager.SaveSettings(_settings);
+        }
+
+        private void MnuBlurBlur_Click(object sender, RoutedEventArgs e)
+        {
+            _settings.ClipboardBlurMode = "Blur";
+            ApplyBlurModeUI();
+            SettingsManager.SaveSettings(_settings);
+        }
+
+        private void MnuBlurPixel_Click(object sender, RoutedEventArgs e)
+        {
+            _settings.ClipboardBlurMode = "Pixelate";
+            ApplyBlurModeUI();
+            SettingsManager.SaveSettings(_settings);
+        }
+
+        private void SliderBlurRadius_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (_settings == null) return;
+            _settings.ClipboardBlurRadius = e.NewValue;
+            if (TxtBlurPercent != null) TxtBlurPercent.Text = $"{(int)e.NewValue}%";
+            _settings.ClipboardBlurMode = "Blur";
+            if (MnuBlurNone != null) MnuBlurNone.IsChecked = false;
+            if (MnuBlurBlur != null) MnuBlurBlur.IsChecked = true;
+            if (MnuBlurPixel != null) MnuBlurPixel.IsChecked = false;
+            SettingsManager.SaveSettings(_settings);
+            _itemsView?.Refresh();
+        }
+
+        private void SliderPixelSize_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (_settings == null) return;
+            _settings.ClipboardPixelateSize = e.NewValue;
+            if (TxtPixelPercent != null) TxtPixelPercent.Text = $"{(int)e.NewValue}px";
+            _settings.ClipboardBlurMode = "Pixelate";
+            if (MnuBlurNone != null) MnuBlurNone.IsChecked = false;
+            if (MnuBlurBlur != null) MnuBlurBlur.IsChecked = false;
+            if (MnuBlurPixel != null) MnuBlurPixel.IsChecked = true;
+            SettingsManager.SaveSettings(_settings);
+            _itemsView?.Refresh();
+        }
+
+        private void ItemContent_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement host)
+            {
+                ApplyBlurToHost(host);
+            }
+        }
+
+        private void ItemContent_MouseEnter(object sender, MouseEventArgs e)
+        {
+            if (sender is FrameworkElement host)
+            {
+                host.Effect = null;
+            }
+        }
+
+        private void ItemContent_MouseLeave(object sender, MouseEventArgs e)
+        {
+            if (sender is FrameworkElement host)
+            {
+                ApplyBlurToHost(host);
+            }
+        }
+
+        private void ApplyBlurToHost(FrameworkElement host)
+        {
+            if (_settings == null || host == null) return;
+            if (_settings.ClipboardBlurMode == "Blur")
+            {
+                host.Effect = new System.Windows.Media.Effects.BlurEffect
+                {
+                    Radius = Math.Max(1.0, _settings.ClipboardBlurRadius * 0.4),
+                    KernelType = System.Windows.Media.Effects.KernelType.Gaussian
+                };
+            }
+            else if (_settings.ClipboardBlurMode == "Pixelate")
+            {
+                host.Effect = new System.Windows.Media.Effects.BlurEffect
+                {
+                    Radius = Math.Max(2.0, _settings.ClipboardPixelateSize * 0.5),
+                    KernelType = System.Windows.Media.Effects.KernelType.Box
+                };
+            }
+            else
+            {
+                host.Effect = null;
             }
         }
     }

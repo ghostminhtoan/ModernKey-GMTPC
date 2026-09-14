@@ -11,21 +11,24 @@ namespace ModernKey.Core
         private static readonly HashSet<string> CommonWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             // Từ vựng IT & Lập trình
-            "post", "scale", "server", "client", "game", "pass", "clear", "link", "free", "like",
-            "view", "case", "break", "test", "true", "false", "null", "text", "user", "admin",
-            "root", "host", "port", "load", "drop", "make", "take", "find", "send", "read",
+            "post", "posts", "cost", "costs", "host", "hosts", "test", "tests", "best", "fast",
+            "last", "past", "cast", "guest", "west", "east", "rest", "dust", "trust", "just",
+            "list", "lists", "most", "lost", "must", "risk", "task", "mask", "desk", "disk",
+            "scale", "server", "client", "game", "pass", "clear", "link", "free", "like",
+            "view", "case", "break", "true", "false", "null", "text", "user", "admin",
+            "root", "port", "load", "drop", "make", "take", "find", "send", "read",
             "open", "save", "stop", "play", "push", "pull", "fetch", "merge", "reset", "branch",
             "commit", "status", "stage", "diff", "patch", "help", "info", "type", "date", "time",
-            "name", "code", "mode", "file", "path", "size", "data", "item", "list", "page",
+            "name", "code", "mode", "file", "path", "size", "data", "item", "page",
             "site", "node", "edge", "call", "wait", "loop", "next", "prev", "back", "home",
             "work", "team", "chat", "mail", "blog", "feed", "card", "form", "icon", "menu",
-            "base", "core", "rule", "task", "unit", "byte", "bits", "hash", "auth", "token",
+            "base", "core", "rule", "unit", "byte", "bits", "hash", "auth", "token",
             "seed", "peer", "ping", "pong", "sync", "hook", "pipe", "pool", "lock", "sock",
             "bind", "kill", "boot", "init", "exec", "scan", "dump", "sort", "seek", "grep",
             "line", "word", "char", "font", "bold", "fade", "hide", "show", "zoom", "move",
             "drag", "pick", "fill", "crop", "edit", "copy", "cut", "paste", "undo", "redo",
-            "pack", "span", "flex", "grid", "wrap", "auto", "font", "size", "dark", "glow",
-            "neon", "cyan", "pink", "gold", "blue", "gray", "bold", "thin", "wide", "tall",
+            "pack", "span", "flex", "grid", "wrap", "auto", "dark", "glow",
+            "neon", "cyan", "pink", "gold", "blue", "gray", "thin", "wide", "tall",
 
             // Từ vựng tiếng Anh thông dụng hay bị dính dấu oan
             "about", "after", "again", "almost", "along", "also", "always", "among", "animal",

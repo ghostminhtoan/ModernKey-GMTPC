@@ -230,6 +230,15 @@
                             <Button Grid.Column="2" Content="CHỌN..." Click="BtnBrowseSyncFolder_Click" Height="28" Padding="12,3" Margin="0,0,8,0" />
                             <Button Grid.Column="3" Content="ĐỒNG BỘ NGAY" Click="BtnSyncNow_Click" Height="28" Padding="12,3" Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" />
                         </Grid>
+                        <CheckBox x:Name="ChkP2PAutoSync" Content="Tự động đồng bộ P2P khi phát hiện thay đổi trong thư mục" Margin="0,0,0,14" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Tự động nạp hoặc xuất cấu hình khi file cấu hình trong thư mục chia sẻ thay đổi" />
+
+                        <Separator Background="{StaticResource CyberBorderDim}" Margin="0,4,0,14" />
+
+                        <TextBlock Text="[CÁC TÍNH NĂNG ĐỘC ĐÁO &amp; HIỆU NĂNG CAO]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,10" />
+                        <WrapPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <CheckBox x:Name="ChkGameMode" Content="Game Mode Zero-Latency (Ctrl+Shift+F11 - Bypass 0ms)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Khi bật, bộ gõ bypass 0ms tuyệt đối cho game FPS/MOBA, không xử lý phím" />
+                            <CheckBox x:Name="ChkQuickTextTransform" Content="Chuyển đổi văn bản nhanh Quick Text (Ctrl+Shift+U / Win+Alt+T)" Width="340" Margin="0,0,10,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Mở bảng chuyển đổi nhanh chữ hoa, thường, không dấu, slug, base64" />
+                        </WrapPanel>
 
                         <Border Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="12,8" Margin="0,0,0,10">
                             <StackPanel>
@@ -260,11 +269,12 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
-                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
-                                <CheckBox x:Name="ChkUseMacro" Content="Bật gõ tắt (Macro)" Margin="0,0,18,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" FontWeight="SemiBold" Foreground="{StaticResource CyberNeonCyan}" />
-                                <CheckBox x:Name="ChkUseMacroInEnglish" Content="Gõ tắt trong tiếng Anh" Margin="0,0,18,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
-                                <CheckBox x:Name="ChkAutoCapsMacro" Content="Tự động đổi chữ hoa (Auto-Caps)" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Gõ 'vn' -&gt; 'việt nam', 'Vn' -&gt; 'Việt nam', 'VN' -&gt; 'VIỆT NAM'" />
-                            </StackPanel>
+                            <WrapPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                                <CheckBox x:Name="ChkUseMacro" Content="Bật gõ tắt (Macro)" Margin="0,0,18,6" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" FontWeight="SemiBold" Foreground="{StaticResource CyberNeonCyan}" />
+                                <CheckBox x:Name="ChkUseMacroInEnglish" Content="Gõ tắt trong tiếng Anh" Margin="0,0,18,6" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
+                                <CheckBox x:Name="ChkAutoCapsMacro" Content="Tự động đổi chữ hoa (Auto-Caps)" Margin="0,0,18,6" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Gõ 'vn' -&gt; 'việt nam', 'Vn' -&gt; 'Việt nam', 'VN' -&gt; 'VIỆT NAM'" />
+                                <CheckBox x:Name="ChkDynamicMacro" Content="Bật biến động ({date}, {time}, {guid}, {clipboard}...)" Margin="0,0,0,6" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Tự động thay thế các biến động như {date}, {time}, {datetime}, {guid}, {clipboard}, {year} khi kích hoạt macro" Foreground="{StaticResource CyberNeonYellow}" />
+                            </WrapPanel>
 
                             <StackPanel Grid.Row="1" Orientation="Horizontal">
                                 <TextBlock Text="PHÍM KÍCH HOẠT:" VerticalAlignment="Center" FontFamily="Consolas" Foreground="{StaticResource CyberNeonYellow}" Margin="0,0,12,0" FontSize="11" />
@@ -436,6 +446,17 @@
                                 <!-- Cột Phải -->
                                 <StackPanel Grid.Row="1" Grid.Column="2">
                                     <CheckBox x:Name="ChkShortcutF5" Content="F5 (Mở Cài đặt ModernKey)" Margin="0,0,0,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Hiện bảng điều khiển chính của ModernKey" />
+
+                                    <!-- F6 kèm ComboBox chọn kiểu gõ (mặc định Tư Bình Trần) -->
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox x:Name="ChkShortcutF6" Grid.Column="0" Content="F6:" VerticalAlignment="Center" Margin="0,0,8,0" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Chuyển sang kiểu gõ tùy chọn bên cạnh" />
+                                        <ComboBox x:Name="CmbShortcutF6InputMethod" Grid.Column="1" SelectionChanged="CmbShortcutF6InputMethod_SelectionChanged" ToolTip="Chọn kiểu gõ kích hoạt khi ấn phím F6 (Mặc định: Tư Bình Trần)" />
+                                    </Grid>
+
                                     <CheckBox x:Name="ChkShortcutF8" Content="F8 (Mở Bảng gõ tắt)" Margin="0,0,0,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Mở bảng điều khiển và chọn ngay Tab Gõ tắt" />
                                     <CheckBox x:Name="ChkShortcutF9" Content="F9 (Bật / Tắt Gõ tắt)" Margin="0,0,0,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Đảo trạng thái kích hoạt gõ tắt (Macro)" />
                                     <CheckBox x:Name="ChkShortcutF11" Content="F11 (Loại trừ ứng dụng)" Margin="0,0,0,10" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Bật / Tắt tính năng loại trừ ứng dụng" />
@@ -557,7 +578,10 @@
             <TabItem Header="  THỐNG KÊ  ">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="18">
-                        <TextBlock Text="[CYBERPUNK TYPING TELEMETRY &amp; STATS DASHBOARD]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,14" />
+                        <TextBlock Text="[CYBERPUNK TYPING TELEMETRY &amp; STATS DASHBOARD]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,10" />
+                        <WrapPanel Orientation="Horizontal" Margin="0,0,0,12">
+                            <CheckBox x:Name="ChkTypingStats" Content="Bật ghi nhận thống kê tốc độ gõ (WPM &amp; Heatmap 24h)" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" FontWeight="Bold" Foreground="{StaticResource CyberNeonYellow}" />
+                        </WrapPanel>
 
                         <!-- 4 Metric Cards -->
                         <Grid Margin="0,0,0,16">

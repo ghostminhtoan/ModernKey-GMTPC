@@ -34,15 +34,18 @@ namespace ModernKey.Core
 
         public static void PlayKeyClick()
         {
-            try
+            System.Threading.ThreadPool.QueueUserWorkItem(_ =>
             {
-                if (!_initialized) Initialize();
-                if (_switchClickWav != null)
+                try
                 {
-                    PlaySound(_switchClickWav, IntPtr.Zero, SND_ASYNC | SND_MEMORY | SND_NODEFAULT);
+                    if (!_initialized) Initialize();
+                    if (_switchClickWav != null)
+                    {
+                        PlaySound(_switchClickWav, IntPtr.Zero, SND_ASYNC | SND_MEMORY | SND_NODEFAULT);
+                    }
                 }
-            }
-            catch { }
+                catch { }
+            });
         }
 
         public static void Cleanup()
@@ -52,12 +55,12 @@ namespace ModernKey.Core
         }
 
         /// <summary>
-        /// Tạo âm thanh click cơ học Cyberpunk ngắn gọn (khoảng 22ms) dưới định dạng WAV 16-bit Mono 44.1kHz chuẩn.
+        /// Tạo âm thanh click cơ học Cyberpunk ngắn gọn (khoảng 30ms) dưới định dạng WAV 16-bit Mono 44.1kHz chuẩn.
         /// </summary>
         private static byte[] GenerateCyberpunkClickWav()
         {
             int sampleRate = 44100;
-            int durationMs = 22;
+            int durationMs = 30;
             int numSamples = (sampleRate * durationMs) / 1000;
 
             short[] samples = new short[numSamples];
@@ -66,17 +69,17 @@ namespace ModernKey.Core
             for (int i = 0; i < numSamples; i++)
             {
                 double t = (double)i / sampleRate;
-                // Decay envelope dạng hàm mũ giảm dần cực nhanh
-                double env = Math.Exp(-t * 220.0);
+                // Decay envelope dạng hàm mũ giảm dần
+                double env = Math.Exp(-t * 180.0);
 
-                // Tần số cơ sở âm thanh click: 2400Hz kết hợp sóng hài 4800Hz và nhiễu trắng nhẹ tạo tiếng switch cơ đanh
-                double freq1 = 2400.0;
-                double freq2 = 4800.0;
-                double wave = Math.Sin(2.0 * Math.PI * freq1 * t) * 0.6 +
-                              Math.Sin(2.0 * Math.PI * freq2 * t) * 0.3 +
+                // Tần số click cơ học đanh rõ: 2200Hz + sóng hài 4400Hz + click đốm trắng
+                double freq1 = 2200.0;
+                double freq2 = 4400.0;
+                double wave = Math.Sin(2.0 * Math.PI * freq1 * t) * 0.65 +
+                              Math.Sin(2.0 * Math.PI * freq2 * t) * 0.25 +
                               (rand.NextDouble() * 2.0 - 1.0) * 0.1;
 
-                short val = (short)(wave * env * 22000.0);
+                short val = (short)(wave * env * 28000.0);
                 samples[i] = val;
             }
 

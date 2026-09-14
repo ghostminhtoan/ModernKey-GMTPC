@@ -285,17 +285,47 @@
                              VirtualizingPanel.CacheLength="1,1"
                              VirtualizingPanel.CacheLengthUnit="Page"
                              Foreground="{StaticResource CyberTextPrimary}" SelectionChanged="LstClipboard_SelectionChanged"
-                             MouseDoubleClick="LstClipboard_MouseDoubleClick" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                             PreviewMouseLeftButtonDown="LstClipboard_PreviewMouseLeftButtonDown"
-                             PreviewMouseMove="LstClipboard_PreviewMouseMove">
+                             MouseDoubleClick="LstClipboard_MouseDoubleClick" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListBox.ContextMenu>
                             <ContextMenu Style="{StaticResource CyberContextMenu}">
                                 <MenuItem Header="Dán (Paste)" InputGestureText="Enter / Ins" Click="CtxMenuPaste_Click" Style="{StaticResource CyberMenuItem}" />
-                                <MenuItem Header="Thêm / Chọn Group Yêu thích..." InputGestureText="Ctrl+D" Click="CtxMenuToggleFav_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem Header="📌 Ghim ra cửa sổ nổi (Sticky Note)..." Click="CtxMenuStickyNote_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem Header="⭐ Thêm / Chọn Group Yêu thích..." InputGestureText="Ctrl+D" Click="CtxMenuToggleFav_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="Bỏ khỏi Yêu thích" Click="CtxMenuRemoveFav_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem Header="🔍 Trích xuất chữ từ ảnh (OCR)..." Click="CtxMenuOcr_Click" Style="{StaticResource CyberMenuItem}" />
+                                
+                                <Separator Style="{StaticResource CyberMenuSeparator}" />
+                                <!-- Tính năng Làm mờ Clipboard với slider 0-100 -->
+                                <MenuItem Header="🎭 Làm mờ Clipboard (Privacy Blur)..." Style="{StaticResource CyberMenuItem}">
+                                    <MenuItem x:Name="MnuBlurNone" Header="Không làm mờ (Mặc định)" IsCheckable="True" Click="MnuBlurNone_Click" Style="{StaticResource CyberMenuItem}" />
+                                    <Separator Style="{StaticResource CyberMenuSeparator}" />
+                                    <MenuItem x:Name="MnuBlurBlur" IsCheckable="True" Click="MnuBlurBlur_Click" Style="{StaticResource CyberMenuItem}">
+                                        <MenuItem.Header>
+                                            <StackPanel Width="230" Margin="0,2">
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
+                                                    <TextBlock Text="Làm mờ (Blur):" Foreground="{StaticResource CyberNeonCyan}" FontSize="11" FontFamily="Consolas" />
+                                                    <TextBlock x:Name="TxtBlurPercent" Text="20%" Foreground="{StaticResource CyberNeonYellow}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" Margin="8,0,0,0" />
+                                                </StackPanel>
+                                                <Slider x:Name="SliderBlurRadius" Minimum="0" Maximum="100" Value="20" ValueChanged="SliderBlurRadius_ValueChanged" Margin="0,4,0,2" />
+                                            </StackPanel>
+                                        </MenuItem.Header>
+                                    </MenuItem>
+                                    <Separator Style="{StaticResource CyberMenuSeparator}" />
+                                    <MenuItem x:Name="MnuBlurPixel" IsCheckable="True" Click="MnuBlurPixel_Click" Style="{StaticResource CyberMenuItem}">
+                                        <MenuItem.Header>
+                                            <StackPanel Width="230" Margin="0,2">
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
+                                                    <TextBlock Text="Pixel hóa (Pixelated):" Foreground="{StaticResource CyberNeonPink}" FontSize="11" FontFamily="Consolas" />
+                                                    <TextBlock x:Name="TxtPixelPercent" Text="15px" Foreground="{StaticResource CyberNeonYellow}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" Margin="8,0,0,0" />
+                                                </StackPanel>
+                                                <Slider x:Name="SliderPixelSize" Minimum="0" Maximum="100" Value="15" ValueChanged="SliderPixelSize_ValueChanged" Margin="0,4,0,2" />
+                                            </StackPanel>
+                                        </MenuItem.Header>
+                                    </MenuItem>
+                                </MenuItem>
+
+                                <Separator Style="{StaticResource CyberMenuSeparator}" />
                                 <MenuItem Header="Chỉnh sửa (Edit)" InputGestureText="Alt+Enter" Click="CtxMenuEdit_Click" Style="{StaticResource CyberMenuItem}" />
-                                <MenuItem Header="Ghim nổi màn hình (Sticky Note)..." Click="CtxMenuStickyNote_Click" Style="{StaticResource CyberMenuItem}" />
-                                <MenuItem Header="Trích xuất chữ từ ảnh (OCR)..." Click="CtxMenuOcr_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="Xem trước (Preview)" Click="CtxMenuPreview_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="Lưu thành tệp... (Save As...)" InputGestureText="Ctrl+S" Click="CtxMenuSaveAs_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="Xóa (Delete)" InputGestureText="Del" Click="CtxMenuDelete_Click" Style="{StaticResource CyberMenuItem}" />
@@ -323,100 +353,104 @@
                                 <Border BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="0,0,0,1" Padding="8,6" Background="{Binding ItemBackgroundBrush}">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" /> <!-- Col 0: Yêu thích ★ -->
+                                            <ColumnDefinition Width="Auto" /> <!-- Col 1: Ghim nổi 📌 -->
+                                            <ColumnDefinition Width="Auto" /> <!-- Col 2: Icon App -->
+                                            <ColumnDefinition Width="Auto" /> <!-- Col 3: Type [TXT]/[IMG] -->
+                                            <ColumnDefinition Width="Auto" /> <!-- Col 4: Group -->
+                                            <ColumnDefinition Width="Auto" /> <!-- Col 5: Color Swatch -->
+                                            <ColumnDefinition Width="*" />    <!-- Col 6: Content -->
                                         </Grid.ColumnDefinitions>
 
                                         <!-- Nút Yêu thích ★ -->
                                         <Button Grid.Column="0" Content="{Binding FavoriteIcon}" Click="BtnToggleFav_Click"
                                                 Foreground="{Binding FavoriteBrush}" Background="Transparent" BorderThickness="0" Padding="0"
-                                                FontWeight="Bold" FontSize="15" Width="26" Height="26" VerticalAlignment="Center" Margin="0,0,4,0"
-                                                ToolTip="Thêm vào / Chọn Group Yêu thích (Ctrl+D)" />
+                                                FontWeight="Bold" FontSize="15" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,2,0"
+                                                ToolTip="Thêm vào / Bỏ khỏi Yêu thích (Ctrl+D)" />
+
+                                        <!-- Nút Ghim nổi Sticky Note 📌 độc lập -->
+                                        <Button Grid.Column="1" Content="📌" Click="BtnItemStickyNote_Click"
+                                                Foreground="{StaticResource CyberNeonCyan}" Background="Transparent" BorderThickness="0" Padding="0"
+                                                FontSize="13" Width="22" Height="24" VerticalAlignment="Center" Margin="0,0,4,0"
+                                                ToolTip="Ghim mục này thành ghi chú nổi độc lập trên Desktop (Sticky Note)" />
 
                                         <!-- Icon ứng dụng nguồn (Notepad++, Chrome, Snipping Tool, ...) -->
-                                        <Border Grid.Column="1" Width="18" Height="18" Margin="0,0,6,0" VerticalAlignment="Center"
+                                        <Border Grid.Column="2" Width="18" Height="18" Margin="0,0,6,0" VerticalAlignment="Center"
                                                 Visibility="{Binding AppIconVisibility}">
                                             <Image Source="{Binding AppIconSource}" Width="16" Height="16" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
                                         </Border>
 
                                         <!-- Badge kiểu dữ liệu [TXT] / [IMG] -->
-                                        <Border Grid.Column="2" Background="#121D28" BorderBrush="{StaticResource CyberNeonCyan}" BorderThickness="1"
+                                        <Border Grid.Column="3" Background="#121D28" BorderBrush="{StaticResource CyberNeonCyan}" BorderThickness="1"
                                                 CornerRadius="2" Padding="4,1" Margin="0,0,6,0" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding TypeBadge}" FontSize="10" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" />
                                         </Border>
 
                                         <!-- Badge Group nếu có -->
-                                        <Border Grid.Column="3" Background="#261E0A" BorderBrush="{StaticResource CyberNeonYellow}" BorderThickness="1"
+                                        <Border Grid.Column="4" Background="#261E0A" BorderBrush="{StaticResource CyberNeonYellow}" BorderThickness="1"
                                                 CornerRadius="2" Padding="4,1" Margin="0,0,8,0" VerticalAlignment="Center"
                                                 Visibility="{Binding GroupBadgeVisibility}">
                                             <TextBlock Text="{Binding GroupBadgeText}" FontSize="10" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonYellow}" />
                                         </Border>
 
-                                        <!-- Badge Dữ liệu Bảo Mật & Nút Ẩn/Hiện -->
-                                        <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,0"
-                                                    Visibility="{Binding SensitiveBadgeVisibility}">
-                                            <Border Background="#3B0814" BorderBrush="{StaticResource CyberNeonPink}" BorderThickness="1" CornerRadius="2" Padding="4,1">
-                                                <TextBlock Text="[BẢO MẬT]" FontSize="10" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonPink}" />
-                                            </Border>
-                                            <Button Content="{Binding MaskToggleIcon}" Click="BtnToggleMask_Click" Width="22" Height="20" Margin="2,0,0,0"
-                                                    Background="Transparent" BorderThickness="0" Foreground="{StaticResource CyberNeonYellow}" ToolTip="Xem/Ẩn dữ liệu nhạy cảm" />
-                                        </StackPanel>
+                                        <!-- Badge Color Swatch nếu là mã màu (HEX/RGB) -->
+                                        <Border Grid.Column="5" Width="20" Height="20" CornerRadius="3" Margin="0,0,8,0" VerticalAlignment="Center"
+                                                Background="{Binding ColorSwatchBrush}" BorderBrush="{StaticResource CyberNeonCyan}" BorderThickness="1.5"
+                                                Visibility="{Binding ColorBadgeVisibility}" ToolTip="Mã màu. Bấm chuột để sao chép mã màu này"
+                                                MouseLeftButtonUp="ColorSwatch_MouseLeftButtonUp" Cursor="Hand">
+                                            <Border.Effect>
+                                                <DropShadowEffect Color="#00F0FF" BlurRadius="6" ShadowDepth="0" Opacity="0.8"/>
+                                            </Border.Effect>
+                                        </Border>
 
-                                        <!-- Badge Color Swatch nếu là mã màu -->
-                                        <Border Grid.Column="4" Width="18" Height="18" CornerRadius="2" Margin="0,0,6,0" VerticalAlignment="Center"
-                                                Background="{Binding ColorSwatchBrush}" BorderBrush="#FFFFFF" BorderThickness="1"
-                                                Visibility="{Binding ColorBadgeVisibility}" ToolTip="Mã màu. Nhấp đúp để sao chép dạng khác"
-                                                MouseLeftButtonUp="ColorSwatch_MouseLeftButtonUp" Cursor="Hand" />
+                                        <!-- Thông tin văn bản hoặc ảnh kèm hỗ trợ hover bỏ mờ -->
+                                        <Border Grid.Column="6" x:Name="ItemContentHost" Loaded="ItemContent_Loaded" MouseEnter="ItemContent_MouseEnter" MouseLeave="ItemContent_MouseLeave" Background="Transparent">
+                                            <Grid VerticalAlignment="Center">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
 
-                                        <!-- Thông tin văn bản hoặc ảnh -->
-                                        <Grid Grid.Column="4" VerticalAlignment="Center">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
+                                                <!-- Thumbnail nếu là ảnh -->
+                                                <Border Grid.Column="0" Width="44" Height="32" CornerRadius="2" Margin="0,0,8,0"
+                                                        Background="#0D0218" BorderBrush="{StaticResource CyberNeonPink}" BorderThickness="1"
+                                                        Visibility="{Binding ImageThumbnailVisibility}">
+                                                    <Image Source="{Binding ThumbSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                                </Border>
 
-                                            <!-- Thumbnail nếu là ảnh -->
-                                            <Border Grid.Column="0" Width="44" Height="32" CornerRadius="2" Margin="0,0,8,0"
-                                                    Background="#0D0218" BorderBrush="{StaticResource CyberNeonPink}" BorderThickness="1"
-                                                    Visibility="{Binding ImageThumbnailVisibility}">
-                                                <Image Source="{Binding ThumbSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
-                                            </Border>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <!-- Tiêu đề / Tên Name kèm Phím tắt nếu có -->
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
 
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                <!-- Tiêu đề / Tên Name kèm Phím tắt nếu có -->
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="Auto" />
-                                                    </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="{Binding DisplayTitle}" FontFamily="Consolas" FontWeight="Bold" FontSize="12"
+                                                                   TextTrimming="CharacterEllipsis" Foreground="{StaticResource CyberNeonYellow}"
+                                                                   Visibility="{Binding CustomTitleVisibility}" />
+                                                        <TextBlock Grid.Column="0" Text="{Binding DisplayPreviewText}" FontFamily="Consolas" FontWeight="SemiBold" FontSize="12"
+                                                                   TextTrimming="CharacterEllipsis" Foreground="{StaticResource CyberTextPrimary}"
+                                                                   Visibility="{Binding DefaultTitleVisibility}" />
 
-                                                    <TextBlock Grid.Column="0" Text="{Binding DisplayTitle}" FontFamily="Consolas" FontWeight="Bold" FontSize="12"
-                                                               TextTrimming="CharacterEllipsis" Foreground="{StaticResource CyberNeonYellow}"
+                                                        <!-- Badge Phím tắt (Shortcut) -->
+                                                        <Border Grid.Column="1" Background="#2A1B04" BorderBrush="{StaticResource CyberNeonYellow}" BorderThickness="1"
+                                                                CornerRadius="2" Padding="4,1" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                                Visibility="{Binding ShortcutVisibility}">
+                                                            <TextBlock Text="{Binding ShortcutText}" FontSize="10" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonYellow}" />
+                                                        </Border>
+                                                    </Grid>
+
+                                                    <!-- Dòng Preview phụ khi có Custom Title -->
+                                                    <TextBlock Text="{Binding DisplayPreviewText}" FontFamily="Consolas" FontSize="11"
+                                                               TextTrimming="CharacterEllipsis" Foreground="{StaticResource CyberTextSecondary}" Margin="0,2,0,0"
                                                                Visibility="{Binding CustomTitleVisibility}" />
-                                                    <TextBlock Grid.Column="0" Text="{Binding DisplayPreviewText}" FontFamily="Consolas" FontWeight="SemiBold" FontSize="12"
-                                                               TextTrimming="CharacterEllipsis" Foreground="{StaticResource CyberTextPrimary}"
-                                                               Visibility="{Binding DefaultTitleVisibility}" />
 
-                                                    <!-- Badge Phím tắt (Shortcut) -->
-                                                    <Border Grid.Column="1" Background="#2A1B04" BorderBrush="{StaticResource CyberNeonYellow}" BorderThickness="1"
-                                                            CornerRadius="2" Padding="4,1" Margin="6,0,0,0" VerticalAlignment="Center"
-                                                            Visibility="{Binding ShortcutVisibility}">
-                                                        <TextBlock Text="{Binding ShortcutText}" FontSize="10" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonYellow}" />
-                                                    </Border>
-                                                </Grid>
-
-                                                <!-- Dòng Preview phụ khi có Custom Title -->
-                                                <TextBlock Text="{Binding DisplayPreviewText}" FontFamily="Consolas" FontSize="11"
-                                                           TextTrimming="CharacterEllipsis" Foreground="{StaticResource CyberTextSecondary}" Margin="0,2,0,0"
-                                                           Visibility="{Binding CustomTitleVisibility}" />
-
-                                                <TextBlock Text="{Binding InfoDisplay}" FontFamily="Consolas" FontSize="10"
-                                                           Foreground="{StaticResource CyberTextSecondary}" Margin="0,2,0,0" />
-                                            </StackPanel>
-                                        </Grid>
+                                                    <TextBlock Text="{Binding InfoDisplay}" FontFamily="Consolas" FontSize="10"
+                                                               Foreground="{StaticResource CyberTextSecondary}" Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
                                     </Grid>
                                 </Border>
                             </DataTemplate>

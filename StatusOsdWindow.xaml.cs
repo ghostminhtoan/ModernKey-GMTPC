@@ -122,25 +122,30 @@ namespace ModernKey
                 OsdBorder.BorderBrush = new SolidColorBrush(color);
                 OsdShadow.Color = color;
 
+                Show();
+                UpdateLayout();
+                OsdBorder.Opacity = 0.95;
+                Topmost = true;
+
+                double currentWidth = ActualWidth > 0 ? ActualWidth : (Width > 0 ? Width : 160);
+                double currentHeight = ActualHeight > 0 ? ActualHeight : (Height > 0 ? Height : 36);
+
                 if (GetCursorPos(out POINT pt))
                 {
                     double x = pt.X + 16;
                     double y = pt.Y + 16;
                     var workArea = SystemParameters.WorkArea;
-                    if (x + Width > workArea.Right) x = pt.X - Width - 10;
-                    if (y + Height > workArea.Bottom) y = pt.Y - Height - 10;
+                    if (x + currentWidth > workArea.Right) x = pt.X - currentWidth - 10;
+                    if (y + currentHeight > workArea.Bottom) y = pt.Y - currentHeight - 10;
                     Left = Math.Max(workArea.Left, x);
                     Top = Math.Max(workArea.Top, y);
                 }
                 else
                 {
                     var workArea = SystemParameters.WorkArea;
-                    Left = workArea.Right - Width - 20;
-                    Top = workArea.Bottom - Height - 20;
+                    Left = workArea.Right - currentWidth - 20;
+                    Top = workArea.Bottom - currentHeight - 20;
                 }
-
-                Show();
-                OsdBorder.Opacity = 0.95;
 
                 if (_fadeStoryboard != null)
                 {
@@ -151,8 +156,8 @@ namespace ModernKey
                 {
                     From = 0.95,
                     To = 0.0,
-                    BeginTime = TimeSpan.FromSeconds(0.6),
-                    Duration = TimeSpan.FromSeconds(0.5)
+                    BeginTime = TimeSpan.FromSeconds(1.4),
+                    Duration = TimeSpan.FromSeconds(0.6)
                 };
 
                 _fadeStoryboard = new Storyboard();

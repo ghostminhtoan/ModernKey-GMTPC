@@ -11,7 +11,7 @@ namespace ModernKey.Core
     public static class MathEvaluator
     {
         private static readonly Regex MathPattern = new Regex(
-            @"^([0-9\.\,\+\-\*\/\^\%\(\)\s]+)=\s*$",
+            @"(?:^|[\s\(\[\{;:,])([0-9\.\,\+\-\*\/\^\%\(\)\s]+)=\s*$",
             RegexOptions.Compiled);
 
         public static bool IsPotentialMathExpression(string input, out string cleanExpression)

@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="ModernKey OSD"
-        Height="36" Width="84"
+        Height="36" MinWidth="84" SizeToContent="Width"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
@@ -12,7 +12,7 @@
         ResizeMode="NoResize"
         ShowActivated="False">
     <Border x:Name="OsdBorder" Background="#14021A" CornerRadius="4" BorderThickness="1.5"
-            BorderBrush="#00F0FF" Opacity="0.92" Padding="6,4">
+            BorderBrush="#00F0FF" Opacity="0.92" Padding="12,4">
         <Border.Effect>
             <DropShadowEffect x:Name="OsdShadow" Color="#00F0FF" BlurRadius="10" ShadowDepth="0" Opacity="0.85" />
         </Border.Effect>
