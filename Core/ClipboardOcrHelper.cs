@@ -14,7 +14,7 @@ namespace ModernKey.Core
     /// </summary>
     public static class ClipboardOcrHelper
     {
-        public static Task<string> RecognizeTextAsync(string imagePath)
+        public static Task<string> RecognizeTextAsync(string imagePath, string language = "auto")
         {
             return Task.Run(() =>
             {
@@ -23,7 +23,57 @@ namespace ModernKey.Core
 
                 try
                 {
+                    // 1. Kiểm tra nếu có Tesseract OCR standalone trên máy
+                    string tesseractPath = FindTesseractExecutable();
+                    string tessdataDir = FindTessdataDirectory();
+                    bool hasVieData = !string.IsNullOrEmpty(tessdataDir) && File.Exists(Path.Combine(tessdataDir, "vie.traineddata"));
+
+                    if (!string.IsNullOrEmpty(tesseractPath) && ((language == "vi" && hasVieData) || language == "en" || language == "auto"))
+                    {
+                        string langArg = (language == "vi" && hasVieData) ? "vie" : ((language == "en") ? "eng" : (hasVieData ? "vie+eng" : "eng"));
+                        string tesseractOutput = RunTesseractOcr(tesseractPath, imagePath, langArg, tessdataDir);
+                        if (!string.IsNullOrWhiteSpace(tesseractOutput))
+                        {
+                            if (language == "en") return tesseractOutput.Trim();
+                            return PostProcessVietnamese(tesseractOutput.Trim());
+                        }
+                    }
+
+                    // 2. Fallback sang Windows Native OCR (Windows.Media.Ocr)
                     string escapedPath = imagePath.Replace("'", "''");
+                    string langFilterScript;
+                    if (language == "en")
+                    {
+                        langFilterScript = @"
+    foreach ($l in $avail) {
+        if ($l.LanguageTag -like 'en*' -or $l.DisplayName -like '*English*') {
+            $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage($l)
+            if ($engine -ne $null) { break }
+        }
+    }
+    if ($engine -eq $null -and $avail.Count -gt 0) {
+        $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage($avail[0])
+    }
+";
+                    }
+                    else
+                    {
+                        langFilterScript = @"
+    foreach ($l in $avail) {
+        if ($l.LanguageTag -like 'vi*' -or $l.DisplayName -like '*Vietnamese*') {
+            $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage($l)
+            if ($engine -ne $null) { break }
+        }
+    }
+    if ($engine -eq $null) {
+        $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()
+    }
+    if ($engine -eq $null -and $avail.Count -gt 0) {
+        $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage($avail[0])
+    }
+";
+                    }
+
                     // Script PowerShell nạp đầy đủ các Type WinRT của Windows.Graphics và Windows.Media.Ocr
                     string script = @"
 [Windows.Storage.StorageFile,Windows.Storage,ContentType=WindowsRuntime] | Out-Null
@@ -49,23 +99,9 @@ try {
     $decoder = AwaitTask ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream)) ([Windows.Graphics.Imaging.BitmapDecoder])
     $bitmap = AwaitTask ($decoder.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])
 
-    # 1. Tìm gói ngôn ngữ OCR tiếng Việt (vi-VN hoặc vi)
     $engine = $null
     $avail = [Windows.Media.Ocr.OcrEngine]::AvailableRecognizerLanguages
-    foreach ($l in $avail) {
-        if ($l.LanguageTag -like 'vi*' -or $l.DisplayName -like '*Vietnamese*') {
-            $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage($l)
-            if ($engine -ne $null) { break }
-        }
-    }
-
-    # 2. Nếu không có tiếng Việt, thử theo ngôn ngữ người dùng hoặc ngôn ngữ đầu tiên khả dụng
-    if ($engine -eq $null) {
-        $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()
-    }
-    if ($engine -eq $null -and $avail.Count -gt 0) {
-        $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage($avail[0])
-    }
+" + langFilterScript + @"
 
     if ($engine -ne $null) {
         $res = AwaitTask ($engine.RecognizeAsync($bitmap)) ([Windows.Media.Ocr.OcrResult])
@@ -94,6 +130,10 @@ try {
                         string output = proc.StandardOutput.ReadToEnd();
                         proc.WaitForExit(9000);
                         string raw = output?.Trim() ?? string.Empty;
+                        if (language == "en")
+                        {
+                            return raw; // Giữ nguyên tiếng Anh thuần túy không qua bộ lọc dấu tiếng Việt
+                        }
                         return PostProcessVietnamese(raw);
                     }
                 }
@@ -103,6 +143,107 @@ try {
                     return string.Empty;
                 }
             });
+        }
+
+        public static string GetTessdataDirectory()
+        {
+            string portableTess = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".portable", "tessdata");
+            if (!Directory.Exists(portableTess))
+            {
+                try { Directory.CreateDirectory(portableTess); } catch { }
+            }
+            return portableTess;
+        }
+
+        public static bool HasVietnameseModel()
+        {
+            string tessDir = GetTessdataDirectory();
+            if (File.Exists(Path.Combine(tessDir, "vie.traineddata"))) return true;
+
+            string localTess = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tessdata", "vie.traineddata");
+            return File.Exists(localTess);
+        }
+
+        public static async Task<(bool success, string message)> DownloadVietnameseModelAsync()
+        {
+            try
+            {
+                string targetDir = GetTessdataDirectory();
+                string targetFile = Path.Combine(targetDir, "vie.traineddata");
+
+                // URL GitHub chính thức từ kho tesseract-ocr/tessdata_fast (nhẹ 1.4MB, tối ưu hóa tốc độ và độ chính xác)
+                string url = "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/vie.traineddata";
+
+                using (var client = new System.Net.WebClient())
+                {
+                    await client.DownloadFileTaskAsync(new Uri(url), targetFile);
+                }
+
+                if (File.Exists(targetFile) && new FileInfo(targetFile).Length > 100000)
+                {
+                    return (true, $"✓ Đã tải thành công mô hình OCR Tiếng Việt (vie.traineddata):\n{targetFile}");
+                }
+                return (false, "⚠ Tệp tải về có kích thước không hợp lệ.");
+            }
+            catch (Exception ex)
+            {
+                return (false, $"⚠ Lỗi tải mô hình từ GitHub: {ex.Message}");
+            }
+        }
+
+        private static string FindTesseractExecutable()
+        {
+            string p1 = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".portable", "tesseract", "tesseract.exe");
+            if (File.Exists(p1)) return p1;
+
+            string p2 = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tesseract.exe");
+            if (File.Exists(p2)) return p2;
+
+            string p3 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Tesseract-OCR", "tesseract.exe");
+            if (File.Exists(p3)) return p3;
+
+            return null;
+        }
+
+        private static string FindTessdataDirectory()
+        {
+            string p1 = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".portable", "tessdata");
+            if (Directory.Exists(p1) && File.Exists(Path.Combine(p1, "vie.traineddata"))) return p1;
+
+            string p2 = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tessdata");
+            if (Directory.Exists(p2) && File.Exists(Path.Combine(p2, "vie.traineddata"))) return p2;
+
+            string p3 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Tesseract-OCR", "tessdata");
+            if (Directory.Exists(p3) && File.Exists(Path.Combine(p3, "vie.traineddata"))) return p3;
+
+            return p1;
+        }
+
+        private static string RunTesseractOcr(string tesseractPath, string imagePath, string lang, string tessdataDir)
+        {
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = tesseractPath,
+                    Arguments = $"\"{imagePath}\" stdout -l {lang} --tessdata-dir \"{tessdataDir}\"",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    StandardOutputEncoding = Encoding.UTF8
+                };
+                using (var proc = Process.Start(psi))
+                {
+                    string res = proc.StandardOutput.ReadToEnd();
+                    proc.WaitForExit(10000);
+                    return res;
+                }
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         /// <summary>

@@ -240,6 +240,68 @@ namespace ModernKey.Models
         }
         public bool HasCustomBackground => !string.IsNullOrWhiteSpace(_backgroundColorHex) && !_backgroundColorHex.Equals("Default", StringComparison.OrdinalIgnoreCase);
 
+        // Tính năng làm mờ riêng theo từng mục (Selective Item Blur)
+        private bool _isBlurred = false;
+        public bool IsBlurred
+        {
+            get => _isBlurred;
+            set
+            {
+                if (_isBlurred != value)
+                {
+                    _isBlurred = value;
+                    OnPropertyChanged(nameof(IsBlurred));
+                    OnPropertyChanged(nameof(BlurBadgeVisibility));
+                    OnPropertyChanged(nameof(BlurToggleText));
+                }
+            }
+        }
+
+        private string _blurMode = "Blur"; // "Blur" hoặc "Pixelate"
+        public string BlurMode
+        {
+            get => _blurMode;
+            set
+            {
+                if (_blurMode != value)
+                {
+                    _blurMode = value ?? "Blur";
+                    OnPropertyChanged(nameof(BlurMode));
+                }
+            }
+        }
+
+        private double _blurRadius = 12.0;
+        public double BlurRadius
+        {
+            get => _blurRadius;
+            set
+            {
+                if (Math.Abs(_blurRadius - value) > 0.01)
+                {
+                    _blurRadius = value;
+                    OnPropertyChanged(nameof(BlurRadius));
+                }
+            }
+        }
+
+        private double _pixelateSize = 14.0;
+        public double PixelateSize
+        {
+            get => _pixelateSize;
+            set
+            {
+                if (Math.Abs(_pixelateSize - value) > 0.01)
+                {
+                    _pixelateSize = value;
+                    OnPropertyChanged(nameof(PixelateSize));
+                }
+            }
+        }
+
+        public Visibility BlurBadgeVisibility => IsBlurred ? Visibility.Visible : Visibility.Collapsed;
+        public string BlurToggleText => IsBlurred ? "Gỡ làm mờ mục này" : "Làm mờ mục này";
+
         // Feature 6: Dữ liệu nhạy cảm
         private bool _isSensitive = false;
         public bool IsSensitive
@@ -427,7 +489,11 @@ namespace ModernKey.Models
                 ShortcutKey = this.ShortcutKey,
                 ShortcutVk = this.ShortcutVk,
                 ShortcutModifiers = this.ShortcutModifiers,
-                BackgroundColorHex = this.BackgroundColorHex
+                BackgroundColorHex = this.BackgroundColorHex,
+                IsBlurred = this.IsBlurred,
+                BlurMode = this.BlurMode,
+                BlurRadius = this.BlurRadius,
+                PixelateSize = this.PixelateSize
             };
         }
 

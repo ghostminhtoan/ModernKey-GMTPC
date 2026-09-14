@@ -644,7 +644,7 @@ namespace ModernKey.Core
         }
 
         private bool _saveHistPending = false;
-        private void SaveHistoryAsync()
+        public void SaveHistoryAsync()
         {
             if (_saveHistPending) return;
             _saveHistPending = true;
@@ -719,6 +719,10 @@ namespace ModernKey.Core
                 sb.Append($"\"CharCount\": {it.CharCount}, ");
                 sb.Append($"\"ByteSize\": {it.ByteSize}, ");
                 sb.Append($"\"IsFavorite\": {(it.IsFavorite ? "true" : "false")}, ");
+                sb.Append($"\"IsBlurred\": {(it.IsBlurred ? "true" : "false")}, ");
+                sb.Append($"\"BlurMode\": \"{Escape(it.BlurMode ?? "Blur")}\", ");
+                sb.Append(string.Format(System.Globalization.CultureInfo.InvariantCulture, "\"BlurRadius\": {0:F1}, ", it.BlurRadius));
+                sb.Append(string.Format(System.Globalization.CultureInfo.InvariantCulture, "\"PixelateSize\": {0:F1}, ", it.PixelateSize));
                 sb.Append($"\"GroupName\": \"{Escape(it.GroupName ?? "")}\", ");
                 sb.Append($"\"ImagePath\": \"{Escape(it.ImagePath ?? "")}\", ");
                 sb.Append($"\"ThumbPath\": \"{Escape(it.ThumbPath ?? "")}\", ");
@@ -1111,6 +1115,10 @@ namespace ModernKey.Core
                 item.CharCount = ExtractJsonInt(block, "CharCount", 0);
                 item.ByteSize = ExtractJsonLong(block, "ByteSize", 0);
                 item.IsFavorite = ExtractJsonBool(block, "IsFavorite", false);
+                item.IsBlurred = ExtractJsonBool(block, "IsBlurred", false);
+                item.BlurMode = ExtractJsonString(block, "BlurMode") ?? "Blur";
+                item.BlurRadius = ExtractJsonDouble(block, "BlurRadius", 12.0);
+                item.PixelateSize = ExtractJsonDouble(block, "PixelateSize", 14.0);
                 item.GroupName = ExtractJsonString(block, "GroupName") ?? string.Empty;
                 item.ImagePath = ResolveCachePath(ExtractJsonString(block, "ImagePath"));
                 item.ThumbPath = ResolveCachePath(ExtractJsonString(block, "ThumbPath"));
@@ -1129,6 +1137,16 @@ namespace ModernKey.Core
             }
 
             return result;
+        }
+
+        private static double ExtractJsonDouble(string block, string key, double defVal)
+        {
+            var match = Regex.Match(block, $"\"{Regex.Escape(key)}\"\\s*:\\s*(?<val>-?\\d+(?:\\.\\d+)?)");
+            if (match.Success && double.TryParse(match.Groups["val"].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double val))
+            {
+                return val;
+            }
+            return defVal;
         }
 
         private static string ExtractJsonString(string block, string key)

@@ -2664,17 +2664,35 @@ namespace ModernKey
             }
         }
 
-        private void CtxMenuOcr_Click(object sender, RoutedEventArgs e)
+        private void CtxMenuOcrVietnamese_Click(object sender, RoutedEventArgs e)
         {
-            PerformOcrOnSelected();
+            PerformOcrOnSelected("vi");
+        }
+
+        private void CtxMenuOcrEnglish_Click(object sender, RoutedEventArgs e)
+        {
+            PerformOcrOnSelected("en");
+        }
+
+        private void CtxMenuOcrAuto_Click(object sender, RoutedEventArgs e)
+        {
+            PerformOcrOnSelected("auto");
+        }
+
+        private async void CtxMenuOcrDownloadModel_Click(object sender, RoutedEventArgs e)
+        {
+            if (TxtStatus != null) TxtStatus.Text = "⏳ Đang tải mô hình OCR Tiếng Việt (vie.traineddata) từ GitHub...";
+            var result = await ClipboardOcrHelper.DownloadVietnameseModelAsync();
+            if (TxtStatus != null) TxtStatus.Text = result.message;
+            MessageBox.Show(result.message, "Mô hình OCR Tiếng Việt", MessageBoxButton.OK, result.success ? MessageBoxImage.Information : MessageBoxImage.Warning);
         }
 
         private void BtnOcrImage_Click(object sender, RoutedEventArgs e)
         {
-            PerformOcrOnSelected();
+            PerformOcrOnSelected("vi");
         }
 
-        private async void PerformOcrOnSelected()
+        private async void PerformOcrOnSelected(string lang = "auto")
         {
             var selected = LstClipboard?.SelectedItems?.Cast<ClipboardItem>().FirstOrDefault();
             if (selected == null || selected.ContentType != ClipboardContentType.Image || string.IsNullOrEmpty(selected.ImagePath))
@@ -2683,17 +2701,19 @@ namespace ModernKey
                 return;
             }
 
-            if (TxtStatus != null) TxtStatus.Text = "⏳ Đang chạy Windows Native OCR trích xuất chữ từ ảnh...";
-            string text = await ClipboardOcrHelper.RecognizeTextAsync(selected.ImagePath);
+            string langLabel = (lang == "vi") ? "Tiếng Việt" : ((lang == "en") ? "Tiếng Anh" : "Tự động");
+            if (TxtStatus != null) TxtStatus.Text = $"⏳ Đang trích xuất chữ [{langLabel}] từ hình ảnh...";
+
+            string text = await ClipboardOcrHelper.RecognizeTextAsync(selected.ImagePath, lang);
             if (!string.IsNullOrWhiteSpace(text))
             {
-                _historyManager.AddText(text, "OCR: " + (selected.SourceApp ?? "Image"));
+                _historyManager.AddText(text, $"OCR [{langLabel}]: " + (selected.SourceApp ?? "Image"));
                 try { Clipboard.SetText(text); } catch { }
-                if (TxtStatus != null) TxtStatus.Text = $"✓ OCR thành công ({text.Length} ký tự)! Đã sao chép vào Clipboard.";
+                if (TxtStatus != null) TxtStatus.Text = $"✓ OCR [{langLabel}] thành công ({text.Length} ký tự)! Đã sao chép vào Clipboard.";
             }
             else
             {
-                if (TxtStatus != null) TxtStatus.Text = "⚠ Không trích xuất được chữ hoặc hình ảnh không có văn bản.";
+                if (TxtStatus != null) TxtStatus.Text = $"⚠ Không trích xuất được chữ hoặc hình ảnh không có văn bản [{langLabel}].";
             }
         }
 
@@ -2708,61 +2728,123 @@ namespace ModernKey
             }
         }
 
+        private bool _isSyncingBlurSliders = false;
+
+        private void ContextMenu_Opened(object sender, RoutedEventArgs e)
+        {
+            var selectedList = LstClipboard?.SelectedItems?.Cast<ClipboardItem>().ToList();
+            if (selectedList == null || selectedList.Count == 0)
+            {
+                if (MnuBlurRoot != null) MnuBlurRoot.IsEnabled = false;
+                return;
+            }
+
+            if (MnuBlurRoot != null) MnuBlurRoot.IsEnabled = true;
+            var primary = selectedList[0];
+
+            _isSyncingBlurSliders = true;
+            try
+            {
+                if (MnuToggleBlur != null)
+                {
+                    MnuToggleBlur.Header = primary.IsBlurred ? "✓ Tắt làm mờ mục này" : "Bật làm mờ mục này";
+                }
+                if (SliderBlurRadius != null)
+                {
+                    SliderBlurRadius.Value = primary.BlurRadius > 0.5 ? primary.BlurRadius : 12;
+                    if (TxtBlurPercent != null) TxtBlurPercent.Text = $"{(int)SliderBlurRadius.Value}px";
+                }
+                if (SliderPixelSize != null)
+                {
+                    SliderPixelSize.Value = primary.PixelateSize > 0.5 ? primary.PixelateSize : 14;
+                    if (TxtPixelPercent != null) TxtPixelPercent.Text = $"{(int)SliderPixelSize.Value}px";
+                }
+            }
+            finally
+            {
+                _isSyncingBlurSliders = false;
+            }
+        }
+
+        private void MnuToggleBlur_Click(object sender, RoutedEventArgs e)
+        {
+            var selectedList = LstClipboard?.SelectedItems?.Cast<ClipboardItem>().ToList();
+            if (selectedList == null || selectedList.Count == 0) return;
+
+            var primary = selectedList[0];
+            bool newBlurred = !primary.IsBlurred;
+
+            foreach (var it in selectedList)
+            {
+                it.IsBlurred = newBlurred;
+                if (newBlurred && it.BlurRadius <= 0.5) it.BlurRadius = 12;
+            }
+
+            if (MnuToggleBlur != null)
+            {
+                MnuToggleBlur.Header = newBlurred ? "✓ Tắt làm mờ mục này" : "Bật làm mờ mục này";
+            }
+
+            _historyManager.SaveHistoryAsync();
+            _itemsView?.Refresh();
+            if (TxtStatus != null)
+            {
+                TxtStatus.Text = newBlurred ? $"✓ Đã bật làm mờ bảo vệ cho {selectedList.Count} mục đã chọn!" : $"✓ Đã gỡ làm mờ cho {selectedList.Count} mục đã chọn.";
+            }
+        }
 
         public void ApplyBlurModeUI()
         {
-            if (SliderBlurRadius != null) SliderBlurRadius.Value = _settings.ClipboardBlurRadius;
-            if (TxtBlurPercent != null) TxtBlurPercent.Text = $"{(int)_settings.ClipboardBlurRadius}%";
-
-            if (SliderPixelSize != null) SliderPixelSize.Value = _settings.ClipboardPixelateSize;
-            if (TxtPixelPercent != null) TxtPixelPercent.Text = $"{(int)_settings.ClipboardPixelateSize}px";
-
             _itemsView?.Refresh();
         }
 
         private void SliderBlurRadius_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            if (_settings == null) return;
-            if (e.NewValue <= 0.5)
+            if (_isSyncingBlurSliders) return;
+            var selectedList = LstClipboard?.SelectedItems?.Cast<ClipboardItem>().ToList();
+            if (selectedList == null || selectedList.Count == 0) return;
+
+            double radius = e.NewValue;
+            if (TxtBlurPercent != null) TxtBlurPercent.Text = $"{(int)radius}px";
+
+            foreach (var it in selectedList)
             {
-                _settings.ClipboardBlurRadius = 0;
-                if (_settings.ClipboardPixelateSize <= 0.5)
-                {
-                    _settings.ClipboardBlurMode = "None";
-                }
-                if (TxtBlurPercent != null) TxtBlurPercent.Text = "0%";
-            }
-            else
-            {
-                _settings.ClipboardBlurRadius = e.NewValue;
-                _settings.ClipboardBlurMode = "Blur";
-                if (TxtBlurPercent != null) TxtBlurPercent.Text = $"{(int)e.NewValue}%";
+                it.BlurRadius = radius;
+                it.BlurMode = "Blur";
+                it.IsBlurred = (radius > 0.5);
             }
 
-            SettingsManager.SaveSettings(_settings);
+            if (MnuToggleBlur != null && selectedList.Count > 0)
+            {
+                MnuToggleBlur.Header = selectedList[0].IsBlurred ? "✓ Tắt làm mờ mục này" : "Bật làm mờ mục này";
+            }
+
+            _historyManager.SaveHistoryAsync();
             _itemsView?.Refresh();
         }
 
         private void SliderPixelSize_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            if (_settings == null) return;
-            if (e.NewValue <= 0.5)
+            if (_isSyncingBlurSliders) return;
+            var selectedList = LstClipboard?.SelectedItems?.Cast<ClipboardItem>().ToList();
+            if (selectedList == null || selectedList.Count == 0) return;
+
+            double size = e.NewValue;
+            if (TxtPixelPercent != null) TxtPixelPercent.Text = $"{(int)size}px";
+
+            foreach (var it in selectedList)
             {
-                _settings.ClipboardPixelateSize = 0;
-                if (_settings.ClipboardBlurRadius <= 0.5)
-                {
-                    _settings.ClipboardBlurMode = "None";
-                }
-                if (TxtPixelPercent != null) TxtPixelPercent.Text = "0px";
-            }
-            else
-            {
-                _settings.ClipboardPixelateSize = e.NewValue;
-                _settings.ClipboardBlurMode = "Pixelate";
-                if (TxtPixelPercent != null) TxtPixelPercent.Text = $"{(int)e.NewValue}px";
+                it.PixelateSize = size;
+                it.BlurMode = "Pixelate";
+                it.IsBlurred = (size > 0.5);
             }
 
-            SettingsManager.SaveSettings(_settings);
+            if (MnuToggleBlur != null && selectedList.Count > 0)
+            {
+                MnuToggleBlur.Header = selectedList[0].IsBlurred ? "✓ Tắt làm mờ mục này" : "Bật làm mờ mục này";
+            }
+
+            _historyManager.SaveHistoryAsync();
             _itemsView?.Refresh();
         }
 
@@ -2770,7 +2852,7 @@ namespace ModernKey
         {
             if (sender is FrameworkElement host)
             {
-                ApplyBlurToHost(host);
+                ApplyBlurToHost(host, host.DataContext as ClipboardItem);
             }
         }
 
@@ -2778,6 +2860,7 @@ namespace ModernKey
         {
             if (sender is FrameworkElement host)
             {
+                // Tạm thời bỏ mờ khi hover để xem nhanh
                 host.Effect = null;
             }
         }
@@ -2786,28 +2869,36 @@ namespace ModernKey
         {
             if (sender is FrameworkElement host)
             {
-                ApplyBlurToHost(host);
+                // Mờ lại nếu item đó được đánh dấu làm mờ
+                ApplyBlurToHost(host, host.DataContext as ClipboardItem);
             }
         }
 
-        private void ApplyBlurToHost(FrameworkElement host)
+        private void ApplyBlurToHost(FrameworkElement host, ClipboardItem item)
         {
-            if (_settings == null || host == null) return;
-            if (_settings.ClipboardBlurMode == "Blur" && _settings.ClipboardBlurRadius > 0.5)
+            if (host == null) return;
+            if (item != null && item.IsBlurred)
             {
-                host.Effect = new System.Windows.Media.Effects.BlurEffect
+                if (item.BlurMode == "Blur" && item.BlurRadius > 0.5)
                 {
-                    Radius = Math.Max(1.0, _settings.ClipboardBlurRadius * 0.4),
-                    KernelType = System.Windows.Media.Effects.KernelType.Gaussian
-                };
-            }
-            else if (_settings.ClipboardBlurMode == "Pixelate" && _settings.ClipboardPixelateSize > 0.5)
-            {
-                host.Effect = new System.Windows.Media.Effects.BlurEffect
+                    host.Effect = new System.Windows.Media.Effects.BlurEffect
+                    {
+                        Radius = Math.Max(1.0, item.BlurRadius * 0.4),
+                        KernelType = System.Windows.Media.Effects.KernelType.Gaussian
+                    };
+                }
+                else if (item.BlurMode == "Pixelate" && item.PixelateSize > 0.5)
                 {
-                    Radius = Math.Max(2.0, _settings.ClipboardPixelateSize * 0.5),
-                    KernelType = System.Windows.Media.Effects.KernelType.Box
-                };
+                    host.Effect = new System.Windows.Media.Effects.BlurEffect
+                    {
+                        Radius = Math.Max(2.0, item.PixelateSize * 0.5),
+                        KernelType = System.Windows.Media.Effects.KernelType.Box
+                    };
+                }
+                else
+                {
+                    host.Effect = null;
+                }
             }
             else
             {

@@ -1641,6 +1641,38 @@ namespace ModernKey.Core
                             sb.AppendLine($"  FAIL OCR Post-process: '{ot.Item1}' -> '{resOcr}' (Mong doi: '{ot.Item2}')");
                         }
                     }
+
+                    // Test 5: Selective Item Blur properties & Clone
+                    var blurItem = new Models.ClipboardItem
+                    {
+                        TextContent = "Sensitive Data 123456",
+                        IsBlurred = true,
+                        BlurMode = "Pixelate",
+                        BlurRadius = 18.0,
+                        PixelateSize = 24.0
+                    };
+                    var clonedBlur = blurItem.Clone();
+                    if (clonedBlur.IsBlurred && clonedBlur.BlurMode == "Pixelate" && clonedBlur.BlurRadius == 18.0 && clonedBlur.PixelateSize == 24.0)
+                    {
+                        sb.AppendLine("  PASS: Selective Blur Item & Clone thành công!");
+                    }
+                    else
+                    {
+                        allPassed = false;
+                        sb.AppendLine("  FAIL: Selective Blur Item & Clone không đồng bộ!");
+                    }
+
+                    // Test 6: OCR Tessdata directory & Language options check
+                    string tessDir = ClipboardOcrHelper.GetTessdataDirectory();
+                    if (!string.IsNullOrEmpty(tessDir))
+                    {
+                        sb.AppendLine($"  PASS: OCR Tessdata Directory sẵn sàng: '{tessDir}'");
+                    }
+                    else
+                    {
+                        allPassed = false;
+                        sb.AppendLine("  FAIL: Không khởi tạo được OCR Tessdata Directory!");
+                    }
                 }
                 catch (Exception ex)
                 {

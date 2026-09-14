@@ -316,36 +316,45 @@
                              Foreground="{StaticResource CyberTextPrimary}" SelectionChanged="LstClipboard_SelectionChanged"
                              MouseDoubleClick="LstClipboard_MouseDoubleClick" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListBox.ContextMenu>
-                            <ContextMenu Style="{StaticResource CyberContextMenu}">
+                            <ContextMenu Style="{StaticResource CyberContextMenu}" Opened="ContextMenu_Opened">
                                 <MenuItem Header="Dán (Paste)" InputGestureText="Enter / Ins" Click="CtxMenuPaste_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="📌 Ghim ra cửa sổ nổi (Sticky Note)..." Click="CtxMenuStickyNote_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="⭐ Thêm / Chọn Group Yêu thích..." InputGestureText="Ctrl+D" Click="CtxMenuToggleFav_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="Bỏ khỏi Yêu thích" Click="CtxMenuRemoveFav_Click" Style="{StaticResource CyberMenuItem}" />
-                                <MenuItem Header="🔍 Trích xuất chữ từ ảnh (OCR)..." Click="CtxMenuOcr_Click" Style="{StaticResource CyberMenuItem}" />
+                                
+                                <MenuItem Header="🔍 Trích xuất chữ từ ảnh (OCR)" Style="{StaticResource CyberMenuItem}">
+                                    <MenuItem Header="🇻🇳 OCR Tiếng Việt" Click="CtxMenuOcrVietnamese_Click" Style="{StaticResource CyberMenuItem}" />
+                                    <MenuItem Header="🇺🇸 OCR Tiếng Anh (English)" Click="CtxMenuOcrEnglish_Click" Style="{StaticResource CyberMenuItem}" />
+                                    <MenuItem Header="🌐 OCR Tự động (Auto-detect)" Click="CtxMenuOcrAuto_Click" Style="{StaticResource CyberMenuItem}" />
+                                    <Separator Style="{StaticResource CyberMenuSeparator}" />
+                                    <MenuItem Header="📥 Tải mô hình Tiếng Việt (vie.traineddata)..." Click="CtxMenuOcrDownloadModel_Click" Style="{StaticResource CyberMenuItem}" />
+                                </MenuItem>
                                 
                                 <Separator Style="{StaticResource CyberMenuSeparator}" />
-                                <!-- Tính năng Làm mờ Clipboard: 2 suboption Pixelated và Blur (mỗi option có slider 0-100) -->
-                                <MenuItem Header="🎭 Làm mờ Clipboard" Style="{StaticResource CyberMenuItem}">
-                                    <MenuItem x:Name="MnuBlurPixel" StaysOpenOnClick="True" Style="{StaticResource CyberMenuItem}">
-                                        <MenuItem.Header>
-                                            <StackPanel Width="230" Margin="0,2">
-                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
-                                                    <TextBlock Text="Pixelated:" Foreground="{StaticResource CyberNeonPink}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" />
-                                                    <TextBlock x:Name="TxtPixelPercent" Text="0px" Foreground="{StaticResource CyberNeonYellow}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" Margin="8,0,0,0" />
-                                                </StackPanel>
-                                                <Slider x:Name="SliderPixelSize" Minimum="0" Maximum="100" Value="0" ValueChanged="SliderPixelSize_ValueChanged" Margin="0,4,0,2" />
-                                            </StackPanel>
-                                        </MenuItem.Header>
-                                    </MenuItem>
+                                <!-- Tính năng Làm mờ Clipboard: chỉ áp dụng cho mục đang chọn (Selective Item Blur) -->
+                                <MenuItem x:Name="MnuBlurRoot" Header="🎭 Làm mờ mục đã chọn" Style="{StaticResource CyberMenuItem}">
+                                    <MenuItem x:Name="MnuToggleBlur" Header="Bật/Tắt làm mờ mục này" Click="MnuToggleBlur_Click" Style="{StaticResource CyberMenuItem}" />
                                     <Separator Style="{StaticResource CyberMenuSeparator}" />
                                     <MenuItem x:Name="MnuBlurBlur" StaysOpenOnClick="True" Style="{StaticResource CyberMenuItem}">
                                         <MenuItem.Header>
                                             <StackPanel Width="230" Margin="0,2">
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
-                                                    <TextBlock Text="Blur:" Foreground="{StaticResource CyberNeonCyan}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" />
-                                                    <TextBlock x:Name="TxtBlurPercent" Text="0%" Foreground="{StaticResource CyberNeonYellow}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" Margin="8,0,0,0" />
+                                                    <TextBlock Text="Độ mờ Blur:" Foreground="{StaticResource CyberNeonCyan}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" />
+                                                    <TextBlock x:Name="TxtBlurPercent" Text="12px" Foreground="{StaticResource CyberNeonYellow}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" Margin="8,0,0,0" />
                                                 </StackPanel>
-                                                <Slider x:Name="SliderBlurRadius" Minimum="0" Maximum="100" Value="0" ValueChanged="SliderBlurRadius_ValueChanged" Margin="0,4,0,2" />
+                                                <Slider x:Name="SliderBlurRadius" Minimum="0" Maximum="50" Value="12" ValueChanged="SliderBlurRadius_ValueChanged" Margin="0,4,0,2" />
+                                            </StackPanel>
+                                        </MenuItem.Header>
+                                    </MenuItem>
+                                    <Separator Style="{StaticResource CyberMenuSeparator}" />
+                                    <MenuItem x:Name="MnuBlurPixel" StaysOpenOnClick="True" Style="{StaticResource CyberMenuItem}">
+                                        <MenuItem.Header>
+                                            <StackPanel Width="230" Margin="0,2">
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
+                                                    <TextBlock Text="Pixelated:" Foreground="{StaticResource CyberNeonPink}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" />
+                                                    <TextBlock x:Name="TxtPixelPercent" Text="14px" Foreground="{StaticResource CyberNeonYellow}" FontSize="11" FontFamily="Consolas" FontWeight="Bold" Margin="8,0,0,0" />
+                                                </StackPanel>
+                                                <Slider x:Name="SliderPixelSize" Minimum="0" Maximum="50" Value="14" ValueChanged="SliderPixelSize_ValueChanged" Margin="0,4,0,2" />
                                             </StackPanel>
                                         </MenuItem.Header>
                                     </MenuItem>
@@ -460,12 +469,20 @@
                                                                    TextTrimming="CharacterEllipsis" Foreground="{StaticResource CyberTextPrimary}"
                                                                    Visibility="{Binding DefaultTitleVisibility}" />
 
-                                                        <!-- Badge Phím tắt (Shortcut) -->
-                                                        <Border Grid.Column="1" Background="#2A1B04" BorderBrush="{StaticResource CyberNeonYellow}" BorderThickness="1"
-                                                                CornerRadius="2" Padding="4,1" Margin="6,0,0,0" VerticalAlignment="Center"
-                                                                Visibility="{Binding ShortcutVisibility}">
-                                                            <TextBlock Text="{Binding ShortcutText}" FontSize="10" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonYellow}" />
-                                                        </Border>
+                                                        <!-- Badge Phím tắt & Làm mờ -->
+                                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <Border Background="#330022" BorderBrush="{StaticResource CyberNeonPink}" BorderThickness="1"
+                                                                    CornerRadius="2" Padding="4,1" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                                    Visibility="{Binding BlurBadgeVisibility}" ToolTip="Mục này đang được làm mờ bảo vệ riêng">
+                                                                <TextBlock Text="[MỜ]" FontSize="9" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonPink}" />
+                                                            </Border>
+
+                                                            <Border Background="#2A1B04" BorderBrush="{StaticResource CyberNeonYellow}" BorderThickness="1"
+                                                                    CornerRadius="2" Padding="4,1" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                                    Visibility="{Binding ShortcutVisibility}">
+                                                                <TextBlock Text="{Binding ShortcutText}" FontSize="10" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonYellow}" />
+                                                            </Border>
+                                                        </StackPanel>
                                                     </Grid>
 
                                                     <!-- Dòng Preview phụ khi có Custom Title -->
