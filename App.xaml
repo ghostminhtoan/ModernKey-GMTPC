@@ -13,6 +13,7 @@
         <SolidColorBrush x:Key="CyberNeonCyan" Color="#00F0FF" />
         <SolidColorBrush x:Key="CyberNeonPink" Color="#FF0055" />
         <SolidColorBrush x:Key="CyberNeonYellow" Color="#FFE600" />
+        <SolidColorBrush x:Key="CyberNeonGreen" Color="#00FF66" />
         <SolidColorBrush x:Key="CyberTextPrimary" Color="#E0F7FA" />
         <SolidColorBrush x:Key="CyberTextSecondary" Color="#80DEEA" />
         <SolidColorBrush x:Key="CyberTextDim" Color="#4A6572" />

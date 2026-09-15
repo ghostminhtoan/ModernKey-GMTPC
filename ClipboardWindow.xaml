@@ -639,7 +639,7 @@
                                     Visibility="Collapsed">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                     <CheckBox x:Name="ChkOcrMergeLines" Content="Nối liền câu" IsChecked="True"
-                                              Foreground="{StaticResource CyberNeonGreen}" FontFamily="Consolas" FontSize="11" FontWeight="Bold"
+                                              Foreground="#00FF66" FontFamily="Consolas" FontSize="11" FontWeight="Bold"
                                               VerticalAlignment="Center" Margin="0,0,10,0" Click="ChkOcrMergeLines_Click"
                                               ToolTip="Tự động nối các dòng bị ngắt giữa chừng thành câu/đoạn trọn vẹn (bỏ xuống dòng tùy tiện theo ảnh)" />
                                     <Button x:Name="BtnOcrImage" Content="🔍 Trích xuất chữ (PaddleOCR AI)" Click="BtnOcrImage_Click"

@@ -44,15 +44,45 @@ namespace ModernKey.Core
                 };
 
                 ConfigureModelDirectory();
+
+                try
+                {
+                    string baseDir = GetAppDirectory();
+                    string portableBin = Path.Combine(baseDir, ".portable", "bin");
+                    string portableBinX64 = Path.Combine(portableBin, "x64");
+                    string currentPath = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+                    if (!currentPath.Contains(portableBin))
+                    {
+                        string prepend = $"{portableBin};{portableBinX64};";
+                        Environment.SetEnvironmentVariable("PATH", prepend + currentPath);
+                    }
+                }
+                catch { }
             }
             catch { }
+        }
+
+        private static string GetAppDirectory()
+        {
+            try
+            {
+                string loc = typeof(PaddleOcrHelper).Assembly.Location;
+                if (!string.IsNullOrEmpty(loc))
+                {
+                    string dir = Path.GetDirectoryName(loc);
+                    if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir)) return dir;
+                }
+            }
+            catch { }
+            return AppDomain.CurrentDomain.BaseDirectory;
         }
 
         public static string GetModelRootDirectory()
         {
             try
             {
-                string portableDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".portable", "paddleocr-models");
+                string baseDir = GetAppDirectory();
+                string portableDir = Path.Combine(baseDir, ".portable", "paddleocr-models");
                 if (Directory.Exists(portableDir)) return portableDir;
 
                 string appDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ModernKey", "paddleocr-models");
@@ -64,7 +94,7 @@ namespace ModernKey.Core
             }
             catch
             {
-                return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "paddleocr-models");
+                return Path.Combine(GetAppDirectory(), "paddleocr-models");
             }
         }
 

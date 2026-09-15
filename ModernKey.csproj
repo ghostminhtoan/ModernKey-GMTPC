@@ -48,8 +48,32 @@
     <Reference Include="System.IO.Compression.FileSystem" />
   </ItemGroup>
 
-  <Target Name="EnsurePortableFolder" AfterTargets="Build">
-    <MakeDir Directories="$(TargetDir).portable" Condition="!Exists('$(TargetDir).portable')" />
+  <Target Name="OrganizePortableBin" AfterTargets="Build">
+    <MakeDir Directories="$(TargetDir).portable\bin" Condition="!Exists('$(TargetDir).portable\bin')" />
+    <MakeDir Directories="$(TargetDir).portable\bin\x64" Condition="!Exists('$(TargetDir).portable\bin\x64')" />
+    <MakeDir Directories="$(TargetDir).portable\bin\x86" Condition="!Exists('$(TargetDir).portable\bin\x86')" />
+
+    <ItemGroup>
+      <_LooseDlls Include="$(TargetDir)*.dll" />
+      <_LoosePdbs Include="$(TargetDir)*.pdb" Exclude="$(TargetDir)$(TargetName).pdb" />
+      <_DllDirFiles Include="$(TargetDir)dll\**\*.*" />
+      <_DllX64Files Include="$(TargetDir)dll\x64\*.*" />
+    </ItemGroup>
+
+    <!-- Copy loose DLLs to .portable\bin and remove from root -->
+    <Copy SourceFiles="@(_LooseDlls)" DestinationFolder="$(TargetDir).portable\bin" SkipUnchangedFiles="true" OverwriteReadOnlyFiles="true" Condition="'@(_LooseDlls)' != ''" />
+    <Delete Files="@(_LooseDlls)" Condition="'@(_LooseDlls)' != ''" />
+
+    <!-- Copy dependency PDBs to .portable\bin and remove from root -->
+    <Copy SourceFiles="@(_LoosePdbs)" DestinationFolder="$(TargetDir).portable\bin" SkipUnchangedFiles="true" OverwriteReadOnlyFiles="true" Condition="'@(_LoosePdbs)' != ''" />
+    <Delete Files="@(_LoosePdbs)" Condition="'@(_LoosePdbs)' != ''" />
+
+    <!-- Copy native files from dll\x64\ to both .portable\bin\ and .portable\bin\x64\ -->
+    <Copy SourceFiles="@(_DllX64Files)" DestinationFolder="$(TargetDir).portable\bin" SkipUnchangedFiles="true" OverwriteReadOnlyFiles="true" Condition="'@(_DllX64Files)' != ''" />
+    <Copy SourceFiles="@(_DllDirFiles)" DestinationFiles="@(_DllDirFiles->'$(TargetDir).portable\bin\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" OverwriteReadOnlyFiles="true" Condition="'@(_DllDirFiles)' != ''" />
+
+    <!-- Remove original dll\ directory from output root -->
+    <RemoveDir Directories="$(TargetDir)dll" Condition="Exists('$(TargetDir)dll')" />
   </Target>
 
 </Project>

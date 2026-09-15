@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -31,8 +32,77 @@ namespace ModernKey
 
         public ClipboardHistoryManager ClipboardHistory => _clipboardHistory;
 
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern bool SetDllDirectory(string lpPathName);
+
         [System.Runtime.InteropServices.DllImport("kernel32.dll")]
         private static extern bool AttachConsole(int dwProcessId);
+
+        static App()
+        {
+            InitializePortableBinPaths();
+        }
+
+        private static void InitializePortableBinPaths()
+        {
+            try
+            {
+                string baseDir = Path.GetDirectoryName(typeof(App).Assembly.Location);
+                if (string.IsNullOrEmpty(baseDir)) baseDir = AppDomain.CurrentDomain.BaseDirectory;
+
+                string portableBin = Path.Combine(baseDir, ".portable", "bin");
+                string portableBinX64 = Path.Combine(portableBin, "x64");
+                string portableBinX86 = Path.Combine(portableBin, "x86");
+
+                // 1. Set Win32 DLL directory to .portable\bin
+                if (Directory.Exists(portableBin))
+                {
+                    SetDllDirectory(portableBin);
+                }
+
+                // 2. Add .portable\bin directories to PATH environment variable for native DLLs
+                string currentPath = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+                var pathsToAdd = new[] { portableBin, portableBinX64, portableBinX86 }
+                    .Where(Directory.Exists)
+                    .ToList();
+
+                if (pathsToAdd.Count > 0)
+                {
+                    string newPath = string.Join(";", pathsToAdd) + ";" + currentPath;
+                    Environment.SetEnvironmentVariable("PATH", newPath);
+                }
+
+                // 3. Fallback AssemblyResolve for managed assemblies located in .portable\bin
+                AppDomain.CurrentDomain.AssemblyResolve += (sender, args) =>
+                {
+                    try
+                    {
+                        var assemblyName = new AssemblyName(args.Name).Name;
+                        if (string.IsNullOrEmpty(assemblyName)) return null;
+
+                        string[] searchDirs = new[]
+                        {
+                            portableBin,
+                            portableBinX64,
+                            portableBinX86
+                        };
+
+                        foreach (var dir in searchDirs)
+                        {
+                            if (!Directory.Exists(dir)) continue;
+                            string targetFile = Path.Combine(dir, assemblyName + ".dll");
+                            if (File.Exists(targetFile))
+                            {
+                                return Assembly.LoadFrom(targetFile);
+                            }
+                        }
+                    }
+                    catch { }
+                    return null;
+                };
+            }
+            catch { }
+        }
 
         protected override void OnStartup(StartupEventArgs e)
         {
