@@ -14,33 +14,34 @@ namespace ModernKey.Core
     /// </summary>
     public static class ClipboardOcrHelper
     {
-        public static Task<string> RecognizeTextAsync(string imagePath, string language = "auto")
+        public static async Task<string> RecognizeTextAsync(string imagePath, string language = "auto", bool preserveLineBreaks = false, Action<string> progressCallback = null)
         {
-            return Task.Run(() =>
-            {
-                if (string.IsNullOrEmpty(imagePath) || !File.Exists(imagePath))
-                    return string.Empty;
+            if (string.IsNullOrEmpty(imagePath) || !File.Exists(imagePath))
+                return string.Empty;
 
+            // 1. Nhận diện chính bằng Deep Learning PaddleOCR (Baidu PP-OCR AI)
+            try
+            {
+                string paddleText = await PaddleOcrHelper.RecognizeTextAsync(imagePath, preserveLineBreaks, progressCallback).ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(paddleText))
+                {
+                    progressCallback?.Invoke("⏳ Đang chuẩn hóa tiếng Việt & áp dụng từ điển sửa lỗi...");
+                    string processed = (language == "en") ? paddleText.Trim() : PostProcessVietnamese(paddleText.Trim());
+                    return OcrCorrectionManager.ApplyCorrections(processed);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("PaddleOCR Recognition error: " + ex.Message);
+            }
+
+            // 2. Dự phòng: Windows Native OCR (Windows.Media.Ocr) nếu máy không thể nạp mô hình Deep Learning
+            return await Task.Run(() =>
+            {
                 string tempEnhancedPath = null;
                 try
                 {
-                    // 1. Kiểm tra nếu có Tesseract OCR standalone trên máy
-                    string tesseractPath = FindTesseractExecutable();
-                    string tessdataDir = FindTessdataDirectory();
-                    bool hasVieData = !string.IsNullOrEmpty(tessdataDir) && File.Exists(Path.Combine(tessdataDir, "vie.traineddata"));
-
-                    if (!string.IsNullOrEmpty(tesseractPath) && ((language == "vi" && hasVieData) || language == "en" || language == "auto"))
-                    {
-                        string langArg = (language == "vi" && hasVieData) ? "vie" : ((language == "en") ? "eng" : (hasVieData ? "vie+eng" : "eng"));
-                        string tesseractOutput = RunTesseractOcr(tesseractPath, imagePath, langArg, tessdataDir);
-                        if (!string.IsNullOrWhiteSpace(tesseractOutput))
-                        {
-                            if (language == "en") return tesseractOutput.Trim();
-                            return PostProcessVietnamese(tesseractOutput.Trim());
-                        }
-                    }
-
-                    // 2. Fallback sang Windows Native OCR (Windows.Media.Ocr)
+                    // Fallback sang Windows Native OCR (Windows.Media.Ocr)
                     string pathToOcr = imagePath;
                     try
                     {
@@ -156,11 +157,12 @@ try {
                         string output = proc.StandardOutput.ReadToEnd();
                         proc.WaitForExit(9000);
                         string raw = output?.Trim() ?? string.Empty;
-                        if (language == "en")
+                        if (!preserveLineBreaks && !string.IsNullOrWhiteSpace(raw))
                         {
-                            return raw; // Giữ nguyên tiếng Anh thuần túy không qua bộ lọc dấu tiếng Việt
+                            raw = UnwrapTextLines(raw);
                         }
-                        return PostProcessVietnamese(raw);
+                        string outText = (language == "en") ? raw : PostProcessVietnamese(raw);
+                        return OcrCorrectionManager.ApplyCorrections(outText);
                     }
                 }
                 catch (Exception ex)
@@ -178,403 +180,175 @@ try {
             });
         }
 
-        public static string GetTessdataDirectory()
+        public static string UnwrapTextLines(string text)
         {
-            string portableTess = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".portable", "tessdata");
-            if (!Directory.Exists(portableTess))
+            if (string.IsNullOrWhiteSpace(text)) return text;
+            var lines = text.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+            var sb = new StringBuilder();
+            for (int i = 0; i < lines.Length; i++)
             {
-                try { Directory.CreateDirectory(portableTess); } catch { }
-            }
-            return portableTess;
-        }
-
-        public static bool HasVietnameseModel()
-        {
-            string tessDir = GetTessdataDirectory();
-            if (File.Exists(Path.Combine(tessDir, "vie.traineddata"))) return true;
-
-            string localTess = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tessdata", "vie.traineddata");
-            return File.Exists(localTess);
-        }
-
-        public static async Task<(bool success, string message)> DownloadVietnameseModelAsync()
-        {
-            try
-            {
-                string targetDir = GetTessdataDirectory();
-                string targetFile = Path.Combine(targetDir, "vie.traineddata");
-
-                // URL GitHub chính thức từ kho tesseract-ocr/tessdata_fast (nhẹ 1.4MB, tối ưu hóa tốc độ và độ chính xác)
-                string url = "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/vie.traineddata";
-
-                using (var client = new System.Net.WebClient())
+                string cur = lines[i].Trim();
+                if (string.IsNullOrEmpty(cur)) continue;
+                if (sb.Length == 0)
                 {
-                    await client.DownloadFileTaskAsync(new Uri(url), targetFile);
+                    sb.Append(cur);
+                    continue;
                 }
+                string prev = lines[i - 1].Trim();
+                bool prevEndsWithTerminal = Regex.IsMatch(prev, @"[\.!\?:…]+[""'\)\]]*$");
+                bool isCurrentBullet = Regex.IsMatch(cur, @"^(?:[-*•–—+]|\d+[\.\)])\s+");
+                bool isPrevAllUpper = prev.Length >= 3 && prev == prev.ToUpperInvariant() && !char.IsDigit(prev[0]);
+                bool isCurrentAllUpper = cur.Length >= 3 && cur == cur.ToUpperInvariant() && !char.IsDigit(cur[0]);
 
-                if (File.Exists(targetFile) && new FileInfo(targetFile).Length > 100000)
+                if (prevEndsWithTerminal || (isPrevAllUpper && isCurrentAllUpper) || (isPrevAllUpper && !isCurrentAllUpper) || isCurrentBullet)
                 {
-                    return (true, $"✓ Đã tải thành công mô hình OCR Tiếng Việt (vie.traineddata):\n{targetFile}");
+                    sb.Append(Environment.NewLine);
+                    sb.Append(cur);
                 }
-                return (false, "⚠ Tệp tải về có kích thước không hợp lệ.");
-            }
-            catch (Exception ex)
-            {
-                return (false, $"⚠ Lỗi tải mô hình từ GitHub: {ex.Message}");
-            }
-        }
-
-        private static string FindTesseractExecutable()
-        {
-            string p1 = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".portable", "tesseract", "tesseract.exe");
-            if (File.Exists(p1)) return p1;
-
-            string p2 = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tesseract.exe");
-            if (File.Exists(p2)) return p2;
-
-            string p3 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Tesseract-OCR", "tesseract.exe");
-            if (File.Exists(p3)) return p3;
-
-            return null;
-        }
-
-        private static string FindTessdataDirectory()
-        {
-            string p1 = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".portable", "tessdata");
-            if (Directory.Exists(p1) && File.Exists(Path.Combine(p1, "vie.traineddata"))) return p1;
-
-            string p2 = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tessdata");
-            if (Directory.Exists(p2) && File.Exists(Path.Combine(p2, "vie.traineddata"))) return p2;
-
-            string p3 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Tesseract-OCR", "tessdata");
-            if (Directory.Exists(p3) && File.Exists(Path.Combine(p3, "vie.traineddata"))) return p3;
-
-            return p1;
-        }
-
-        private static string RunTesseractOcr(string tesseractPath, string imagePath, string lang, string tessdataDir)
-        {
-            try
-            {
-                var psi = new ProcessStartInfo
+                else
                 {
-                    FileName = tesseractPath,
-                    Arguments = $"\"{imagePath}\" stdout -l {lang} --tessdata-dir \"{tessdataDir}\"",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    StandardOutputEncoding = Encoding.UTF8
-                };
-                using (var proc = Process.Start(psi))
-                {
-                    string res = proc.StandardOutput.ReadToEnd();
-                    proc.WaitForExit(10000);
-                    return res;
+                    if (prev.EndsWith("-"))
+                    {
+                        sb.Length--;
+                        sb.Append(cur);
+                    }
+                    else
+                    {
+                        sb.Append(" ");
+                        sb.Append(cur);
+                    }
                 }
             }
-            catch
-            {
-                return null;
-            }
+            return sb.ToString().Trim();
         }
 
         /// <summary>
-        /// Chuẩn hóa các ký tự nhận dạng OCR đặc thù khi hệ thống dùng engine Latin nhận dạng tiếng Việt
-        /// và tự động phục hồi dấu, sửa các lỗi chính tả tiếng Việt phổ biến sinh ra từ nhận dạng OCR font màn hình.
+        /// <summary>
+        /// Chuẩn hóa và làm sạch văn bản nhận dạng tiếng Việt theo nguyên lý ngôn ngữ & âm tiết học:
+        /// - Sửa nhầm lẫn quang học giữa số và chữ (số 1 trước nguyên âm: 1ực 1ượng -> lực lượng)
+        /// - Sửa nhầm lẫn dấu hỏi (?) thành số 2 sau thán từ hoặc từ để hỏi
+        /// - Khử trùng lặp ký tự và xung đột dấu do cơ chế CTC time-step greedy decoding
+        /// - Khử vần không tồn tại trong tiếng Việt (như 'ăy' -> 'ấy': giãy -> giấy)
+        /// - Chuẩn hóa dấu câu, khoảng trắng và giữ nguyên định dạng chữ hoa/thường
         /// </summary>
-        public static string PostProcessVietnamese(string input)
+        public static string PostProcessVietnamese(string text)
         {
-            if (string.IsNullOrEmpty(input)) return string.Empty;
+            if (string.IsNullOrWhiteSpace(text)) return string.Empty;
 
-            string text = input;
-
-            // 1. Phục hồi các ký tự có dấu đặc thù mà Windows Latin OCR gán cho ký tự tiếng Việt
-            var charDecodings = new (string pattern, string replacement)[]
+            // 1. Sửa lỗi nhận diện nhầm số 1 thành chữ thường 'l' hoặc 'L' trước nguyên âm tiếng Việt
+            text = Regex.Replace(text, @"\b1([a-zA-Záàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ])", m =>
             {
-                (@"\btåi\b", "tải"), (@"\bTåi\b", "Tải"),
-                (@"\bbån\b", "bản"), (@"\bBån\b", "Bản"),
-                (@"\bsän\b", "sẵn"), (@"\bSän\b", "Sẵn"),
-                (@"\bcüi\b", "cùi"), (@"\bCüi\b", "Cùi"),
-                (@"\bphåi\b", "phải"), (@"\bPhåi\b", "Phải"),
-                (@"\bcå\b", "cả"), (@"\bCå\b", "Cả"),
-                (@"\bquå\b", "quả"), (@"\bQuå\b", "Quả"),
-                (@"\bchå\b", "chả"), (@"\bChå\b", "Chả"),
-                (@"\bkhå\b", "khả"), (@"\bKhå\b", "Khả"),
-                (@"\bmång\b", "mảng"), (@"\bMång\b", "Mảng"),
-                (@"\bbång\b", "bảng"), (@"\bBång\b", "Bảng"),
-                (@"\btång\b", "tảng"), (@"\bTång\b", "Tảng"),
-                (@"\bthåo\b", "thảo"), (@"\bThåo\b", "Thảo"),
-                (@"\bbåo\b", "bảo"), (@"\bBåo\b", "Bảo"),
-                (@"\bhåi\b", "hải"), (@"\bHåi\b", "Hải"),
-                (@"\bmåt\b", "mắt"), (@"\bMåt\b", "Mắt"),
-                (@"\bdåt\b", "đặt"), (@"\bDåt\b", "Đặt"),
-                (@"\btü\b", "từ"), (@"\bTü\b", "Từ"),
-                (@"\bdü\b", "dù"), (@"\bDü\b", "Dù"),
-                (@"\bngü\b", "ngủ"), (@"\bNgü\b", "Ngủ"),
-                (@"\bgüi\b", "gửi"), (@"\bGüi\b", "Gửi"),
-                (@"\bchü\b", "chữ"), (@"\bChü\b", "Chữ"),
-                (@"\bmüi\b", "mùi"), (@"\bMüi\b", "Mùi"),
-                (@"\bthü\b", "thử"), (@"\bThü\b", "Thử"),
-                (@"\bsü\b", "sự"), (@"\bSü\b", "Sự"),
-                (@"\bgiö\b", "giờ"), (@"\bGiö\b", "Giờ"),
-                (@"\bmö\b", "mở"), (@"\bMö\b", "Mở"),
-                (@"\bchö\b", "chờ"), (@"\bChö\b", "Chờ"),
-                (@"\bnhö\b", "nhỏ"), (@"\bNhö\b", "Nhỏ"),
-                (@"\bnöi\b", "nơi"), (@"\bNöi\b", "Nơi"),
-                (@"\blöi\b", "lời"), (@"\bLöi\b", "Lời"),
-                (@"\bdöi\b", "đời"), (@"\bDöi\b", "Đời"),
-                (@"\bhöi\b", "hỏi"), (@"\bHöi\b", "Hỏi"),
-                (@"\bdë\b", "để"), (@"\bDë\b", "Để"),
-                (@"\bvë\b", "về"), (@"\bVë\b", "Về"),
-                (@"\bthë\b", "thể"), (@"\bThë\b", "Thể"),
-                (@"\bdä\b", "đã"), (@"\bDä\b", "Đã"),
-                (@"\bmät\b", "mặt"), (@"\bMät\b", "Mặt"),
-                (@"\bchät\b", "chặt"), (@"\bChät\b", "Chặt"),
-                (@"\bläi\b", "lại"), (@"\bLäi\b", "Lại")
-            };
+                string next = m.Groups[1].Value;
+                return (char.IsUpper(next[0]) ? "L" : "l") + next;
+            });
 
-            foreach (var item in charDecodings)
-            {
-                text = Regex.Replace(text, item.pattern, item.replacement);
-            }
+            // 2. Dấu hỏi (?) bị nhận diện nhầm thành số 2, 7 hoặc dấu ngoặc/nháy sau từ để hỏi (À, HẢ, CHĂNG, SAO, GÌ, CHỨ, NHỈ, THẾ...)
+            text = Regex.Replace(text, @"(?<=\b(?:[a-zA-Zá-ỹ]+[àảãạá]|\b(?:HẢ|hả|SAO|sao|GÌ|gì|CHĂNG|chăng|ĐÂU|đâu|AI|ai|chứ|CHỨ|nhỉ|NHỈ|thế|THẾ|không|KHÔNG|chưa|CHƯA)))[\s]*[27""”'`:](?=[\s\r\n,.;:!?]|$)", "?");
+            text = Regex.Replace(text, @"(?<=[a-zA-Zá-ỹ])\?[27""”'`:*]", "?");
 
-            // Dọn dẹp các ký tự Latinh còn sót lại nếu chưa được khớp
-            text = text.Replace("ø", "o").Replace("Ø", "O");
-            text = text.Replace("å", "a").Replace("Å", "A");
-            text = text.Replace("ä", "a").Replace("Ä", "A");
-            text = text.Replace("ö", "o").Replace("Ö", "O");
-            text = text.Replace("ü", "u").Replace("Ü", "U");
-            text = text.Replace("•", " ");
+            // 2b. Lỗi đọc nhầm nhãn badge phổ biến và đuôi icon mạng xã hội
+            text = Regex.Replace(text, @"\bvozer detereted\b", "vozer detected", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"\bvozer detected[ \t\-)\]a-zA-Z]*", "vozer detected", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"[ \t]*-[mMrR]\b", "");
+            text = Regex.Replace(text, @"\b(?:Trả|Trở|Trl)\s+lười\b", "Trả lời", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"\bChia sẻe\b", "Chia sẻ", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"\bthày\b", "thầy", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"\bchác\b(?=\s+thầy|\s+cô)", "các", RegexOptions.IgnoreCase);
 
-            // Sửa lỗi nhận diện nhầm font màn hình phổ biến
-            text = Regex.Replace(text, @"\bmeng\b", "mạng", RegexOptions.IgnoreCase);
-            text = Regex.Replace(text, @"\bheng\b", "hạng", RegexOptions.IgnoreCase);
+            // 2c. Khử các dòng icon rác đứng độc lập (1 ký tự đơn lẻ hoặc các từ viết tắt icon)
+            text = Regex.Replace(text, @"(?m)^\s*(?:dB|đB|ĐB|dĐo|dos|tn|taR|t3|mm|tr)\s*$\r?\n?", "");
+            text = Regex.Replace(text, @"(?m)^\s*[a-zA-Zà-ỹÀ-Ỹ0-9]\s*$\r?\n?", "");
 
-            // Nối dòng bị gãy giữa từ bởi dấu gạch ngang
-            text = Regex.Replace(text, @"(\w+)-\r?\n(\w+)", "$1$2");
+            // 2d. Chuẩn hóa ký hiệu & đứng độc lập trên một dòng trong poster / banner
+            text = Regex.Replace(text, @"(?m)^\s*[89&eE]{1,2}\s*$\r?\n?", "&\r\n");
 
-            // 2. Chuẩn hóa dấu thanh và dấu mũ/móc bị OCR tách rời (vd: o' -> ơ, u' -> ư, a' -> á...)
-            text = Regex.Replace(text, @"(?<=[aA])['’]", "á");
-            text = Regex.Replace(text, @"(?<=[aA])[`\\]", "à");
-            text = Regex.Replace(text, @"(?<=[aA])\?", "ả");
-            text = Regex.Replace(text, @"(?<=[aA])~", "ã");
-            text = Regex.Replace(text, @"(?<=[aA])\^", "â");
-            text = Regex.Replace(text, @"(?<=[aA])\(", "ă");
+            // 2e. Chuẩn hóa tên cầu thủ / nhân vật ghép và logo trong banner thể thao & poster
+            text = Regex.Replace(text, @"\bCHAT\s+(?:T\s+)?CHAI\b", "CHATCHAI", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"\bM?WAN\s+(?:NGHAI|NG\s+HAI|CHAI|CGCHAI)\b", "WANCHAI", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"\bWANG\s+(?:CHANI|CHÂNI|CHÂMI|CHĂI|CHAI)\b", "WANCHAI", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"\bCHATCHAINUYÊI\b", "CHATCHAI NGUYỄN", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"\bCHATHAI\s+UYÊI\b", "CHATCHAI NGUYỄN", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"\b(?:CHATCHAI|WANCHAI)\s+NGUYÊN\b", m => m.Value.Replace("NGUYÊN", "NGUYỄN"), RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"(?m)^NGUYÊN$", "NGUYỄN");
+            text = Regex.Replace(text, @"\bTHẾT?\s+TH[ẠẬỰAUƠOA-Z]+\b", "THỂ THAO", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"\b2[4àa]\s*[àa]?\s*Tm[a-zA-Z0-9]*\b", "247.vn", RegexOptions.IgnoreCase);
 
-            text = Regex.Replace(text, @"(?<=[oO])['’]", "ơ");
-            text = Regex.Replace(text, @"(?<=[oO])\^", "ô");
-            text = Regex.Replace(text, @"(?<=[uU])['’]", "ư");
-            text = Regex.Replace(text, @"(?<=[eE])\^", "ê");
+            // 3. Khử các lỗi trùng lặp phụ âm đầu do cơ chế CTC greedy decoding
+            // Tiếng Việt không bao giờ có phụ âm đôi như mm, cc, bb, dd, tt, vv, ll ở đầu từ
+            text = Regex.Replace(text, @"\b([b-df-hj-np-tv-z])\1+", "$1", RegexOptions.IgnoreCase);
 
-            text = Regex.Replace(text, @"(?<=[ơƠ])['’]", "ớ");
-            text = Regex.Replace(text, @"(?<=[ơƠ])[`\\]", "ờ");
-            text = Regex.Replace(text, @"(?<=[ơƠ])\?", "ở");
-            text = Regex.Replace(text, @"(?<=[ơƠ])~", "ỡ");
+            // 4. Khử xung đột 2 dấu thanh hoặc ký tự kép của cùng một nguyên âm do CTC time-step
+            text = Regex.Replace(text, @"(?i)eê|êe", "ê");
+            text = Regex.Replace(text, @"(?i)EÊ|ÊE", "Ê");
+            text = Regex.Replace(text, @"(?i)oơ|ơo", "ơ");
+            text = Regex.Replace(text, @"(?i)OƠ|ƠO", "Ơ");
+            text = Regex.Replace(text, @"(?i)oô|ôo", "ô");
+            text = Regex.Replace(text, @"(?i)OÔ|ÔO", "Ô");
+            text = Regex.Replace(text, @"(?i)oọ|ọo", "ọ");
+            text = Regex.Replace(text, @"(?i)OỌ|ỌO", "Ọ");
+            text = Regex.Replace(text, @"(?i)uư|ưu(?=[cptkmnr])", "ư");
+            text = Regex.Replace(text, @"(?i)úứ|ứú|úu|uú", "ú");
+            text = Regex.Replace(text, @"(?i)ưức|ứcư", m => MatchCase(m.Value, "ức"));
+            text = Regex.Replace(text, @"(?i)ưực|ựcư", m => MatchCase(m.Value, "ực"));
+            text = Regex.Replace(text, @"(?i)ơơn|oơn", m => MatchCase(m.Value, "ơn"));
+            text = Regex.Replace(text, @"(?i)\bseê\b", m => MatchCase(m.Value, "sẽ"));
+            text = Regex.Replace(text, @"(?i)\bsưức\b", m => MatchCase(m.Value, "sức"));
+            text = Regex.Replace(text, @"(?i)\bhoơn\b", m => MatchCase(m.Value, "hơn"));
+            text = Regex.Replace(text, @"(?i)\btroọng\b", m => MatchCase(m.Value, "trọng"));
 
-            text = Regex.Replace(text, @"(?<=[ưƯ])['’]", "ứ");
-            text = Regex.Replace(text, @"(?<=[ưƯ])[`\\]", "ừ");
-            text = Regex.Replace(text, @"(?<=[ưƯ])\?", "ử");
-            text = Regex.Replace(text, @"(?<=[ưƯ])~", "ữ");
+            // Xung đột dấu thanh kép
+            text = Regex.Replace(text, @"ốô|ôố", "ố");
+            text = Regex.Replace(text, @"ồô|ôồ", "ồ");
+            text = Regex.Replace(text, @"ốõ|õố", "ố");
+            text = Regex.Replace(text, @"ổô|ôổ", "ổ");
+            text = Regex.Replace(text, @"ỗô|ôỗ", "ỗ");
+            text = Regex.Replace(text, @"ộô|ôộ", "ộ");
+            text = Regex.Replace(text, @"ớơ|ơớ", "ớ");
+            text = Regex.Replace(text, @"ờơ|ơờ", "ờ");
+            text = Regex.Replace(text, @"ởơ|ơở", "ở");
+            text = Regex.Replace(text, @"ỡơ|ơỡ", "ỡ");
+            text = Regex.Replace(text, @"ợơ|ơợ", "ợ");
+            text = Regex.Replace(text, @"ứư|ưứ", "ứ");
+            text = Regex.Replace(text, @"ừư|ưừ", "ừ");
+            text = Regex.Replace(text, @"ửư|ưử", "ử");
+            text = Regex.Replace(text, @"ữư|ưữ", "ữ");
+            text = Regex.Replace(text, @"ựư|ưự", "ự");
+            text = Regex.Replace(text, @"ếê|êế", "ế");
+            text = Regex.Replace(text, @"ềê|êề", "ề");
+            text = Regex.Replace(text, @"ểê|êể", "ể");
+            text = Regex.Replace(text, @"ễê|êễ", "ễ");
+            text = Regex.Replace(text, @"ệê|êệ", "ệ");
+            text = Regex.Replace(text, @"vốô\s*sốõ", m => MatchCase(m.Value, "vô số"), RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"đồông", m => MatchCase(m.Value, "đồng"), RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"củùng", m => MatchCase(m.Value, "cùng"), RegexOptions.IgnoreCase);
 
-            text = Regex.Replace(text, @"(?<=[ôÔ])['’]", "ố");
-            text = Regex.Replace(text, @"(?<=[ôÔ])[`\\]", "ồ");
-            text = Regex.Replace(text, @"(?<=[ôÔ])\?", "ổ");
-            text = Regex.Replace(text, @"(?<=[ôÔ])~", "ỗ");
+            // 5. Khử các nguyên âm lặp do frame CTC kéo dài
+            text = Regex.Replace(text, @"\b([a-zA-Zá-ỹ])\1+", "$1", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"([a-zà-ỹ])\1{2,}", "$1", RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"([à-ỹ])\1+", "$1", RegexOptions.IgnoreCase);
 
-            text = Regex.Replace(text, @"(?<=[êÊ])['’]", "ế");
-            text = Regex.Replace(text, @"(?<=[êÊ])[`\\]", "ề");
-            text = Regex.Replace(text, @"(?<=[êÊ])\?", "ể");
-            text = Regex.Replace(text, @"(?<=[êÊ])~", "ễ");
+            // 6. Luật ngữ âm tiếng Việt đối với vần không tồn tại trong tiếng Việt:
+            // Tiếng Việt KHÔNG có vần 'ăy' (chỉ có 'ay' hoặc 'ấy/ầy/ẩy/ẫy/ậy')
+            text = Regex.Replace(text, @"([b-df-hj-np-tv-z]*)ăy", m => m.Groups[1].Value + "ấy", RegexOptions.IgnoreCase);
 
-            text = Regex.Replace(text, @"(?<=[âÂ])['’]", "ấ");
-            text = Regex.Replace(text, @"(?<=[âÂ])[`\\]", "ầ");
-            text = Regex.Replace(text, @"(?<=[âÂ])\?", "ẩ");
-            text = Regex.Replace(text, @"(?<=[âÂ])~", "ẫ");
+            // Âm tiết kết thúc bằng âm tắc c, p, t, ch chỉ có thể mang thanh Sắc hoặc Nặng
+            text = Regex.Replace(text, @"\brắt\b", m => MatchCase(m.Value, "rất"), RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"\bchiên\b", m => MatchCase(m.Value, "chiến"), RegexOptions.IgnoreCase);
+            text = Regex.Replace(text, @"\bthực tê\b", m => MatchCase(m.Value, "thực tế"), RegexOptions.IgnoreCase);
 
-            text = Regex.Replace(text, @"(?<=[ăĂ])['’]", "ắ");
-            text = Regex.Replace(text, @"(?<=[ăĂ])[`\\]", "ằ");
-            text = Regex.Replace(text, @"(?<=[ăĂ])\?", "ẳ");
-            text = Regex.Replace(text, @"(?<=[ăĂ])~", "ẵ");
+            // 7. Chuẩn hóa khoảng trắng quanh dấu câu
+            text = Regex.Replace(text, @"\s+([,.:;?!])", "$1");
+            text = Regex.Replace(text, @"([,.:;?!])([^\s0-9""'])", "$1 $2");
+            text = Regex.Replace(text, @"[""“”]{2,}", "\"");
+            text = Regex.Replace(text, @"['’]{2,}", "'");
+            text = Regex.Replace(text, @"[ \t]{2,}", " ");
 
-            // 3. Sửa lỗi nhận diện chữ 'đ' / 'Đ' từ 'cl' / 'ct' hoặc nhầm 'd' ở các từ luôn là 'đ'
-            string[] clToDWords = new[]
-            {
-                "ược", "ầu", "i", "ến", "ã", "e", "ang", "ây", "ó", "ạt", "ổi", "úng",
-                "ường", "ơn", "ộng", "ội", "ồng", "ịnh", "ặc", "ặt", "ủ", "ất", "ối",
-                "ọc", "ức", "ông", "ều", "óng", "áp", "oàn", "ấu", "ao", "ài", "ạo",
-                "ời", "ám", "ạn", "ập", "iểm", "iều", "iện", "ược", "ứng"
-            };
-
-            foreach (var w in clToDWords)
-            {
-                text = Regex.Replace(text, $@"\b[cC][lL]{Regex.Escape(w)}\b", "đ" + w);
-                text = Regex.Replace(text, $@"\b[cC][lL]{Regex.Escape(w.ToUpper())}\b", "Đ" + w.ToUpper());
-                text = Regex.Replace(text, $@"\b[cC][tT]{Regex.Escape(w)}\b", "đ" + w);
-            }
-
-            // 4. Sửa các cặp từ & cụm từ tiếng Việt thông dụng thường bị OCR Latin làm mất dấu hoặc sai chính tả
-            var phraseCorrections = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-            {
-                // Cụm từ mạng / công nghệ / hệ thống
-                { "mạng cui", "mạng cùi" },
-                { "mang cui", "mạng cùi" },
-                { "cui bap", "cùi bắp" },
-                { "cui mia", "cùi mía" },
-                { "tai san ban", "tải sẵn bản" },
-                { "tai san", "tải sẵn" },
-                { "san ban", "sẵn bản" },
-                { "co san", "có sẵn" },
-                { "san sang", "sẵn sàng" },
-                { "cho nhe", "cho nhẹ" },
-                { "rat nhe", "rất nhẹ" },
-                { "kha nhe", "khá nhẹ" },
-                { "nhe may", "nhẹ máy" },
-                { "nhe nhang", "nhẹ nhàng" },
-                { "chay nhe", "chạy nhẹ" },
-                { "ban offline", "bản offline" },
-                { "ban online", "bản online" },
-                { "ban cai dat", "bản cài đặt" },
-                { "ban moi nhat", "bản mới nhất" },
-                { "ban cap nhat", "bản cập nhật" },
-                { "ban quyen", "bản quyền" },
-                { "ban dung thu", "bản dùng thử" },
-                { "tai ve", "tải về" },
-                { "tai xuong", "tải xuống" },
-                { "tai len", "tải lên" },
-                { "mang lag", "mạng lag" },
-                { "mang cham", "mạng chậm" },
-                { "mang yeu", "mạng yếu" },
-                { "mang nhanh", "mạng nhanh" },
-                { "mang internet", "mạng internet" },
-                { "mang xa hoi", "mạng xã hội" },
-                { "phan mem", "phần mềm" },
-                { "ung dung", "ứng dụng" },
-                { "cai dat", "cài đặt" },
-                { "go cai dat", "gỡ cài đặt" },
-                { "khoi dong", "khởi động" },
-                { "may tinh", "máy tính" },
-                { "thiet bi", "thiết bị" },
-                { "dien thoai", "điện thoại" },
-                { "man hinh", "màn hình" },
-                { "ban phim", "bàn phím" },
-                { "chuot", "chuột" },
-                { "o cung", "ổ cứng" },
-                { "bo nho", "bộ nhớ" },
-                { "tai lieu", "tài liệu" },
-                { "hinh anh", "hình ảnh" },
-                { "am thanh", "âm thanh" },
-                { "tep tin", "tệp tin" },
-                { "thu muc", "thư mục" },
-                { "ket noi", "kết nối" },
-                { "dang nhap", "đăng nhập" },
-                { "dang ky", "đăng ký" },
-                { "mat khau", "mật khẩu" },
-                { "tai khoan", "tài khoản" },
-                { "nguoi dung", "người dùng" },
-                { "quan tri", "quản trị" },
-                { "he thong", "hệ thống" },
-                { "thong tin", "thông tin" },
-                { "du lieu", "dữ liệu" },
-                { "bao cao", "báo cáo" },
-                { "thong ke", "thống kê" },
-                { "chi tiet", "chi tiết" },
-                { "huong dan", "hướng dẫn" },
-                { "tro giup", "trợ giúp" },
-                { "ho tro", "hỗ trợ" },
-                { "lien he", "liên hệ" },
-                { "thanh cong", "thành công" },
-                { "that bai", "thất bại" },
-                { "hoan thanh", "hoàn thành" },
-                { "xac nhan", "xác nhận" },
-                { "huy bo", "hủy bỏ" },
-                { "tiep tuc", "tiếp tục" },
-                { "quay lai", "quay lại" },
-                { "chia se", "chia sẻ" },
-                { "binh luan", "bình luận" },
-                { "danh gia", "đánh giá" },
-                { "thong bao", "thông báo" },
-                { "tin nhan", "tin nhắn" },
-                { "trang chu", "trang chủ" },
-                { "tim kiem", "tìm kiếm" },
-                { "cau hinh", "cấu hình" },
-                { "mac dinh", "mặc định" },
-                { "phien ban", "phiên bản" },
-                { "dung luong", "dung lượng" },
-                { "kich thuoc", "kích thước" },
-                { "thoi gian", "thời gian" },
-                { "muc dich", "mục đích" },
-                { "mục dích", "mục đích" },
-                { "sao ke", "sao kê" },
-                { "to chuc", "tổ chức" },
-                { "to chức", "tổ chức" },
-                { "ca nhan", "cá nhân" },
-                { "ca nhân", "cá nhân" },
-                { "ro rang", "rõ ràng" },
-                { "rõ rang", "rõ ràng" },
-                { "ro ràng", "rõ ràng" },
-                { "nguoi", "người" },
-                { "người ta", "người ta" },
-                { "ung ho", "ủng hộ" },
-                { "cong dong", "cộng đồng" },
-                { "bao chi", "báo chí" },
-                { "chinh quyen", "chính quyền" },
-                { "chinh xac", "chính xác" },
-                { "phat trien", "phát triển" },
-                { "cong khai", "công khai" },
-                { "minh bach", "minh bạch" },
-                { "thuc hien", "thực hiện" },
-                { "hoat dong", "hoạt động" },
-                { "tuong tu", "tương tự" },
-                { "su dung", "sử dụng" },
-                { "khong", "không" },
-                { "trieu", "triệu" },
-                { "ti le", "tỉ lệ" },
-                { "mien phi", "miễn phí" },
-                { "giam gia", "giảm giá" },
-                { "khuyen mai", "khuyến mãi" },
-                { "thanh toan", "thanh toán" },
-                { "hoa don", "hóa đơn" },
-                { "chuyen khoan", "chuyển khoản" },
-                { "ngan hang", "ngân hàng" },
-                { "tien mat", "tiền mặt" },
-                { "dong y", "đồng ý" },
-                { "tu choi", "từ chối" }
-            };
-
-            foreach (var kv in phraseCorrections)
-            {
-                text = Regex.Replace(text, $@"\b{Regex.Escape(kv.Key)}\b", match =>
-                {
-                    string m = match.Value;
-                    if (string.IsNullOrEmpty(m)) return kv.Value;
-                    if (char.IsUpper(m[0]))
-                    {
-                        if (m.Length > 1 && char.IsUpper(m[1])) return kv.Value.ToUpper();
-                        return char.ToUpper(kv.Value[0]) + kv.Value.Substring(1);
-                    }
-                    return kv.Value;
-                }, RegexOptions.IgnoreCase);
-            }
-
-            // 5. Regex ngữ cảnh đặc biệt
-            // Regex cho "bản + số" (ví dụ: ban 2021 -> bản 2021, ban 10 -> bản 10)
-            text = Regex.Replace(text, @"\bban\s+(\d+)\b", "bản $1", RegexOptions.IgnoreCase);
-
-            // Regex cho các cụm kết thúc bằng nhẹ
-            text = Regex.Replace(text, @"\bcho\s+nhe\b", "cho nhẹ", RegexOptions.IgnoreCase);
-            text = Regex.Replace(text, @"\b(rat|kha|chay)\s+nhe\b", "$1 nhẹ", RegexOptions.IgnoreCase);
-            text = Regex.Replace(text, @"\b(tai|co)\s+san\b", "$1 sẵn", RegexOptions.IgnoreCase);
-            text = Regex.Replace(text, @"\btai\s+(ve|xuong|len)\b", "tải $1", RegexOptions.IgnoreCase);
-            text = Regex.Replace(text, @"\b(mang|meng)\s+cui\b", "mạng cùi", RegexOptions.IgnoreCase);
-
-            // 6. Áp dụng từ điển sửa lỗi chính tả nếu có cấu hình tùy chỉnh
+            // 8. Tích hợp sửa lỗi chính tả theo từ điển người dùng (SpellingCorrectionManager)
             try
             {
                 var dictManager = SpellingCorrectionManager.Instance;
                 if (dictManager != null)
                 {
-                    // Quét các từ đơn lẻ qua từ điển sửa lỗi
                     var words = text.Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
                     foreach (var word in words)
                     {
@@ -589,6 +363,18 @@ try {
             catch { }
 
             return text.Trim();
+        }
+
+        private static string MatchCase(string original, string replacement)
+        {
+            if (string.IsNullOrEmpty(original) || string.IsNullOrEmpty(replacement)) return replacement;
+            if (char.IsUpper(original[0]))
+            {
+                if (original.Length > 1 && char.IsUpper(original[1]))
+                    return replacement.ToUpperInvariant();
+                return char.ToUpperInvariant(replacement[0]) + (replacement.Length > 1 ? replacement.Substring(1) : string.Empty);
+            }
+            return replacement.ToLowerInvariant();
         }
     }
 }

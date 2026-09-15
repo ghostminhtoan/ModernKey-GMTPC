@@ -152,6 +152,99 @@
             <Setter Property="Margin" Value="4,3" />
             <Setter Property="Height" Value="1" />
         </Style>
+
+        <!-- Cyberpunk Animated Progress Bar Style -->
+        <Style x:Key="CyberProgressBar" TargetType="ProgressBar">
+            <Setter Property="Height" Value="8" />
+            <Setter Property="Background" Value="#091018" />
+            <Setter Property="BorderBrush" Value="{StaticResource CyberBorderDim}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3"
+                                ClipToBounds="True">
+                            <Grid x:Name="TemplateRoot">
+                                <Border x:Name="PART_Track" />
+                                <Grid x:Name="PART_Indicator" ClipToBounds="True" HorizontalAlignment="Left" />
+                                <Grid x:Name="AnimationRoot" ClipToBounds="True">
+                                    <Border x:Name="PART_Glow" Width="90" HorizontalAlignment="Left" CornerRadius="2">
+                                        <Border.Background>
+                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                <GradientStop Color="#0000FF66" Offset="0.0" />
+                                                <GradientStop Color="#FF00FFE0" Offset="0.5" />
+                                                <GradientStop Color="#0000FF66" Offset="1.0" />
+                                            </LinearGradientBrush>
+                                        </Border.Background>
+                                        <Border.RenderTransform>
+                                            <TranslateTransform x:Name="GlowTranslate" X="-90" />
+                                        </Border.RenderTransform>
+                                    </Border>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsIndeterminate" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard RepeatBehavior="Forever">
+                                            <DoubleAnimation Storyboard.TargetName="GlowTranslate"
+                                                             Storyboard.TargetProperty="X"
+                                                             From="-90" To="320" Duration="0:0:1.1" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Cyberpunk Slim Footer Progress Bar -->
+        <Style x:Key="CyberSlimProgressBar" TargetType="ProgressBar">
+            <Setter Property="Height" Value="3" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Border Background="{TemplateBinding Background}" ClipToBounds="True">
+                            <Grid x:Name="TemplateRoot">
+                                <Border x:Name="PART_Glow" Width="140" HorizontalAlignment="Left">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                            <GradientStop Color="#0000FFE0" Offset="0.0" />
+                                            <GradientStop Color="#FF00FFE0" Offset="0.5" />
+                                            <GradientStop Color="#0000FFE0" Offset="1.0" />
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                    <Border.RenderTransform>
+                                        <TranslateTransform x:Name="GlowTranslate" X="-140" />
+                                    </Border.RenderTransform>
+                                </Border>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsIndeterminate" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard RepeatBehavior="Forever">
+                                            <DoubleAnimation Storyboard.TargetName="GlowTranslate"
+                                                             Storyboard.TargetProperty="X"
+                                                             From="-140" To="900" Duration="0:0:1.3" />
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <!-- Khung chính Cyberpunk HUD -->
@@ -322,12 +415,11 @@
                                 <MenuItem Header="⭐ Thêm / Chọn Group Yêu thích..." InputGestureText="Ctrl+D" Click="CtxMenuToggleFav_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="Bỏ khỏi Yêu thích" Click="CtxMenuRemoveFav_Click" Style="{StaticResource CyberMenuItem}" />
                                 
-                                <MenuItem Header="🔍 Trích xuất chữ từ ảnh (OCR)" Style="{StaticResource CyberMenuItem}">
-                                    <MenuItem Header="🇻🇳 OCR Tiếng Việt" Click="CtxMenuOcrVietnamese_Click" Style="{StaticResource CyberMenuItem}" />
-                                    <MenuItem Header="🇺🇸 OCR Tiếng Anh (English)" Click="CtxMenuOcrEnglish_Click" Style="{StaticResource CyberMenuItem}" />
-                                    <MenuItem Header="🌐 OCR Tự động (Auto-detect)" Click="CtxMenuOcrAuto_Click" Style="{StaticResource CyberMenuItem}" />
-                                    <Separator Style="{StaticResource CyberMenuSeparator}" />
-                                    <MenuItem Header="📥 Tải mô hình Tiếng Việt (vie.traineddata)..." Click="CtxMenuOcrDownloadModel_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem x:Name="CtxMenuOcrContinuous" Header="📜 Trích xuất chữ (Nối liền câu / Không xuống dòng)" Click="CtxMenuOcrContinuous_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem x:Name="CtxMenuOcrPreserveLines" Header="📑 Trích xuất chữ (Giữ nguyên xuống dòng)" Click="CtxMenuOcrPreserveLines_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem Header="⚙️ Tùy chọn mô hình &amp; Sửa lỗi OCR..." Style="{StaticResource CyberMenuItem}">
+                                    <MenuItem Header="📥 Tải / Cập nhật lại mô hình AI (~70MB)..." Click="CtxMenuOcrDownloadPaddleModel_Click" Style="{StaticResource CyberMenuItem}" />
+                                    <MenuItem Header="✏️ Mở bảng tự sửa lỗi (ocr_user_corrections.json)..." Click="CtxMenuOpenOcrCorrections_Click" Style="{StaticResource CyberMenuItem}" />
                                 </MenuItem>
                                 
                                 <Separator Style="{StaticResource CyberMenuSeparator}" />
@@ -535,20 +627,51 @@
                             <!-- Text Preview -->
                             <TextBox x:Name="TxtPreview" Background="Transparent" BorderThickness="0"
                                      Foreground="{StaticResource CyberTextPrimary}" FontFamily="Consolas" FontSize="12"
-                                     IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Padding="8" />
+                                     IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                                     Padding="8" SelectionBrush="{StaticResource CyberNeonPink}" />
 
-                            <!-- Image Preview (hỗ trợ kéo thả trực tiếp sang ứng dụng khác) -->
-                            <Image x:Name="ImgPreview" Stretch="Uniform" Margin="8" Visibility="Collapsed"
-                                   Cursor="Hand" ToolTip="Kéo và thả ảnh này vào Word, Photoshop, File Explorer, Browser..."
-                                   PreviewMouseLeftButtonDown="ImgPreview_PreviewMouseLeftButtonDown"
-                                   PreviewMouseMove="ImgPreview_PreviewMouseMove" />
+                            <!-- Image Preview -->
+                            <Image x:Name="ImgPreview" Stretch="Uniform" Margin="8" Visibility="Collapsed" />
 
-                            <!-- Nút trích xuất chữ OCR trên ảnh -->
-                            <Button x:Name="BtnOcrImage" Content="[OCR CHỮ]" Click="BtnOcrImage_Click"
-                                    HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="10"
-                                    Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66"
-                                    FontFamily="Consolas" FontWeight="Bold" Padding="8,4" Visibility="Collapsed"
-                                    ToolTip="Trích xuất văn bản từ hình ảnh này (Windows Native OCR)" />
+                            <!-- Bảng điều khiển nút trích xuất chữ OCR trên ảnh -->
+                            <Border x:Name="PnlOcrImageActions" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="10"
+                                    Background="#E60D1520" BorderBrush="#00FF66" BorderThickness="1.2" CornerRadius="4" Padding="8,4"
+                                    Visibility="Collapsed">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <CheckBox x:Name="ChkOcrMergeLines" Content="Nối liền câu" IsChecked="True"
+                                              Foreground="{StaticResource CyberNeonGreen}" FontFamily="Consolas" FontSize="11" FontWeight="Bold"
+                                              VerticalAlignment="Center" Margin="0,0,10,0" Click="ChkOcrMergeLines_Click"
+                                              ToolTip="Tự động nối các dòng bị ngắt giữa chừng thành câu/đoạn trọn vẹn (bỏ xuống dòng tùy tiện theo ảnh)" />
+                                    <Button x:Name="BtnOcrImage" Content="🔍 Trích xuất chữ (PaddleOCR AI)" Click="BtnOcrImage_Click"
+                                            Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66"
+                                            FontFamily="Consolas" FontWeight="Bold" Padding="10,6"
+                                            ToolTip="Trích xuất toàn bộ chữ tiếng Việt / Latin từ hình ảnh bằng Baidu PaddleOCR AI" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Khung hiển thị tiến trình OCR nổi bật (High-Contrast Cyberpunk Progress Overlay) -->
+                            <Border x:Name="PnlOcrProgress" Panel.ZIndex="99" Background="#F2080D15" BorderBrush="{StaticResource CyberNeonCyan}"
+                                    BorderThickness="1.8" CornerRadius="5"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24,18" Margin="16"
+                                    Visibility="Collapsed">
+                                <Border.Effect>
+                                    <DropShadowEffect Color="#00FFE0" BlurRadius="30" ShadowDepth="0" Opacity="0.75" />
+                                </Border.Effect>
+                                <StackPanel Width="290">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,12">
+                                        <TextBlock Text="⚡" FontSize="16" Foreground="{StaticResource CyberNeonYellow}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="ĐANG TRÍCH XUẤT CHỮ OCR AI" Foreground="{StaticResource CyberNeonCyan}"
+                                                   FontFamily="Consolas" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    
+                                    <!-- Neon glowing animated progress bar -->
+                                    <ProgressBar x:Name="PbOcr" Style="{StaticResource CyberProgressBar}" Height="8" IsIndeterminate="True" Margin="0,0,0,12" />
+                                    
+                                    <TextBlock x:Name="TxtOcrProgressDetail" Text="Đang xử lý hình ảnh qua mạng neuron Deep Learning..."
+                                               Foreground="{StaticResource CyberNeonYellow}" FontFamily="Consolas" FontSize="11" FontWeight="SemiBold"
+                                               TextWrapping="Wrap" TextAlignment="Center" LineHeight="16" />
+                                </StackPanel>
+                            </Border>
                         </Grid>
                     </Border>
 
@@ -565,10 +688,10 @@
                         </Grid.RowDefinitions>
 
                         <!-- Hàng 1: Nút Dán chính & Sao chép -->
-                        <Grid Grid.Row="0" Margin="0,0,0,6">
+                        <Grid Grid.Row="0" Margin="0,0,0,4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="2*" />
-                                <ColumnDefinition Width="1.2*" />
+                                <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Button x:Name="BtnPasteDirect" Grid.Column="0" Content="[ENTER/CTRL+V] DÁN" Click="BtnPasteDirect_Click"
@@ -605,15 +728,23 @@
             <!-- 4. Footer info bar -->
             <Border Grid.Row="3" Margin="0,10,0,0" Padding="4,2">
                 <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock x:Name="TxtStatus" Text="💡 Kéo &amp; Thả (Drag &amp; Drop) ra app khác | Enter/Ctrl+V = Dán | Ctrl+C = Chép | Del = Xóa"
-                               FontSize="11" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" />
-                    <Button x:Name="BtnClearAllFooter" Grid.Column="1" Content="XÓA TOÀN BỘ LỊCH SỬ" Click="BtnClearAll_Click"
-                            Background="Transparent" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}"
-                            FontSize="10" Padding="6,2" ToolTip="Xóa tất cả mục" />
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <ProgressBar x:Name="PbFooterOcr" Style="{StaticResource CyberSlimProgressBar}" Grid.Row="0" Height="3" IsIndeterminate="True"
+                                 Visibility="Collapsed" Margin="0,0,0,4" />
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="TxtStatus" Text="💡 Kéo &amp; Thả (Drag &amp; Drop) ra app khác | Enter/Ctrl+V = Dán | Ctrl+C = Chép | Del = Xóa"
+                                   FontSize="11" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" />
+                        <Button x:Name="BtnClearAllFooter" Grid.Column="1" Content="XÓA TOÀN BỘ LỊCH SỬ" Click="BtnClearAll_Click"
+                                Background="Transparent" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}"
+                                FontSize="10" Padding="6,2" ToolTip="Xóa tất cả mục" />
+                    </Grid>
                 </Grid>
             </Border>
         </Grid>

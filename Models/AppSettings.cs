@@ -118,6 +118,9 @@ namespace ModernKey.Models
         public string SyncFolderPath { get; set; } = string.Empty; // Tính năng 20: Thư mục đồng bộ P2P/Local
         public bool P2PAutoSyncEnabled { get; set; } = false; // Tính năng 20: Tự động đồng bộ P2P khi có thay đổi
 
+        // Tùy chọn OCR: Giữ nguyên xuống dòng (true) hay tự động nối liền câu/đoạn văn không xuống dòng tùy tiện (false)
+        public bool OcrPreserveLineBreaks { get; set; } = false;
+
         // Tương thích ngược cấu hình
         public bool SensitiveDataMasking { get; set; } = false;
         public int SensitiveAutoPurgeMinutes { get; set; } = 0;

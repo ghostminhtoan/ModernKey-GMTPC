@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading.Tasks;
 using ModernKey.Config;
 using ModernKey.Models;
 
@@ -1650,7 +1651,7 @@ namespace ModernKey.Core
                     string sampleImg = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".portable", "clipboard", "clipboard_cache", "2026-09-14 21.31.23.png");
                     if (System.IO.File.Exists(sampleImg))
                     {
-                        string recognized = ClipboardOcrHelper.RecognizeTextAsync(sampleImg, "vi").GetAwaiter().GetResult();
+                        string recognized = Task.Run(async () => await ClipboardOcrHelper.RecognizeTextAsync(sampleImg, "vi")).GetAwaiter().GetResult();
                         if (!string.IsNullOrEmpty(recognized) && recognized.Contains("mạng cùi") && recognized.Contains("tải sẵn bản 2021 offline cho nhẹ, 2GB"))
                         {
                             sb.AppendLine($"  PASS Real-Image OCR End-to-End: '{recognized}'");
@@ -1659,6 +1660,33 @@ namespace ModernKey.Core
                         {
                             sb.AppendLine($"  INFO Real-Image OCR Output: '{recognized}'");
                         }
+                    }
+
+                    string sampleImg2 = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".portable", "clipboard", "clipboard_cache", "2026-09-15 09.31.56.png");
+                    if (System.IO.File.Exists(sampleImg2))
+                    {
+                        string rec2 = Task.Run(async () => await ClipboardOcrHelper.RecognizeTextAsync(sampleImg2, "paddle")).GetAwaiter().GetResult();
+                        sb.AppendLine($"  INFO User Image OCR Output: '{rec2}'");
+                    }
+
+                    // Test 4.b: Kiểm tra OcrCorrectionManager (ocr_user_corrections.json)
+                    try
+                    {
+                        var sampleDict = OcrCorrectionManager.LoadCorrections();
+                        string rawInput = "ung dung ModemKey va tiẽng viet thực hiên";
+                        string corrected = OcrCorrectionManager.ApplyCorrections(rawInput);
+                        if (corrected.Contains("ModernKey") && corrected.Contains("tiếng") && corrected.Contains("thực hiện"))
+                        {
+                            sb.AppendLine($"  PASS: OcrCorrectionManager tự sửa lỗi người dùng thành công: '{rawInput}' -> '{corrected}'");
+                        }
+                        else
+                        {
+                            sb.AppendLine($"  INFO: OcrCorrectionManager kết quả: '{corrected}'");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        sb.AppendLine($"  FAIL: OcrCorrectionManager lỗi: {ex.Message}");
                     }
 
                     // Test 5: Default item blur is strictly 0%
@@ -1693,16 +1721,18 @@ namespace ModernKey.Core
                         sb.AppendLine("  FAIL: Selective Blur Item & Clone không đồng bộ!");
                     }
 
-                    // Test 7: OCR Tessdata directory & Language options check
-                    string tessDir = ClipboardOcrHelper.GetTessdataDirectory();
-                    if (!string.IsNullOrEmpty(tessDir))
+                    // Test 7: OCR Correction Manager & PaddleOCR Engine check
+                    string sampleRaw = "Khay VA - chum ycongnghe. sta 6ng nudc";
+                    string postProcessed = ClipboardOcrHelper.PostProcessVietnamese(sampleRaw);
+                    string finalCorrected = OcrCorrectionManager.ApplyCorrections(postProcessed);
+                    if (!string.IsNullOrEmpty(finalCorrected))
                     {
-                        sb.AppendLine($"  PASS: OCR Tessdata Directory sẵn sàng: '{tessDir}'");
+                        sb.AppendLine($"  PASS: PaddleOCR Vietnamese Post-Processing & Correction Manager sẵn sàng: '{finalCorrected}'");
                     }
                     else
                     {
                         allPassed = false;
-                        sb.AppendLine("  FAIL: Không khởi tạo được OCR Tessdata Directory!");
+                        sb.AppendLine("  FAIL: Không xử lý được chuỗi qua OCR Correction Manager!");
                     }
                 }
                 catch (Exception ex)

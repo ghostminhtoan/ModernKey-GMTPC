@@ -57,6 +57,11 @@ namespace ModernKey
                 _historyManager.FavoriteItems.CollectionChanged += FavoriteItems_CollectionChanged;
             }
 
+            if (ChkOcrMergeLines != null)
+            {
+                ChkOcrMergeLines.IsChecked = !(_settings?.OcrPreserveLineBreaks ?? false);
+            }
+
             Loaded += ClipboardWindow_Loaded;
             Deactivated += ClipboardWindow_Deactivated;
             IsVisibleChanged += ClipboardWindow_IsVisibleChanged;
@@ -1067,11 +1072,13 @@ namespace ModernKey
                     ImgPreview.Source = item.ImageSource;
                 }
                 if (BtnOcrImage != null) BtnOcrImage.Visibility = Visibility.Visible;
+                if (PnlOcrImageActions != null) PnlOcrImageActions.Visibility = Visibility.Visible;
                 if (TxtMetaInfo != null) TxtMetaInfo.Text = $"[HÌNH ẢNH]{appPart} • Dung lượng: {item.ByteSize / 1024} KB • Thời gian: {item.TimeDisplay}";
             }
             else if (item.ContentType == ClipboardContentType.Files)
             {
                 if (BtnOcrImage != null) BtnOcrImage.Visibility = Visibility.Collapsed;
+                if (PnlOcrImageActions != null) PnlOcrImageActions.Visibility = Visibility.Collapsed;
                 if (ImgPreview != null) ImgPreview.Visibility = Visibility.Collapsed;
                 if (TxtPreview != null)
                 {
@@ -1120,6 +1127,7 @@ namespace ModernKey
             else
             {
                 if (BtnOcrImage != null) BtnOcrImage.Visibility = Visibility.Collapsed;
+                if (PnlOcrImageActions != null) PnlOcrImageActions.Visibility = Visibility.Collapsed;
                 if (ImgPreview != null) ImgPreview.Visibility = Visibility.Collapsed;
                 if (TxtPreview != null)
                 {
@@ -1155,6 +1163,14 @@ namespace ModernKey
             if (BtnOcrImage != null)
             {
                 BtnOcrImage.Visibility = Visibility.Collapsed;
+            }
+            if (PnlOcrImageActions != null)
+            {
+                PnlOcrImageActions.Visibility = Visibility.Collapsed;
+            }
+            if (PnlOcrProgress != null)
+            {
+                PnlOcrProgress.Visibility = Visibility.Collapsed;
             }
             if (TxtPreview != null)
             {
@@ -2678,35 +2694,148 @@ namespace ModernKey
             }
         }
 
+        private void ChkOcrMergeLines_Click(object sender, RoutedEventArgs e)
+        {
+            bool isContinuous = ChkOcrMergeLines?.IsChecked ?? true;
+            if (_settings != null)
+            {
+                _settings.OcrPreserveLineBreaks = !isContinuous;
+                SettingsManager.SaveSettings(_settings);
+            }
+            if (TxtStatus != null)
+            {
+                TxtStatus.Text = isContinuous
+                    ? "✓ Đã bật chế độ OCR Nối liền câu (bỏ ngắt dòng tùy tiện theo ảnh)."
+                    : "✓ Đã bật chế độ OCR Giữ nguyên xuống dòng gốc.";
+            }
+        }
+
+        private void CtxMenuOcrContinuous_Click(object sender, RoutedEventArgs e)
+        {
+            if (ChkOcrMergeLines != null) ChkOcrMergeLines.IsChecked = true;
+            if (_settings != null)
+            {
+                _settings.OcrPreserveLineBreaks = false;
+                SettingsManager.SaveSettings(_settings);
+            }
+            PerformOcrOnSelected("paddle", preserveLineBreaksOverride: false);
+        }
+
+        private void CtxMenuOcrPreserveLines_Click(object sender, RoutedEventArgs e)
+        {
+            if (ChkOcrMergeLines != null) ChkOcrMergeLines.IsChecked = false;
+            if (_settings != null)
+            {
+                _settings.OcrPreserveLineBreaks = true;
+                SettingsManager.SaveSettings(_settings);
+            }
+            PerformOcrOnSelected("paddle", preserveLineBreaksOverride: true);
+        }
+
+        private void CtxMenuOcrPaddle_Click(object sender, RoutedEventArgs e)
+        {
+            bool preserveBreaks = !(ChkOcrMergeLines?.IsChecked ?? true);
+            PerformOcrOnSelected("paddle", preserveBreaks);
+        }
+
         private void CtxMenuOcrVietnamese_Click(object sender, RoutedEventArgs e)
         {
-            PerformOcrOnSelected("vi");
+            PerformOcrOnSelected("paddle");
         }
 
         private void CtxMenuOcrEnglish_Click(object sender, RoutedEventArgs e)
         {
-            PerformOcrOnSelected("en");
+            PerformOcrOnSelected("paddle");
         }
 
         private void CtxMenuOcrAuto_Click(object sender, RoutedEventArgs e)
         {
-            PerformOcrOnSelected("auto");
+            PerformOcrOnSelected("paddle");
         }
 
-        private async void CtxMenuOcrDownloadModel_Click(object sender, RoutedEventArgs e)
+        private async void CtxMenuOcrDownloadPaddleModel_Click(object sender, RoutedEventArgs e)
         {
-            if (TxtStatus != null) TxtStatus.Text = "⏳ Đang tải mô hình OCR Tiếng Việt (vie.traineddata) từ GitHub...";
-            var result = await ClipboardOcrHelper.DownloadVietnameseModelAsync();
+            if (TxtStatus != null) TxtStatus.Text = "⏳ Đang kết nối tải/khởi tạo mô hình AI PaddleOCR Tiếng Việt (~70MB)...";
+            var result = await PaddleOcrHelper.DownloadAndInitModelAsync(msg =>
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    if (TxtStatus != null) TxtStatus.Text = msg;
+                });
+            });
             if (TxtStatus != null) TxtStatus.Text = result.message;
-            MessageBox.Show(result.message, "Mô hình OCR Tiếng Việt", MessageBoxButton.OK, result.success ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            MessageBox.Show(result.message, "Mô hình AI PaddleOCR", MessageBoxButton.OK, result.success ? MessageBoxImage.Information : MessageBoxImage.Warning);
+        }
+
+        private void CtxMenuOpenOcrCorrections_Click(object sender, RoutedEventArgs e)
+        {
+            bool ok = OcrCorrectionManager.OpenConfigFile();
+            if (TxtStatus != null)
+            {
+                TxtStatus.Text = ok
+                    ? "✓ Đã mở tệp bảng sửa lỗi ocr_user_corrections.json trong trình soạn thảo."
+                    : "⚠ Không thể mở tệp ocr_user_corrections.json.";
+            }
+        }
+
+        private void SetOcrBusyState(bool isBusy, string detail = null)
+        {
+            if (PnlOcrProgress != null)
+            {
+                PnlOcrProgress.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
+            }
+            if (PbOcr != null)
+            {
+                PbOcr.IsIndeterminate = isBusy;
+            }
+            if (TxtOcrProgressDetail != null && !string.IsNullOrEmpty(detail))
+            {
+                TxtOcrProgressDetail.Text = detail;
+            }
+            if (PbFooterOcr != null)
+            {
+                PbFooterOcr.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
+                PbFooterOcr.IsIndeterminate = isBusy;
+            }
+            if (BtnOcrImage != null)
+            {
+                BtnOcrImage.IsEnabled = !isBusy;
+                BtnOcrImage.Content = isBusy ? "⏳ Đang trích xuất OCR..." : "🔍 Trích xuất chữ (PaddleOCR AI)";
+            }
+            if (ChkOcrMergeLines != null)
+            {
+                ChkOcrMergeLines.IsEnabled = !isBusy;
+            }
+            if (CtxMenuOcrContinuous != null)
+            {
+                CtxMenuOcrContinuous.IsEnabled = !isBusy;
+            }
+            if (CtxMenuOcrPreserveLines != null)
+            {
+                CtxMenuOcrPreserveLines.IsEnabled = !isBusy;
+            }
+            Mouse.OverrideCursor = isBusy ? Cursors.Wait : null;
+        }
+
+        private void UpdateOcrProgressStatus(string status)
+        {
+            if (string.IsNullOrEmpty(status)) return;
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(() => UpdateOcrProgressStatus(status)));
+                return;
+            }
+            if (TxtOcrProgressDetail != null) TxtOcrProgressDetail.Text = status;
+            if (TxtStatus != null) TxtStatus.Text = status;
         }
 
         private void BtnOcrImage_Click(object sender, RoutedEventArgs e)
         {
-            PerformOcrOnSelected("vi");
+            bool preserveBreaks = !(ChkOcrMergeLines?.IsChecked ?? true);
+            PerformOcrOnSelected("paddle", preserveBreaks);
         }
 
-        private async void PerformOcrOnSelected(string lang = "auto")
+        private async void PerformOcrOnSelected(string lang = "paddle", bool? preserveLineBreaksOverride = null)
         {
             var selected = LstClipboard?.SelectedItems?.Cast<ClipboardItem>().FirstOrDefault();
             if (selected == null || selected.ContentType != ClipboardContentType.Image || string.IsNullOrEmpty(selected.ImagePath))
@@ -2715,20 +2844,96 @@ namespace ModernKey
                 return;
             }
 
-            string langLabel = (lang == "vi") ? "Tiếng Việt" : ((lang == "en") ? "Tiếng Anh" : "Tự động");
-            if (TxtStatus != null) TxtStatus.Text = $"⏳ Đang trích xuất chữ [{langLabel}] từ hình ảnh...";
+            bool preserveBreaks = preserveLineBreaksOverride.HasValue
+                ? preserveLineBreaksOverride.Value
+                : (_settings?.OcrPreserveLineBreaks ?? false);
 
-            string text = await ClipboardOcrHelper.RecognizeTextAsync(selected.ImagePath, lang);
+            string modeDesc = preserveBreaks ? "Giữ nguyên xuống dòng" : "Nối liền câu";
+            SetOcrBusyState(true, $"Đang trích xuất chữ Deep Learning ({modeDesc})...");
+            if (TxtStatus != null) TxtStatus.Text = $"⏳ Đang trích xuất chữ bằng AI PaddleOCR ({modeDesc})...";
+
+            string text = null;
+            try
+            {
+                text = await ClipboardOcrHelper.RecognizeTextAsync(selected.ImagePath, lang, preserveBreaks, status =>
+                {
+                    UpdateOcrProgressStatus(status);
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("PaddleOCR Run Error: " + ex.Message);
+            }
+            finally
+            {
+                SetOcrBusyState(false);
+            }
+
             if (!string.IsNullOrWhiteSpace(text))
             {
-                _historyManager.AddText(text, $"OCR [{langLabel}]: " + (selected.SourceApp ?? "Image"));
-                try { Clipboard.SetText(text); } catch { }
-                if (TxtStatus != null) TxtStatus.Text = $"✓ OCR [{langLabel}] thành công ({text.Length} ký tự)! Đã sao chép vào Clipboard.";
+                try
+                {
+                    KeySender.SuppressClipboardMonitoring = true;
+                    _historyManager.AddText(text, "OCR [PaddleOCR AI]: " + (selected.SourceApp ?? "Image"));
+                    SafeSetClipboardText(text);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine("Error storing OCR result: " + ex.Message);
+                }
+                finally
+                {
+                    ThreadPool.QueueUserWorkItem(_ =>
+                    {
+                        Thread.Sleep(500);
+                        KeySender.SuppressClipboardMonitoring = false;
+                    });
+                }
+
+                // Nếu đang ở tab Yêu thích (Favorites), tự động chuyển sang History để hiển thị kết quả OCR
+                if (_currentMode == "FAVORITES" && RbModeHistory != null)
+                {
+                    RbModeHistory.IsChecked = true;
+                }
+
+                _itemsView?.Refresh();
+
+                // Chọn mục vừa OCR được thêm mới ở đầu danh sách History
+                var newest = _historyManager?.Items?.FirstOrDefault();
+                if (newest != null && LstClipboard != null)
+                {
+                    _lastActiveItemId = newest.Id;
+                    LstClipboard.SelectedItem = newest;
+                    LstClipboard.ScrollIntoView(newest);
+                }
+
+                if (TxtStatus != null)
+                {
+                    TxtStatus.Text = $"✓ OCR PaddleOCR thành công ({text.Length} ký tự)! Đã sao chép vào Clipboard.";
+                }
             }
             else
             {
-                if (TxtStatus != null) TxtStatus.Text = $"⚠ Không trích xuất được chữ hoặc hình ảnh không có văn bản [{langLabel}].";
+                if (TxtStatus != null)
+                {
+                    TxtStatus.Text = "⚠ Không trích xuất được chữ hoặc hình ảnh không có văn bản nhận dạng.";
+                }
             }
+
+            // Phục hồi tiêu điểm (Focus) cho danh sách Clipboard để người dùng có thể thao tác phím ngay lập tức (Enter, Mũi tên, Esc, Del...)
+            var restoreFocusOp = Dispatcher.BeginInvoke(new Action(() =>
+            {
+                try
+                {
+                    LstClipboard?.Focus();
+                    if (LstClipboard?.SelectedItem != null)
+                    {
+                        var container = LstClipboard.ItemContainerGenerator.ContainerFromItem(LstClipboard.SelectedItem) as ListBoxItem;
+                        container?.Focus();
+                    }
+                }
+                catch { }
+            }), System.Windows.Threading.DispatcherPriority.Input);
         }
 
         private void BtnItemStickyNote_Click(object sender, RoutedEventArgs e)
@@ -2750,11 +2955,23 @@ namespace ModernKey
             if (selectedList == null || selectedList.Count == 0)
             {
                 if (MnuBlurRoot != null) MnuBlurRoot.IsEnabled = false;
+                if (CtxMenuOcrContinuous != null) CtxMenuOcrContinuous.IsEnabled = false;
+                if (CtxMenuOcrPreserveLines != null) CtxMenuOcrPreserveLines.IsEnabled = false;
                 return;
             }
 
             if (MnuBlurRoot != null) MnuBlurRoot.IsEnabled = true;
             var primary = selectedList[0];
+
+            bool isImage = primary != null && primary.ContentType == ClipboardContentType.Image;
+            if (CtxMenuOcrContinuous != null)
+            {
+                CtxMenuOcrContinuous.IsEnabled = isImage;
+            }
+            if (CtxMenuOcrPreserveLines != null)
+            {
+                CtxMenuOcrPreserveLines.IsEnabled = isImage;
+            }
 
             _isSyncingBlurSliders = true;
             try
