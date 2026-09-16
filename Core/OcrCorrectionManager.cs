@@ -254,7 +254,12 @@ namespace ModernKey.Core
                     { "sta 6ng", "sửa ống" },
                     { "6ng nudc", "ống nước" },
                     { "scra 6ng", "sửa ống" },
-                    { "nt_rdc", "nước" }
+                    { "nt_rdc", "nước" },
+                    { "livestrearn", "livestream" },
+                    { "revievv", "review" },
+                    { "traiIer", "trailer" },
+                    { "vIog", "vlog" },
+                    { "cIip", "clip" }
                 };
                 SaveCorrections(defaultDict);
             }

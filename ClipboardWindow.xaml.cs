@@ -2718,7 +2718,22 @@ namespace ModernKey
                 _settings.OcrPreserveLineBreaks = false;
                 SettingsManager.SaveSettings(_settings);
             }
-            PerformOcrOnSelected("paddle", preserveLineBreaksOverride: false);
+            PerformOcrOnSelected("paddle", preserveLineBreaksOverride: false, preset: OcrPreset.Auto);
+        }
+
+        private void CtxMenuOcrSubtitle_Click(object sender, RoutedEventArgs e)
+        {
+            PerformOcrOnSelected("paddle", preserveLineBreaksOverride: false, preset: OcrPreset.Subtitle);
+        }
+
+        private void CtxMenuOcrThumbnail_Click(object sender, RoutedEventArgs e)
+        {
+            PerformOcrOnSelected("paddle", preserveLineBreaksOverride: false, preset: OcrPreset.Thumbnail);
+        }
+
+        private void CtxMenuOcrSocialPost_Click(object sender, RoutedEventArgs e)
+        {
+            PerformOcrOnSelected("paddle", preserveLineBreaksOverride: false, preset: OcrPreset.SocialPost);
         }
 
         private void CtxMenuOcrPreserveLines_Click(object sender, RoutedEventArgs e)
@@ -2729,7 +2744,7 @@ namespace ModernKey
                 _settings.OcrPreserveLineBreaks = true;
                 SettingsManager.SaveSettings(_settings);
             }
-            PerformOcrOnSelected("paddle", preserveLineBreaksOverride: true);
+            PerformOcrOnSelected("paddle", preserveLineBreaksOverride: true, preset: OcrPreset.Auto);
         }
 
         private void CtxMenuOcrPaddle_Click(object sender, RoutedEventArgs e)
@@ -2835,7 +2850,7 @@ namespace ModernKey
             PerformOcrOnSelected("paddle", preserveBreaks);
         }
 
-        private async void PerformOcrOnSelected(string lang = "paddle", bool? preserveLineBreaksOverride = null)
+        private async void PerformOcrOnSelected(string lang = "paddle", bool? preserveLineBreaksOverride = null, OcrPreset preset = OcrPreset.Auto)
         {
             var selected = LstClipboard?.SelectedItems?.Cast<ClipboardItem>().FirstOrDefault();
             if (selected == null || selected.ContentType != ClipboardContentType.Image || string.IsNullOrEmpty(selected.ImagePath))
@@ -2848,14 +2863,27 @@ namespace ModernKey
                 ? preserveLineBreaksOverride.Value
                 : (_settings?.OcrPreserveLineBreaks ?? false);
 
-            string modeDesc = preserveBreaks ? "Giữ nguyên xuống dòng" : "Nối liền câu";
-            SetOcrBusyState(true, $"Đang trích xuất chữ Deep Learning ({modeDesc})...");
-            if (TxtStatus != null) TxtStatus.Text = $"⏳ Đang trích xuất chữ bằng AI PaddleOCR ({modeDesc})...";
+            string presetDesc = preserveBreaks ? "Giữ nguyên xuống dòng" : "Tự động thông minh";
+            switch (preset)
+            {
+                case OcrPreset.Subtitle:
+                    presetDesc = "Phụ đề Video";
+                    break;
+                case OcrPreset.Thumbnail:
+                    presetDesc = "Thumbnail YouTube";
+                    break;
+                case OcrPreset.SocialPost:
+                    presetDesc = "Bài đăng Facebook";
+                    break;
+            }
+
+            SetOcrBusyState(true, $"Đang trích xuất chữ [{presetDesc}]...");
+            if (TxtStatus != null) TxtStatus.Text = $"⏳ Đang trích xuất chữ AI PaddleOCR [{presetDesc}]...";
 
             string text = null;
             try
             {
-                text = await ClipboardOcrHelper.RecognizeTextAsync(selected.ImagePath, lang, preserveBreaks, status =>
+                text = await ClipboardOcrHelper.RecognizeTextAsync(selected.ImagePath, lang, preset, preserveBreaks, status =>
                 {
                     UpdateOcrProgressStatus(status);
                 });

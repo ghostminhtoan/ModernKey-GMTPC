@@ -280,10 +280,15 @@ namespace ModernKey.Core
 
         public static async Task<string> RecognizeTextAsync(string imagePath, Action<string> progressCallback)
         {
-            return await RecognizeTextAsync(imagePath, false, progressCallback).ConfigureAwait(false);
+            return await RecognizeTextAsync(imagePath, OcrPreset.Auto, false, progressCallback).ConfigureAwait(false);
         }
 
         public static async Task<string> RecognizeTextAsync(string imagePath, bool preserveLineBreaks = false, Action<string> progressCallback = null)
+        {
+            return await RecognizeTextAsync(imagePath, OcrPreset.Auto, preserveLineBreaks, progressCallback).ConfigureAwait(false);
+        }
+
+        public static async Task<string> RecognizeTextAsync(string imagePath, OcrPreset preset, bool preserveLineBreaks = false, Action<string> progressCallback = null)
         {
             if (string.IsNullOrEmpty(imagePath) || !File.Exists(imagePath))
                 return string.Empty;
@@ -307,8 +312,22 @@ namespace ModernKey.Core
                     {
                         if (src.Empty()) return string.Empty;
 
-                        SafeReport(progressCallback, "⏳ Đang tiền xử lý ảnh: Tách nền thông minh & tăng nét chữ...");
-                        using (Mat prep = ImagePreprocessor.PreprocessForOcr(src))
+                        string presetDesc = "Tự động phân tích ngữ cảnh thông minh";
+                        switch (preset)
+                        {
+                            case OcrPreset.Subtitle:
+                                presetDesc = "Chuyên trị Phụ đề Video (YouTube / Phim / TikTok)";
+                                break;
+                            case OcrPreset.Thumbnail:
+                                presetDesc = "Chuyên trị Thumbnail / Ảnh bìa YouTube";
+                                break;
+                            case OcrPreset.SocialPost:
+                                presetDesc = "Chuyên trị Bài đăng / Meme Facebook";
+                                break;
+                        }
+                        SafeReport(progressCallback, $"⏳ Đang tiền xử lý ảnh [{presetDesc}]...");
+
+                        using (Mat prep = ImagePreprocessor.PreprocessForOcr(src, preset))
                         {
                             Mat inputMat = (prep != null && !prep.Empty()) ? prep : src;
 
@@ -319,6 +338,7 @@ namespace ModernKey.Core
                                 result = _cachedEngine.Run(inputMat);
                             }
 
+                            string rawFormatted = string.Empty;
                             if (result != null && result.Regions != null && result.Regions.Length > 0)
                             {
                                 // Lọc các box rác: confidence thấp, box quá bé hoặc là ký tự rác icon độc lập
@@ -330,8 +350,9 @@ namespace ModernKey.Core
                                     string t = r.Text != null ? r.Text.Trim() : string.Empty;
                                     if (string.IsNullOrEmpty(t)) continue;
 
-                                    // Lọc box quá bé (icon like, avatar, reaction arrow)
-                                    if (r.Rect.Size.Width < 25 && r.Rect.Size.Height < 25 && t.Length <= 2) continue;
+                                    // Lọc box quá bé (icon like, avatar, reaction arrow hoặc vân áo/lá cây)
+                                    int minBoxSize = (preset == OcrPreset.Thumbnail) ? 28 : 22;
+                                    if (r.Rect.Size.Width < minBoxSize && r.Rect.Size.Height < minBoxSize && t.Length <= 2) continue;
 
                                     // Lọc các icon chữ đơn lẻ phổ biến trong giao diện MXH
                                     if (t.Length <= 2 && System.Text.RegularExpressions.Regex.IsMatch(t, @"^(?:dB|đB|ĐB|dĐo|tn|taR|t3|mm|[BĐVRv1k])$")) continue;
@@ -341,11 +362,17 @@ namespace ModernKey.Core
 
                                 if (validRegions.Count > 0)
                                 {
-                                    return FormatOcrText(validRegions, preserveLineBreaks);
+                                    rawFormatted = FormatOcrText(validRegions, preserveLineBreaks);
                                 }
                             }
 
-                            return result?.Text != null ? result.Text.Trim() : string.Empty;
+                            if (string.IsNullOrEmpty(rawFormatted))
+                            {
+                                rawFormatted = result?.Text != null ? result.Text.Trim() : string.Empty;
+                            }
+
+                            // Hậu xử lý chuyên biệt theo ngữ cảnh (nối dòng phụ đề, Title Case cho thumbnail, v.v.)
+                            return OcrTextPostProcessor.Process(rawFormatted, preset, preserveLineBreaks);
                         }
                     }
                 }

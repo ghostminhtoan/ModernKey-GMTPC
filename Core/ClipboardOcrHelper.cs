@@ -16,13 +16,23 @@ namespace ModernKey.Core
     {
         public static async Task<string> RecognizeTextAsync(string imagePath, string language = "auto", bool preserveLineBreaks = false, Action<string> progressCallback = null)
         {
+            return await RecognizeTextAsync(imagePath, language, OcrPreset.Auto, preserveLineBreaks, progressCallback).ConfigureAwait(false);
+        }
+
+        public static async Task<string> RecognizeTextAsync(string imagePath, OcrPreset preset, bool preserveLineBreaks = false, Action<string> progressCallback = null)
+        {
+            return await RecognizeTextAsync(imagePath, "auto", preset, preserveLineBreaks, progressCallback).ConfigureAwait(false);
+        }
+
+        public static async Task<string> RecognizeTextAsync(string imagePath, string language, OcrPreset preset, bool preserveLineBreaks = false, Action<string> progressCallback = null)
+        {
             if (string.IsNullOrEmpty(imagePath) || !File.Exists(imagePath))
                 return string.Empty;
 
             // 1. Nhận diện chính bằng Deep Learning PaddleOCR (Baidu PP-OCR AI)
             try
             {
-                string paddleText = await PaddleOcrHelper.RecognizeTextAsync(imagePath, preserveLineBreaks, progressCallback).ConfigureAwait(false);
+                string paddleText = await PaddleOcrHelper.RecognizeTextAsync(imagePath, preset, preserveLineBreaks, progressCallback).ConfigureAwait(false);
                 if (!string.IsNullOrWhiteSpace(paddleText))
                 {
                     progressCallback?.Invoke("⏳ Đang chuẩn hóa tiếng Việt & áp dụng từ điển sửa lỗi...");

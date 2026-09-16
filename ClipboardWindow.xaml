@@ -415,8 +415,14 @@
                                 <MenuItem Header="⭐ Thêm / Chọn Group Yêu thích..." InputGestureText="Ctrl+D" Click="CtxMenuToggleFav_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="Bỏ khỏi Yêu thích" Click="CtxMenuRemoveFav_Click" Style="{StaticResource CyberMenuItem}" />
                                 
-                                <MenuItem x:Name="CtxMenuOcrContinuous" Header="📜 Trích xuất chữ (Nối liền câu / Không xuống dòng)" Click="CtxMenuOcrContinuous_Click" Style="{StaticResource CyberMenuItem}" />
-                                <MenuItem x:Name="CtxMenuOcrPreserveLines" Header="📑 Trích xuất chữ (Giữ nguyên xuống dòng)" Click="CtxMenuOcrPreserveLines_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem x:Name="CtxMenuOcrContinuous" Header="📜 Trích xuất chữ (Tự động thông minh)" Click="CtxMenuOcrContinuous_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem Header="🎯 Chế độ quét chuyên dụng (Preset)..." Style="{StaticResource CyberMenuItem}">
+                                    <MenuItem x:Name="CtxMenuOcrSubtitle" Header="🎬 Phụ đề Video (YouTube / TikTok / Phim)" Click="CtxMenuOcrSubtitle_Click" Style="{StaticResource CyberMenuItem}" />
+                                    <MenuItem x:Name="CtxMenuOcrThumbnail" Header="🖼️ Tiêu đề Thumbnail / Ảnh bìa YouTube" Click="CtxMenuOcrThumbnail_Click" Style="{StaticResource CyberMenuItem}" />
+                                    <MenuItem x:Name="CtxMenuOcrSocialPost" Header="💬 Bài đăng Facebook / Meme" Click="CtxMenuOcrSocialPost_Click" Style="{StaticResource CyberMenuItem}" />
+                                    <Separator Style="{StaticResource CyberMenuSeparator}" />
+                                    <MenuItem x:Name="CtxMenuOcrPreserveLines" Header="📑 Trích xuất giữ nguyên xuống dòng" Click="CtxMenuOcrPreserveLines_Click" Style="{StaticResource CyberMenuItem}" />
+                                </MenuItem>
                                 <MenuItem Header="⚙️ Tùy chọn mô hình &amp; Sửa lỗi OCR..." Style="{StaticResource CyberMenuItem}">
                                     <MenuItem Header="📥 Tải / Cập nhật lại mô hình AI (~70MB)..." Click="CtxMenuOcrDownloadPaddleModel_Click" Style="{StaticResource CyberMenuItem}" />
                                     <MenuItem Header="✏️ Mở bảng tự sửa lỗi (ocruser_corrections.txt)..." Click="CtxMenuOpenOcrCorrections_Click" Style="{StaticResource CyberMenuItem}" />

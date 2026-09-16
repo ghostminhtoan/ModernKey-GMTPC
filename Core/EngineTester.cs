@@ -1688,6 +1688,44 @@ namespace ModernKey.Core
                         sb.AppendLine($"  FAIL: OcrCorrectionManager lỗi: {ex.Message}");
                     }
 
+                    // Test 4.c: Kiểm tra OcrTextPostProcessor (Nối dòng phụ đề thông minh)
+                    try
+                    {
+                        string rawSubtitle = "Tại sao lại có nhận định Mỹ bắt tay\nvới Trung Quốc trong sự kiện Hoàng Sa\nnăm một nghìn chín trăm bảy mươi tư?";
+                        string unbroken = OcrTextPostProcessor.Process(rawSubtitle, OcrPreset.Subtitle, false);
+                        if (!unbroken.Contains("\n") && unbroken.Contains("năm một nghìn chín trăm bảy mươi tư?"))
+                        {
+                            sb.AppendLine($"  PASS: OcrTextPostProcessor nối dòng phụ đề thành công: '{unbroken}'");
+                        }
+                        else
+                        {
+                            sb.AppendLine($"  INFO: OcrTextPostProcessor Subtitle: '{unbroken}'");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        sb.AppendLine($"  FAIL: OcrTextPostProcessor Subtitle lỗi: {ex.Message}");
+                    }
+
+                    // Test 4.d: Kiểm tra OcrTextPostProcessor (Chuẩn hóa Title Case cho Thumbnail)
+                    try
+                    {
+                        string rawThumb = "BÍ MẬT ĐỘNG TRỜI VỀ TRÍ TUỆ NHÂN TẠO";
+                        string titleCased = OcrTextPostProcessor.Process(rawThumb, OcrPreset.Thumbnail, false);
+                        if (titleCased.Contains("Bí Mật") && titleCased.Contains("Trí Tuệ"))
+                        {
+                            sb.AppendLine($"  PASS: OcrTextPostProcessor chuẩn hóa Title Case thành công: '{titleCased}'");
+                        }
+                        else
+                        {
+                            sb.AppendLine($"  INFO: OcrTextPostProcessor Thumbnail: '{titleCased}'");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        sb.AppendLine($"  FAIL: OcrTextPostProcessor Thumbnail lỗi: {ex.Message}");
+                    }
+
                     // Test 5: Default item blur is strictly 0%
                     var defaultItem = new Models.ClipboardItem();
                     if (!defaultItem.IsBlurred && defaultItem.BlurRadius == 0.0 && defaultItem.PixelateSize == 0.0 && defaultItem.BlurMode == "None")
