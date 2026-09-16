@@ -9,8 +9,9 @@ using ModernKey.Config;
 namespace ModernKey.Core
 {
     /// <summary>
-    /// Quản lý bảng ánh xạ tự động sửa lỗi OCR người dùng (ocr_user_corrections.json).
-    /// Cho phép người dùng tùy biến và bổ sung các cặp từ [từ_sai -> từ_đúng] để áp dụng sau khi OCR.
+    /// Quản lý bảng ánh xạ tự động sửa lỗi OCR người dùng (ocr_user_corrections.txt).
+    /// Định dạng: tu_sai||tu_dung (Mỗi quy tắc trên 1 dòng).
+    /// Cho phép người dùng tùy biến và bổ sung các cặp từ để áp dụng sau khi OCR.
     /// </summary>
     public static class OcrCorrectionManager
     {
@@ -19,7 +20,7 @@ namespace ModernKey.Core
         private static DateTime _lastWriteTimeUtc = DateTime.MinValue;
 
         /// <summary>
-        /// Lấy đường dẫn tệp ocr_user_corrections.json trong thư mục cấu hình (.portable hoặc Roaming)
+        /// Lấy đường dẫn tệp ocr_user_corrections.txt trong thư mục cấu hình (.portable)
         /// </summary>
         public static string GetConfigFilePath()
         {
@@ -28,37 +29,45 @@ namespace ModernKey.Core
             {
                 try { Directory.CreateDirectory(dir); } catch { }
             }
-            return Path.Combine(dir, "ocr_user_corrections.json");
+            return Path.Combine(dir, "ocr_user_corrections.txt");
         }
 
         /// <summary>
-        /// Nạp danh sách sửa lỗi từ tệp JSON (tự động tạo tệp mẫu nếu chưa có)
+        /// Nạp danh sách sửa lỗi từ tệp .txt (tự động tạo tệp mẫu hoặc migrate từ .json cũ nếu chưa có)
         /// </summary>
         public static Dictionary<string, string> LoadCorrections(bool forceReload = false)
         {
             lock (_lock)
             {
-                string path = GetConfigFilePath();
-                if (!File.Exists(path))
+                string txtPath = GetConfigFilePath();
+                string jsonPath = Path.Combine(Path.GetDirectoryName(txtPath) ?? string.Empty, "ocr_user_corrections.json");
+
+                // Tự động chuyển đổi từ file json cũ nếu có
+                if (!File.Exists(txtPath) && File.Exists(jsonPath))
                 {
-                    CreateDefaultConfigFile(path);
+                    MigrateFromJsonFile(jsonPath, txtPath);
+                }
+
+                if (!File.Exists(txtPath))
+                {
+                    CreateDefaultConfigFile(txtPath);
                 }
 
                 try
                 {
-                    DateTime currentWriteTime = File.GetLastWriteTimeUtc(path);
+                    DateTime currentWriteTime = File.GetLastWriteTimeUtc(txtPath);
                     if (!forceReload && _correctionsCache != null && currentWriteTime == _lastWriteTimeUtc)
                     {
                         return new Dictionary<string, string>(_correctionsCache, StringComparer.OrdinalIgnoreCase);
                     }
 
-                    string json = File.ReadAllText(path, Encoding.UTF8);
-                    _correctionsCache = ParseCorrectionsJson(json);
+                    string text = File.ReadAllText(txtPath, Encoding.UTF8);
+                    _correctionsCache = ParseCorrectionsText(text);
                     _lastWriteTimeUtc = currentWriteTime;
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine("Lỗi đọc ocr_user_corrections.json: " + ex.Message);
+                    Debug.WriteLine("Lỗi đọc ocr_user_corrections.txt: " + ex.Message);
                     if (_correctionsCache == null)
                     {
                         _correctionsCache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -104,7 +113,7 @@ namespace ModernKey.Core
         }
 
         /// <summary>
-        /// Thêm hoặc cập nhật một cặp từ sửa lỗi mới vào tệp JSON
+        /// Thêm hoặc cập nhật một cặp từ sửa lỗi mới vào tệp .txt
         /// </summary>
         public static bool AddOrUpdateCorrection(string wrongWord, string rightWord)
         {
@@ -122,20 +131,27 @@ namespace ModernKey.Core
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine("Lỗi ghi ocr_user_corrections.json: " + ex.Message);
+                    Debug.WriteLine("Lỗi ghi ocr_user_corrections.txt: " + ex.Message);
                     return false;
                 }
             }
         }
 
         /// <summary>
-        /// Mở tệp ocr_user_corrections.json bằng Notepad hoặc trình soạn thảo mặc định của Windows
+        /// Mở tệp ocr_user_corrections.txt bằng Notepad hoặc trình soạn thảo mặc định của Windows
         /// </summary>
         public static bool OpenConfigFile()
         {
             try
             {
                 string path = GetConfigFilePath();
+                string jsonPath = Path.Combine(Path.GetDirectoryName(path) ?? string.Empty, "ocr_user_corrections.json");
+
+                if (!File.Exists(path) && File.Exists(jsonPath))
+                {
+                    MigrateFromJsonFile(jsonPath, path);
+                }
+
                 if (!File.Exists(path))
                 {
                     CreateDefaultConfigFile(path);
@@ -162,6 +178,9 @@ namespace ModernKey.Core
             {
                 var defaultDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
+                    { "t6ng", "tổng" },
+                    { "do A1", "do AI" },
+                    { "qu6c té", "quốc tế" },
                     { "ModemKey", "ModernKey" },
                     { "tiẽng", "tiếng" },
                     { "thực hiên", "thực hiện" },
@@ -189,24 +208,16 @@ namespace ModernKey.Core
         {
             string path = GetConfigFilePath();
             var sb = new StringBuilder();
-            sb.AppendLine("{");
-            sb.AppendLine("  \"version\": 1,");
-            sb.AppendLine("  \"description\": \"Bảng ánh xạ tự động sửa lỗi OCR người dùng (Từ sai -> Từ đúng). Chỉnh sửa tệp này bằng bất kỳ trình soạn thảo nào.\",");
-            sb.AppendLine("  \"corrections\": {");
+            sb.AppendLine("# Bảng ánh xạ tự động sửa lỗi OCR người dùng");
+            sb.AppendLine("# Định dạng: tu_sai||tu_dung (Mỗi quy tắc trên một dòng)");
+            sb.AppendLine("# Dòng bắt đầu bằng # hoặc // là dòng chú thích");
+            sb.AppendLine();
 
-            int index = 0;
-            int count = dict.Count;
             foreach (var kvp in dict)
             {
-                index++;
-                string comma = (index < count) ? "," : "";
-                string safeKey = EscapeJsonString(kvp.Key);
-                string safeVal = EscapeJsonString(kvp.Value);
-                sb.AppendLine($"    \"{safeKey}\": \"{safeVal}\"{comma}");
+                if (string.IsNullOrWhiteSpace(kvp.Key)) continue;
+                sb.AppendLine($"{kvp.Key.Trim()}||{kvp.Value?.Trim() ?? string.Empty}");
             }
-
-            sb.AppendLine("  }");
-            sb.AppendLine("}");
 
             File.WriteAllText(path, sb.ToString(), Encoding.UTF8);
             _correctionsCache = new Dictionary<string, string>(dict, StringComparer.OrdinalIgnoreCase);
@@ -216,12 +227,68 @@ namespace ModernKey.Core
             }
         }
 
+        private static Dictionary<string, string> ParseCorrectionsText(string text)
+        {
+            var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (string.IsNullOrWhiteSpace(text)) return dict;
+
+            using (var reader = new StringReader(text))
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    line = line.Trim();
+                    if (string.IsNullOrEmpty(line) || line.StartsWith("#") || line.StartsWith("//"))
+                        continue;
+
+                    int sepIdx = line.IndexOf("||", StringComparison.Ordinal);
+                    if (sepIdx > 0)
+                    {
+                        string wrong = line.Substring(0, sepIdx).Trim();
+                        string right = line.Substring(sepIdx + 2).Trim();
+                        if (!string.IsNullOrEmpty(wrong))
+                        {
+                            dict[wrong] = right;
+                        }
+                    }
+                }
+            }
+
+            return dict;
+        }
+
+        private static void MigrateFromJsonFile(string jsonPath, string txtPath)
+        {
+            try
+            {
+                if (!File.Exists(jsonPath)) return;
+
+                string json = File.ReadAllText(jsonPath, Encoding.UTF8);
+                var dict = ParseCorrectionsJson(json);
+                if (dict.Count > 0)
+                {
+                    // Bổ sung các ví dụ mẫu nếu chưa có
+                    if (!dict.ContainsKey("t6ng")) dict["t6ng"] = "tổng";
+                    if (!dict.ContainsKey("do A1")) dict["do A1"] = "do AI";
+                    if (!dict.ContainsKey("qu6c té")) dict["qu6c té"] = "quốc tế";
+
+                    SaveCorrections(dict);
+
+                    // Xóa file json cũ sau khi chuyển đổi thành công
+                    try { File.Delete(jsonPath); } catch { }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Lỗi migrate từ json sang txt: " + ex.Message);
+            }
+        }
+
         private static Dictionary<string, string> ParseCorrectionsJson(string json)
         {
             var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (string.IsNullOrWhiteSpace(json)) return dict;
 
-            // Tìm khối "corrections": { ... }
             int corrIdx = json.IndexOf("\"corrections\"", StringComparison.OrdinalIgnoreCase);
             if (corrIdx < 0) return dict;
 
@@ -233,7 +300,6 @@ namespace ModernKey.Core
 
             string block = json.Substring(braceOpen + 1, braceClose - braceOpen - 1);
 
-            // Phân tích các cặp "key": "value"
             var regex = new Regex("\"([^\"]+)\"\\s*:\\s*\"([^\"]*)\"");
             var matches = regex.Matches(block);
             foreach (Match m in matches)
@@ -250,16 +316,6 @@ namespace ModernKey.Core
             }
 
             return dict;
-        }
-
-        private static string EscapeJsonString(string s)
-        {
-            if (string.IsNullOrEmpty(s)) return string.Empty;
-            return s.Replace("\\", "\\\\")
-                    .Replace("\"", "\\\"")
-                    .Replace("\r", "\\r")
-                    .Replace("\n", "\\n")
-                    .Replace("\t", "\\t");
         }
 
         private static string UnescapeJsonString(string s)

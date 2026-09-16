@@ -1668,7 +1668,7 @@ namespace ModernKey.Core
                         sb.AppendLine($"  INFO User Image OCR Output: '{rec2}'");
                     }
 
-                    // Test 4.b: Kiểm tra OcrCorrectionManager (ocr_user_corrections.json)
+                    // Test 4.b: Kiểm tra OcrCorrectionManager (ocr_user_corrections.txt)
                     try
                     {
                         var sampleDict = OcrCorrectionManager.LoadCorrections();

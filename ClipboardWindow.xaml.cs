@@ -2773,8 +2773,8 @@ namespace ModernKey
             if (TxtStatus != null)
             {
                 TxtStatus.Text = ok
-                    ? "✓ Đã mở tệp bảng sửa lỗi ocr_user_corrections.json trong trình soạn thảo."
-                    : "⚠ Không thể mở tệp ocr_user_corrections.json.";
+                    ? "✓ Đã mở tệp bảng sửa lỗi ocr_user_corrections.txt trong trình soạn thảo."
+                    : "⚠ Không thể mở tệp ocr_user_corrections.txt.";
             }
         }
 
