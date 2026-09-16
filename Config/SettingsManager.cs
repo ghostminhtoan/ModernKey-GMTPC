@@ -496,9 +496,6 @@ namespace ModernKey.Config
                         case "SyncFolderPath":
                             settings.SyncFolderPath = val ?? string.Empty;
                             break;
-                        case "OcrPreserveLineBreaks":
-                            if (bool.TryParse(val, out var oplb)) settings.OcrPreserveLineBreaks = oplb;
-                            break;
                         case "CustomRules":
                             if (!string.IsNullOrEmpty(val))
                             {
@@ -618,7 +615,6 @@ namespace ModernKey.Config
                 sb.AppendLine("EnableCaretIndicator=" + settings.EnableCaretIndicator);
                 sb.AppendLine("EnableKeySound=" + settings.EnableKeySound);
                 sb.AppendLine("SyncFolderPath=" + (settings.SyncFolderPath ?? ""));
-                sb.AppendLine("OcrPreserveLineBreaks=" + settings.OcrPreserveLineBreaks);
 
                 if (settings.CustomRules != null && settings.CustomRules.Count > 0)
                 {

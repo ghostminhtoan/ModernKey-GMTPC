@@ -628,7 +628,7 @@
                             <StackPanel>
                                 <TextBlock Text="[CÁC CÔNG CỤ CLIPBOARD TÍCH HỢP TRỰC TIẾP TRÊN HUD]:" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" />
                                 <TextBlock Text="• [GHIM NOTE]: Ghim bất kỳ mục clipboard thành ghi chú nổi Sticky Note mini Always-On-Top trên màn hình." FontSize="11" Foreground="{StaticResource CyberTextSecondary}" Margin="0,3,0,0" />
-                                <TextBlock Text="• [OCR ẢNH]: Trích xuất văn bản từ hình ảnh sao chép dùng Native Windows Media OcrEngine mà không cần cài thêm phần mềm." FontSize="11" Foreground="{StaticResource CyberTextSecondary}" Margin="0,2,0,0" />
+                                <TextBlock Text="• [WEB AI / GOOGLE LENS]: Trích xuất chữ từ ảnh trực tiếp qua Web AI / Google Lens siêu chính xác chỉ với 1 click." FontSize="11" Foreground="{StaticResource CyberTextSecondary}" Margin="0,2,0,0" />
                                 <TextBlock Text="• [COLOR SWATCH]: Tự động nhận diện chuỗi mã màu #HEX / RGB và hiển thị ô vuông màu trực quan kèm xem trước." FontSize="11" Foreground="{StaticResource CyberTextSecondary}" Margin="0,2,0,0" />
                             </StackPanel>
                         </Border>

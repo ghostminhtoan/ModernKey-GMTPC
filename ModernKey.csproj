@@ -20,10 +20,6 @@
     <PackageReference Include="System.Buffers" Version="4.6.1" />
     <PackageReference Include="System.Memory" Version="4.6.3" />
     <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.1.2" />
-    <PackageReference Include="Sdcb.PaddleOCR" Version="3.3.1" />
-    <PackageReference Include="Sdcb.PaddleOCR.Models.Online" Version="3.3.1" />
-    <PackageReference Include="OpenCvSharp4.Windows" Version="4.9.0.20240103" />
-    <PackageReference Include="Sdcb.PaddleInference.runtime.win64.mkl" Version="3.3.1.70" />
   </ItemGroup>
 
   <ItemGroup>
@@ -50,14 +46,10 @@
 
   <Target Name="OrganizePortableBin" AfterTargets="Build">
     <MakeDir Directories="$(TargetDir).portable\bin" Condition="!Exists('$(TargetDir).portable\bin')" />
-    <MakeDir Directories="$(TargetDir).portable\bin\x64" Condition="!Exists('$(TargetDir).portable\bin\x64')" />
-    <MakeDir Directories="$(TargetDir).portable\bin\x86" Condition="!Exists('$(TargetDir).portable\bin\x86')" />
 
     <ItemGroup>
       <_LooseDlls Include="$(TargetDir)*.dll" />
       <_LoosePdbs Include="$(TargetDir)*.pdb" Exclude="$(TargetDir)$(TargetName).pdb" />
-      <_DllDirFiles Include="$(TargetDir)dll\**\*.*" />
-      <_DllX64Files Include="$(TargetDir)dll\x64\*.*" />
     </ItemGroup>
 
     <!-- Copy loose DLLs to .portable\bin and remove from root -->
@@ -67,10 +59,6 @@
     <!-- Copy dependency PDBs to .portable\bin and remove from root -->
     <Copy SourceFiles="@(_LoosePdbs)" DestinationFolder="$(TargetDir).portable\bin" SkipUnchangedFiles="true" OverwriteReadOnlyFiles="true" Condition="'@(_LoosePdbs)' != ''" />
     <Delete Files="@(_LoosePdbs)" Condition="'@(_LoosePdbs)' != ''" />
-
-    <!-- Copy native files from dll\x64\ to both .portable\bin\ and .portable\bin\x64\ for portable self-healing -->
-    <Copy SourceFiles="@(_DllX64Files)" DestinationFolder="$(TargetDir).portable\bin" SkipUnchangedFiles="true" OverwriteReadOnlyFiles="true" Condition="'@(_DllX64Files)' != ''" />
-    <Copy SourceFiles="@(_DllDirFiles)" DestinationFiles="@(_DllDirFiles->'$(TargetDir).portable\bin\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" OverwriteReadOnlyFiles="true" Condition="'@(_DllDirFiles)' != ''" />
   </Target>
 
 </Project>

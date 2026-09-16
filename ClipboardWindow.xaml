@@ -415,18 +415,7 @@
                                 <MenuItem Header="⭐ Thêm / Chọn Group Yêu thích..." InputGestureText="Ctrl+D" Click="CtxMenuToggleFav_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="Bỏ khỏi Yêu thích" Click="CtxMenuRemoveFav_Click" Style="{StaticResource CyberMenuItem}" />
                                 
-                                <MenuItem x:Name="CtxMenuOcrContinuous" Header="📜 Trích xuất chữ (Tự động thông minh)" Click="CtxMenuOcrContinuous_Click" Style="{StaticResource CyberMenuItem}" />
-                                <MenuItem Header="🎯 Chế độ quét chuyên dụng (Preset)..." Style="{StaticResource CyberMenuItem}">
-                                    <MenuItem x:Name="CtxMenuOcrSubtitle" Header="🎬 Phụ đề Video (YouTube / TikTok / Phim)" Click="CtxMenuOcrSubtitle_Click" Style="{StaticResource CyberMenuItem}" />
-                                    <MenuItem x:Name="CtxMenuOcrThumbnail" Header="🖼️ Tiêu đề Thumbnail / Ảnh bìa YouTube" Click="CtxMenuOcrThumbnail_Click" Style="{StaticResource CyberMenuItem}" />
-                                    <MenuItem x:Name="CtxMenuOcrSocialPost" Header="💬 Bài đăng Facebook / Meme" Click="CtxMenuOcrSocialPost_Click" Style="{StaticResource CyberMenuItem}" />
-                                    <Separator Style="{StaticResource CyberMenuSeparator}" />
-                                    <MenuItem x:Name="CtxMenuOcrPreserveLines" Header="📑 Trích xuất giữ nguyên xuống dòng" Click="CtxMenuOcrPreserveLines_Click" Style="{StaticResource CyberMenuItem}" />
-                                </MenuItem>
-                                <MenuItem Header="⚙️ Tùy chọn mô hình &amp; Sửa lỗi OCR..." Style="{StaticResource CyberMenuItem}">
-                                    <MenuItem Header="📥 Tải / Cập nhật lại mô hình AI (~70MB)..." Click="CtxMenuOcrDownloadPaddleModel_Click" Style="{StaticResource CyberMenuItem}" />
-                                    <MenuItem Header="✏️ Mở bảng tự sửa lỗi (ocruser_corrections.txt)..." Click="CtxMenuOpenOcrCorrections_Click" Style="{StaticResource CyberMenuItem}" />
-                                </MenuItem>
+                                <MenuItem x:Name="CtxMenuWebAi" Header="🌐 Trích xuất chữ qua Web AI / Google Lens" Click="BtnWebAiImage_Click" Style="{StaticResource CyberMenuItem}" />
                                 
                                 <Separator Style="{StaticResource CyberMenuSeparator}" />
                                 <!-- Tính năng Làm mờ Clipboard: chỉ áp dụng cho mục đang chọn (Selective Item Blur) -->
@@ -639,44 +628,14 @@
                             <!-- Image Preview -->
                             <Image x:Name="ImgPreview" Stretch="Uniform" Margin="8" Visibility="Collapsed" />
 
-                            <!-- Bảng điều khiển nút trích xuất chữ OCR trên ảnh -->
-                            <Border x:Name="PnlOcrImageActions" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="10"
-                                    Background="#E60D1520" BorderBrush="#00FF66" BorderThickness="1.2" CornerRadius="4" Padding="8,4"
+                            <!-- Bảng điều khiển nút trích xuất chữ Web AI trên ảnh -->
+                            <Border x:Name="PnlWebAiImageActions" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="10"
+                                    Background="#E60D1520" BorderBrush="#00FFE0" BorderThickness="1.2" CornerRadius="4" Padding="8,4"
                                     Visibility="Collapsed">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <CheckBox x:Name="ChkOcrMergeLines" Content="Nối liền câu" IsChecked="True"
-                                              Foreground="#00FF66" FontFamily="Consolas" FontSize="11" FontWeight="Bold"
-                                              VerticalAlignment="Center" Margin="0,0,10,0" Click="ChkOcrMergeLines_Click"
-                                              ToolTip="Tự động nối các dòng bị ngắt giữa chừng thành câu/đoạn trọn vẹn (bỏ xuống dòng tùy tiện theo ảnh)" />
-                                    <Button x:Name="BtnOcrImage" Content="🔍 Trích xuất chữ (PaddleOCR AI)" Click="BtnOcrImage_Click"
-                                            Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66"
-                                            FontFamily="Consolas" FontWeight="Bold" Padding="10,6"
-                                            ToolTip="Trích xuất toàn bộ chữ tiếng Việt / Latin từ hình ảnh bằng Baidu PaddleOCR AI" />
-                                </StackPanel>
-                            </Border>
-
-                            <!-- Khung hiển thị tiến trình OCR nổi bật (High-Contrast Cyberpunk Progress Overlay) -->
-                            <Border x:Name="PnlOcrProgress" Panel.ZIndex="99" Background="#F2080D15" BorderBrush="{StaticResource CyberNeonCyan}"
-                                    BorderThickness="1.8" CornerRadius="5"
-                                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24,18" Margin="16"
-                                    Visibility="Collapsed">
-                                <Border.Effect>
-                                    <DropShadowEffect Color="#00FFE0" BlurRadius="30" ShadowDepth="0" Opacity="0.75" />
-                                </Border.Effect>
-                                <StackPanel Width="290">
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,12">
-                                        <TextBlock Text="⚡" FontSize="16" Foreground="{StaticResource CyberNeonYellow}" Margin="0,0,8,0" VerticalAlignment="Center" />
-                                        <TextBlock Text="ĐANG TRÍCH XUẤT CHỮ OCR AI" Foreground="{StaticResource CyberNeonCyan}"
-                                                   FontFamily="Consolas" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                    
-                                    <!-- Neon glowing animated progress bar -->
-                                    <ProgressBar x:Name="PbOcr" Style="{StaticResource CyberProgressBar}" Height="8" IsIndeterminate="True" Margin="0,0,0,12" />
-                                    
-                                    <TextBlock x:Name="TxtOcrProgressDetail" Text="Đang xử lý hình ảnh qua mạng neuron Deep Learning..."
-                                               Foreground="{StaticResource CyberNeonYellow}" FontFamily="Consolas" FontSize="11" FontWeight="SemiBold"
-                                               TextWrapping="Wrap" TextAlignment="Center" LineHeight="16" />
-                                </StackPanel>
+                                <Button x:Name="BtnWebAiImage" Content="🌐 MỞ WEB AI / GOOGLE LENS" Click="BtnWebAiImage_Click"
+                                        Background="#0B1A24" BorderBrush="{StaticResource CyberNeonCyan}" Foreground="{StaticResource CyberNeonCyan}"
+                                        FontFamily="Consolas" FontWeight="Bold" Padding="10,6"
+                                        ToolTip="Nạp ảnh vào Clipboard và mở Google Lens / Web AI để trích xuất chữ và phân tích đa thể thức chuẩn xác 100%" />
                             </Border>
                         </Grid>
                     </Border>
@@ -738,8 +697,7 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <ProgressBar x:Name="PbFooterOcr" Style="{StaticResource CyberSlimProgressBar}" Grid.Row="0" Height="3" IsIndeterminate="True"
-                                 Visibility="Collapsed" Margin="0,0,0,4" />
+
                     <Grid Grid.Row="1">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />

@@ -1620,134 +1620,7 @@ namespace ModernKey.Core
                         }
                     }
 
-                    // Test 4: OCR Post-processing tiếng Việt
-                    var ocrTests = new[]
-                    {
-                        ("clược", "được"),
-                        ("clầu", "đầu"),
-                        ("sao ke", "sao kê"),
-                        ("to chuc", "tổ chức"),
-                        ("ro rang", "rõ ràng"),
-                        ("Mục dích sao ke to chuc ro rang", "Mục đích sao kê tổ chức rõ ràng"),
-                        ("meng cüi vl,. tåi sän bån 2021 offline cho nhe, 2GB", "mạng cùi vl,. tải sẵn bản 2021 offline cho nhẹ, 2GB"),
-                        ("meng cui vl,. tai san ban 2021 offline cho nhe, 2GB", "mạng cùi vl,. tải sẵn bản 2021 offline cho nhẹ, 2GB"),
-                        ("mang cui", "mạng cùi"),
-                        ("tai san ban", "tải sẵn bản"),
-                        ("cho nhe", "cho nhẹ")
-                    };
-                    foreach (var ot in ocrTests)
-                    {
-                        string resOcr = OcrCorrectionManager.ApplyCorrections(ClipboardOcrHelper.PostProcessVietnamese(ot.Item1));
-                        if (resOcr == ot.Item2)
-                        {
-                            sb.AppendLine($"  PASS OCR Post-process: '{ot.Item1}' -> '{resOcr}'");
-                        }
-                        else
-                        {
-                            sb.AppendLine($"  INFO OCR Post-process: '{ot.Item1}' -> '{resOcr}' (Mong doi: '{ot.Item2}')");
-                        }
-                    }
 
-                    string sampleImg = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".portable", "clipboard", "clipboard_cache", "2026-09-14 21.31.23.png");
-                    if (System.IO.File.Exists(sampleImg))
-                    {
-                        string recognized = Task.Run(async () => await ClipboardOcrHelper.RecognizeTextAsync(sampleImg, "vi")).GetAwaiter().GetResult();
-                        if (!string.IsNullOrEmpty(recognized) && recognized.Contains("mạng cùi") && recognized.Contains("tải sẵn bản 2021 offline cho nhẹ, 2GB"))
-                        {
-                            sb.AppendLine($"  PASS Real-Image OCR End-to-End: '{recognized}'");
-                        }
-                        else
-                        {
-                            sb.AppendLine($"  INFO Real-Image OCR Output: '{recognized}'");
-                        }
-                    }
-
-                    // Test 4.a: Kiểm tra ResolveNordicAccents (Phục hồi ký tự Bắc Âu / Mojibake)
-                    string nordicInput = "Thöng tin tổng quan do AI tao d tubi 18 vå 19 (khoång näm 2017 - 2018), MC Khånh Vy dä båt däu hoat döng söi nöi vöi nhiéu cöng viec khåc nhau trong linh vuc truyén thöng, nghe thuät vå sång tao noi dung.";
-                    string nordicResolved = ClipboardOcrHelper.ResolveNordicAccents(nordicInput);
-                    if (nordicResolved.Contains("Thông tin") && nordicResolved.Contains("tổng quan do AI tạo") && nordicResolved.Contains("ở tuổi 18 và 19") && nordicResolved.Contains("khoảng năm") && nordicResolved.Contains("Khánh Vy") && nordicResolved.Contains("đã bắt đầu") && nordicResolved.Contains("sôi nổi") && nordicResolved.Contains("nhiều công việc") && nordicResolved.Contains("truyền thông"))
-                    {
-                        sb.AppendLine($"  PASS: ResolveNordicAccents phục hồi tiếng Việt hoàn hảo: '{nordicResolved}'");
-                    }
-                    else
-                    {
-                        allPassed = false;
-                        sb.AppendLine($"  FAIL: ResolveNordicAccents chưa phục hồi đúng: '{nordicResolved}'");
-                    }
-
-                    // Test 4.b: Kiểm tra AI PaddleOCR trên ảnh mẫu thực tế của người dùng
-                    string sampleImg_KV = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".portable", "clipboard", "clipboard_cache", "2026-09-16 16.37.36.png");
-                    if (System.IO.File.Exists(sampleImg_KV))
-                    {
-                        string recKV = Task.Run(async () => await ClipboardOcrHelper.RecognizeTextAsync(sampleImg_KV, OcrPreset.Auto, false, null)).GetAwaiter().GetResult();
-                        if (!string.IsNullOrEmpty(recKV) && recKV.Contains("Thông tin tổng quan do AI tạo") && recKV.Contains("Khánh Vy") && recKV.Contains("hoạt động") && recKV.Contains("truyền thông"))
-                        {
-                            sb.AppendLine($"  PASS: Real Image PaddleOCR End-to-End thành công rực rỡ!");
-                        }
-                        else
-                        {
-                            allPassed = false;
-                            sb.AppendLine($"  FAIL: Real Image PaddleOCR không đạt kết quả mong đợi:\n{recKV}");
-                        }
-                    }
-
-                    // Test 4.b: Kiểm tra OcrCorrectionManager (ocruser_corrections.txt)
-                    try
-                    {
-                        var sampleDict = OcrCorrectionManager.LoadCorrections();
-                        string rawInput = "ung dung ModemKey va tiẽng viet thực hiên";
-                        string corrected = OcrCorrectionManager.ApplyCorrections(rawInput);
-                        if (corrected.Contains("ModernKey") && corrected.Contains("tiếng") && corrected.Contains("thực hiện"))
-                        {
-                            sb.AppendLine($"  PASS: OcrCorrectionManager tự sửa lỗi người dùng thành công: '{rawInput}' -> '{corrected}'");
-                        }
-                        else
-                        {
-                            sb.AppendLine($"  INFO: OcrCorrectionManager kết quả: '{corrected}'");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        sb.AppendLine($"  FAIL: OcrCorrectionManager lỗi: {ex.Message}");
-                    }
-
-                    // Test 4.c: Kiểm tra OcrTextPostProcessor (Nối dòng phụ đề thông minh)
-                    try
-                    {
-                        string rawSubtitle = "Tại sao lại có nhận định Mỹ bắt tay\nvới Trung Quốc trong sự kiện Hoàng Sa\nnăm một nghìn chín trăm bảy mươi tư?";
-                        string unbroken = OcrTextPostProcessor.Process(rawSubtitle, OcrPreset.Subtitle, false);
-                        if (!unbroken.Contains("\n") && unbroken.Contains("năm một nghìn chín trăm bảy mươi tư?"))
-                        {
-                            sb.AppendLine($"  PASS: OcrTextPostProcessor nối dòng phụ đề thành công: '{unbroken}'");
-                        }
-                        else
-                        {
-                            sb.AppendLine($"  INFO: OcrTextPostProcessor Subtitle: '{unbroken}'");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        sb.AppendLine($"  FAIL: OcrTextPostProcessor Subtitle lỗi: {ex.Message}");
-                    }
-
-                    // Test 4.d: Kiểm tra OcrTextPostProcessor (Chuẩn hóa Title Case cho Thumbnail)
-                    try
-                    {
-                        string rawThumb = "BÍ MẬT ĐỘNG TRỜI VỀ TRÍ TUỆ NHÂN TẠO";
-                        string titleCased = OcrTextPostProcessor.Process(rawThumb, OcrPreset.Thumbnail, false);
-                        if (titleCased.Contains("Bí Mật") && titleCased.Contains("Trí Tuệ"))
-                        {
-                            sb.AppendLine($"  PASS: OcrTextPostProcessor chuẩn hóa Title Case thành công: '{titleCased}'");
-                        }
-                        else
-                        {
-                            sb.AppendLine($"  INFO: OcrTextPostProcessor Thumbnail: '{titleCased}'");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        sb.AppendLine($"  FAIL: OcrTextPostProcessor Thumbnail lỗi: {ex.Message}");
-                    }
 
                     // Test 5: Default item blur is strictly 0%
                     var defaultItem = new Models.ClipboardItem();
@@ -1781,19 +1654,7 @@ namespace ModernKey.Core
                         sb.AppendLine("  FAIL: Selective Blur Item & Clone không đồng bộ!");
                     }
 
-                    // Test 7: OCR Correction Manager & PaddleOCR Engine check
-                    string sampleRaw = "Khay VA - chum ycongnghe. sta 6ng nudc";
-                    string postProcessed = ClipboardOcrHelper.PostProcessVietnamese(sampleRaw);
-                    string finalCorrected = OcrCorrectionManager.ApplyCorrections(postProcessed);
-                    if (!string.IsNullOrEmpty(finalCorrected))
-                    {
-                        sb.AppendLine($"  PASS: PaddleOCR Vietnamese Post-Processing & Correction Manager sẵn sàng: '{finalCorrected}'");
-                    }
-                    else
-                    {
-                        allPassed = false;
-                        sb.AppendLine("  FAIL: Không xử lý được chuỗi qua OCR Correction Manager!");
-                    }
+
 
                     // Test 8: Batch Delete performance & correctness for passwords / sensitive items
                     var testSettings = new Models.AppSettings();
