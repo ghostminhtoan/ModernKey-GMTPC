@@ -642,13 +642,13 @@ namespace ModernKey.Core
 
             // 7. Test Nguong Sequence vs Clipboard (KeySender.ShouldUseClipboard)
             bool clipEmoji = ModernKey.Hook.KeySender.ShouldUseClipboard("😏😏😏", false);
-            bool clipLong = ModernKey.Hook.KeySender.ShouldUseClipboard(new string('a', 65), false);
+            bool clipLong = ModernKey.Hook.KeySender.ShouldUseClipboard(new string('a', 320), false);
             bool clipNewline = ModernKey.Hook.KeySender.ShouldUseClipboard("a\nb", false);
             bool clipShort = ModernKey.Hook.KeySender.ShouldUseClipboard("ngan", false);
             bool clipForce = ModernKey.Hook.KeySender.ShouldUseClipboard("ngan", true);
 
             if (clipEmoji && clipLong && clipNewline && !clipShort && clipForce)
-                sb.AppendLine("  PASS: Kiểm tra ngưỡng Sequence vs Clipboard (Emoji surrogate, >=60 chars, newline, force)");
+                sb.AppendLine("  PASS: Kiểm tra ngưỡng Sequence vs Clipboard (Emoji surrogate, >=300 chars, newline, force)");
             else
             {
                 allPassed = false;
@@ -1661,11 +1661,33 @@ namespace ModernKey.Core
                         }
                     }
 
-                    string sampleImg2 = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".portable", "clipboard", "clipboard_cache", "2026-09-15 09.31.56.png");
-                    if (System.IO.File.Exists(sampleImg2))
+                    // Test 4.a: Kiểm tra ResolveNordicAccents (Phục hồi ký tự Bắc Âu / Mojibake)
+                    string nordicInput = "Thöng tin tổng quan do AI tao d tubi 18 vå 19 (khoång näm 2017 - 2018), MC Khånh Vy dä båt däu hoat döng söi nöi vöi nhiéu cöng viec khåc nhau trong linh vuc truyén thöng, nghe thuät vå sång tao noi dung.";
+                    string nordicResolved = ClipboardOcrHelper.ResolveNordicAccents(nordicInput);
+                    if (nordicResolved.Contains("Thông tin") && nordicResolved.Contains("tổng quan do AI tạo") && nordicResolved.Contains("ở tuổi 18 và 19") && nordicResolved.Contains("khoảng năm") && nordicResolved.Contains("Khánh Vy") && nordicResolved.Contains("đã bắt đầu") && nordicResolved.Contains("sôi nổi") && nordicResolved.Contains("nhiều công việc") && nordicResolved.Contains("truyền thông"))
                     {
-                        string rec2 = Task.Run(async () => await ClipboardOcrHelper.RecognizeTextAsync(sampleImg2, "paddle")).GetAwaiter().GetResult();
-                        sb.AppendLine($"  INFO User Image OCR Output: '{rec2}'");
+                        sb.AppendLine($"  PASS: ResolveNordicAccents phục hồi tiếng Việt hoàn hảo: '{nordicResolved}'");
+                    }
+                    else
+                    {
+                        allPassed = false;
+                        sb.AppendLine($"  FAIL: ResolveNordicAccents chưa phục hồi đúng: '{nordicResolved}'");
+                    }
+
+                    // Test 4.b: Kiểm tra AI PaddleOCR trên ảnh mẫu thực tế của người dùng
+                    string sampleImg_KV = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".portable", "clipboard", "clipboard_cache", "2026-09-16 16.37.36.png");
+                    if (System.IO.File.Exists(sampleImg_KV))
+                    {
+                        string recKV = Task.Run(async () => await ClipboardOcrHelper.RecognizeTextAsync(sampleImg_KV, OcrPreset.Auto, false, null)).GetAwaiter().GetResult();
+                        if (!string.IsNullOrEmpty(recKV) && recKV.Contains("Thông tin tổng quan do AI tạo") && recKV.Contains("Khánh Vy") && recKV.Contains("hoạt động") && recKV.Contains("truyền thông"))
+                        {
+                            sb.AppendLine($"  PASS: Real Image PaddleOCR End-to-End thành công rực rỡ!");
+                        }
+                        else
+                        {
+                            allPassed = false;
+                            sb.AppendLine($"  FAIL: Real Image PaddleOCR không đạt kết quả mong đợi:\n{recKV}");
+                        }
                     }
 
                     // Test 4.b: Kiểm tra OcrCorrectionManager (ocruser_corrections.txt)

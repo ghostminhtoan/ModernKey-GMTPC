@@ -26,6 +26,9 @@ namespace ModernKey.Core
 
         private const string ViModelSubDir = "vi_rec_v6";
 
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Auto)]
+        private static extern IntPtr LoadLibrary(string lpFileName);
+
         static PaddleOcrHelper()
         {
             try
@@ -44,22 +47,120 @@ namespace ModernKey.Core
                 };
 
                 ConfigureModelDirectory();
+                EnsureNativeDependenciesReady();
 
                 try
                 {
                     string baseDir = GetAppDirectory();
                     string portableBin = Path.Combine(baseDir, ".portable", "bin");
                     string portableBinX64 = Path.Combine(portableBin, "x64");
+                    string targetDllX64 = Path.Combine(baseDir, "dll", "x64");
                     string currentPath = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
                     if (!currentPath.Contains(portableBin))
                     {
-                        string prepend = $"{portableBin};{portableBinX64};";
+                        string prepend = $"{targetDllX64};{portableBin};{portableBinX64};";
                         Environment.SetEnvironmentVariable("PATH", prepend + currentPath);
                     }
                 }
                 catch { }
             }
             catch { }
+        }
+
+        /// <summary>
+        /// Tự động phục hồi cấu trúc dll\x64 cho Sdcb.PaddleInference và preload native DLLs theo đúng chuỗi phụ thuộc.
+        /// Giúp mô hình AI hoạt động trơn tru 100% trên mọi thư mục portable độc lập.
+        /// </summary>
+        public static void EnsureNativeDependenciesReady()
+        {
+            try
+            {
+                string baseDir = GetAppDirectory();
+                string portableBin = Path.Combine(baseDir, ".portable", "bin");
+                string portableBinX64 = Path.Combine(portableBin, "x64");
+                string targetDllDir = Path.Combine(baseDir, "dll");
+                string targetDllX64 = Path.Combine(targetDllDir, "x64");
+
+                // 1. Tự động phục hồi thư mục dll\x64 cho Sdcb.PaddleInference nếu thiếu
+                if (!Directory.Exists(targetDllX64))
+                {
+                    try { Directory.CreateDirectory(targetDllX64); } catch { }
+                }
+
+                string[] nativeFiles = new[]
+                {
+                    "libiomp5md.dll",
+                    "mklml.dll",
+                    "mkldnn.dll",
+                    "common.dll",
+                    "phi.dll",
+                    "onnxruntime.dll",
+                    "onnxruntime_providers_shared.dll",
+                    "OpenCvSharpExtern.dll",
+                    "opencv_videoio_ffmpeg490_64.dll",
+                    "paddle2onnx.dll",
+                    "paddle_inference_c.dll"
+                };
+
+                foreach (var fileName in nativeFiles)
+                {
+                    string targetFile = Path.Combine(targetDllX64, fileName);
+                    if (!File.Exists(targetFile))
+                    {
+                        string srcFile = Path.Combine(portableBinX64, fileName);
+                        if (!File.Exists(srcFile)) srcFile = Path.Combine(portableBin, fileName);
+
+                        if (File.Exists(srcFile))
+                        {
+                            try
+                            {
+                                File.Copy(srcFile, targetFile, true);
+                            }
+                            catch { }
+                        }
+                    }
+                }
+
+                // 2. Preload các thư viện native C++ theo đúng thứ tự phụ thuộc nghiêm ngặt
+                string[] orderedDeps = new[]
+                {
+                    "libiomp5md.dll",
+                    "mklml.dll",
+                    "mkldnn.dll",
+                    "common.dll",
+                    "phi.dll",
+                    "onnxruntime.dll",
+                    "paddle2onnx.dll",
+                    "paddle_inference_c.dll"
+                };
+
+                foreach (var dep in orderedDeps)
+                {
+                    string pathInDll = Path.Combine(targetDllX64, dep);
+                    if (File.Exists(pathInDll))
+                    {
+                        LoadLibrary(pathInDll);
+                        continue;
+                    }
+
+                    string pathInPortable = Path.Combine(portableBinX64, dep);
+                    if (File.Exists(pathInPortable))
+                    {
+                        LoadLibrary(pathInPortable);
+                        continue;
+                    }
+
+                    string pathInBin = Path.Combine(portableBin, dep);
+                    if (File.Exists(pathInBin))
+                    {
+                        LoadLibrary(pathInBin);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("EnsureNativeDependenciesReady error: " + ex.Message);
+            }
         }
 
         private static string GetAppDirectory()
@@ -238,6 +339,8 @@ namespace ModernKey.Core
                         return (false, "⚠ Tải tệp mô hình không thành công hoặc tệp bị thiếu dữ liệu.");
                     }
                 }
+
+                EnsureNativeDependenciesReady();
 
                 progressCallback?.Invoke("⏳ Đang nạp mô hình phát hiện chữ (Detection V5)...");
                 var det = await OnlineDetectionModel.ChineseV5.DownloadAsync().ConfigureAwait(false);

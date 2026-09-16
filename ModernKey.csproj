@@ -68,12 +68,9 @@
     <Copy SourceFiles="@(_LoosePdbs)" DestinationFolder="$(TargetDir).portable\bin" SkipUnchangedFiles="true" OverwriteReadOnlyFiles="true" Condition="'@(_LoosePdbs)' != ''" />
     <Delete Files="@(_LoosePdbs)" Condition="'@(_LoosePdbs)' != ''" />
 
-    <!-- Copy native files from dll\x64\ to both .portable\bin\ and .portable\bin\x64\ -->
+    <!-- Copy native files from dll\x64\ to both .portable\bin\ and .portable\bin\x64\ for portable self-healing -->
     <Copy SourceFiles="@(_DllX64Files)" DestinationFolder="$(TargetDir).portable\bin" SkipUnchangedFiles="true" OverwriteReadOnlyFiles="true" Condition="'@(_DllX64Files)' != ''" />
     <Copy SourceFiles="@(_DllDirFiles)" DestinationFiles="@(_DllDirFiles->'$(TargetDir).portable\bin\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" OverwriteReadOnlyFiles="true" Condition="'@(_DllDirFiles)' != ''" />
-
-    <!-- Remove original dll\ directory from output root -->
-    <RemoveDir Directories="$(TargetDir)dll" Condition="Exists('$(TargetDir)dll')" />
   </Target>
 
 </Project>
