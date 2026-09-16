@@ -15,6 +15,47 @@ namespace ModernKey
 {
     public partial class MacroQuickListWindow : Window
     {
+        #region Win32 P/Invoke
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct GUITHREADINFO
+        {
+            public int cbSize;
+            public int flags;
+            public IntPtr hwndActive;
+            public IntPtr hwndFocus;
+            public IntPtr hwndCapture;
+            public IntPtr hwndMenuOwner;
+            public IntPtr hwndMoveSize;
+            public IntPtr hwndCaret;
+            public RECT rcCaret;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT
+        {
+            public int X;
+            public int Y;
+        }
+
+        [DllImport("user32.dll")]
+        private static extern bool GetGUIThreadInfo(uint idThread, ref GUITHREADINFO lpgui);
+
+        [DllImport("user32.dll")]
+        private static extern bool ClientToScreen(IntPtr hWnd, ref POINT lpPoint);
+
+        [DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();
 
@@ -22,22 +63,48 @@ namespace ModernKey
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool SetForegroundWindow(IntPtr hWnd);
 
+        private const int WS_EX_NOACTIVATE = 0x08000000;
+        private const int WS_EX_TOOLWINDOW = 0x00000080;
+        private const int GWL_EXSTYLE = -20;
+
+        [DllImport("user32.dll")]
+        private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll")]
+        private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+        #endregion
+
+        public static MacroQuickListWindow Instance { get; private set; }
+        public static bool IsQuickListOpen => Instance != null && Instance.IsVisible;
+
         private readonly MacroManager _macroManager;
         private readonly AppSettings _settings;
         private IntPtr _lastTargetHwnd = IntPtr.Zero;
-        private bool _isDialogOpen = false;
+        private string _typedPrefix = string.Empty;
+        private List<MacroEntry> _allMacros = new List<MacroEntry>();
         private List<MacroEntry> _currentFilteredList = new List<MacroEntry>();
+        private bool _isDialogOpen = false;
 
         public MacroQuickListWindow(MacroManager macroManager, AppSettings settings)
         {
             InitializeComponent();
+            Instance = this;
             _macroManager = macroManager;
             _settings = settings;
 
             RefreshMacroList();
         }
 
-        public void ShowQuickList(IntPtr targetHwnd = default)
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+            var helper = new WindowInteropHelper(this);
+            int exStyle = GetWindowLong(helper.Handle, GWL_EXSTYLE);
+            SetWindowLong(helper.Handle, GWL_EXSTYLE, exStyle | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW);
+        }
+
+        public void ShowQuickList(string initialKeyword = null, IntPtr targetHwnd = default)
         {
             IntPtr myHandle = new WindowInteropHelper(this).Handle;
             _lastTargetHwnd = (targetHwnd != IntPtr.Zero && targetHwnd != myHandle)
@@ -49,51 +116,91 @@ namespace ModernKey
                 _lastTargetHwnd = IntPtr.Zero;
             }
 
-            TxtSearch.Text = string.Empty;
-            RefreshMacroList();
+            _allMacros = _macroManager.MacroList.ToList();
+            _typedPrefix = initialKeyword ?? string.Empty;
+            FilterList(_typedPrefix);
 
+            PositionAtCaret();
             Show();
-            Activate();
-            TxtSearch.Focus();
+        }
+
+        private void PositionAtCaret()
+        {
+            try
+            {
+                IntPtr hForeground = GetForegroundWindow();
+                if (hForeground != IntPtr.Zero)
+                {
+                    uint threadId = GetWindowThreadProcessId(hForeground, out _);
+                    var gui = new GUITHREADINFO();
+                    gui.cbSize = Marshal.SizeOf(typeof(GUITHREADINFO));
+
+                    if (GetGUIThreadInfo(threadId, ref gui) && gui.hwndCaret != IntPtr.Zero && (gui.rcCaret.Right - gui.rcCaret.Left >= 0))
+                    {
+                        var pt = new POINT { X = gui.rcCaret.Left, Y = gui.rcCaret.Bottom };
+                        if (ClientToScreen(gui.hwndCaret, ref pt))
+                        {
+                            double screenWidth = SystemParameters.PrimaryScreenWidth;
+                            double screenHeight = SystemParameters.PrimaryScreenHeight;
+
+                            double w = ActualWidth > 0 ? ActualWidth : Width;
+                            double h = ActualHeight > 0 ? ActualHeight : Height;
+
+                            double x = pt.X;
+                            double y = pt.Y + 6;
+
+                            if (x + w > screenWidth) x = screenWidth - w - 10;
+                            if (x < 10) x = 10;
+                            if (y + h > screenHeight) y = pt.Y - h - 6;
+
+                            Left = x;
+                            Top = y;
+                            return;
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            // Fallback: vị trí con trỏ chuột
+            var mouse = System.Windows.Forms.Cursor.Position;
+            Left = mouse.X + 8;
+            Top = mouse.Y + 16;
         }
 
         private void RefreshMacroList()
         {
-            string query = TxtSearch?.Text?.Trim() ?? string.Empty;
-            FilterList(query);
+            if (_macroManager != null && _macroManager.MacroList != null)
+            {
+                _allMacros = _macroManager.MacroList.ToList();
+            }
+            FilterList(_typedPrefix);
         }
 
         private void FilterList(string query)
         {
-            if (_macroManager == null || _macroManager.MacroList == null) return;
-
-            int totalCount = _macroManager.MacroList.Count;
+            if (_allMacros == null) return;
+            int totalCount = _allMacros.Count;
 
             if (string.IsNullOrEmpty(query))
             {
-                _currentFilteredList = _macroManager.MacroList.ToList();
+                _currentFilteredList = _allMacros;
             }
             else
             {
-                _currentFilteredList = _macroManager.MacroList
-                    .Where(m => (m.Shortcut != null && m.Shortcut.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                                (m.Replacement != null && m.Replacement.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0))
+                _currentFilteredList = _allMacros
+                    .Where(m => !string.IsNullOrEmpty(m.Shortcut) && m.Shortcut.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
                     .OrderBy(m =>
                     {
-                        // 1. Khớp chính xác Shortcut lên đầu
                         if (string.Equals(m.Shortcut, query, StringComparison.OrdinalIgnoreCase)) return 0;
-                        // 2. Bắt đầu bằng Shortcut
-                        if (m.Shortcut != null && m.Shortcut.StartsWith(query, StringComparison.OrdinalIgnoreCase)) return 1;
-                        // 3. Chứa Shortcut
-                        if (m.Shortcut != null && m.Shortcut.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return 2;
-                        // 4. Còn lại (khớp nội dung Replacement)
-                        return 3;
+                        if (m.Shortcut.StartsWith(query, StringComparison.OrdinalIgnoreCase)) return 1;
+                        return 2;
                     })
                     .ThenBy(m => m.Shortcut)
                     .ToList();
             }
 
-            DgMacroList.ItemsSource = _currentFilteredList;
+            LstShortcuts.ItemsSource = _currentFilteredList;
 
             if (TxtCount != null)
             {
@@ -102,77 +209,198 @@ namespace ModernKey
 
             if (_currentFilteredList.Count > 0)
             {
-                DgMacroList.SelectedIndex = 0;
-                DgMacroList.ScrollIntoView(_currentFilteredList[0]);
-            }
-
-            if (BtnClearSearch != null)
-            {
-                BtnClearSearch.Visibility = string.IsNullOrEmpty(query) ? Visibility.Collapsed : Visibility.Visible;
+                LstShortcuts.SelectedIndex = 0;
+                LstShortcuts.ScrollIntoView(_currentFilteredList[0]);
             }
         }
 
-        private MacroEntry GetSelectedOrFirstEntry()
+        public void HandleCharTyped(char ch)
         {
-            if (DgMacroList.SelectedItem is MacroEntry selected)
+            Dispatcher.BeginInvoke(new Action(() =>
             {
-                return selected;
-            }
-            if (_currentFilteredList.Count > 0)
-            {
-                return _currentFilteredList[0];
-            }
-            return null;
-        }
-
-        private void ExecutePaste()
-        {
-            var entry = GetSelectedOrFirstEntry();
-            if (entry == null) return;
-
-            string text = entry.Replacement ?? string.Empty;
-            if (_settings != null && _settings.DynamicMacroEnabled)
-            {
-                text = MacroManager.ExpandDynamicPlaceholders(text);
-            }
-
-            IntPtr target = _lastTargetHwnd;
-            Hide();
-
-            ThreadPool.QueueUserWorkItem(_ =>
-            {
-                if (target != IntPtr.Zero)
+                if (!IsVisible) return;
+                _typedPrefix += ch;
+                FilterList(_typedPrefix);
+                if (_currentFilteredList.Count == 0)
                 {
-                    SetForegroundWindow(target);
-                    Thread.Sleep(50);
+                    CloseQuickList();
                 }
-                KeySender.SendViaClipboardPaste(text);
-            });
+            }));
         }
 
-        private void ExecuteSequenceKey()
+        public void HandleBackspace()
         {
-            var entry = GetSelectedOrFirstEntry();
-            if (entry == null) return;
-
-            string text = entry.Replacement ?? string.Empty;
-            if (_settings != null && _settings.DynamicMacroEnabled)
+            Dispatcher.BeginInvoke(new Action(() =>
             {
-                text = MacroManager.ExpandDynamicPlaceholders(text);
-            }
-
-            IntPtr target = _lastTargetHwnd;
-            Hide();
-
-            ThreadPool.QueueUserWorkItem(_ =>
-            {
-                if (target != IntPtr.Zero)
+                if (!IsVisible) return;
+                if (_typedPrefix.Length > 0)
                 {
-                    SetForegroundWindow(target);
-                    Thread.Sleep(50);
+                    _typedPrefix = _typedPrefix.Substring(0, _typedPrefix.Length - 1);
+                    FilterList(_typedPrefix);
                 }
-                KeySender.SendKeystrokeSequence(text);
-            });
+                else
+                {
+                    FilterList(string.Empty);
+                }
+            }));
+        }
+
+        public void SelectNext()
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (!IsVisible || _currentFilteredList == null || _currentFilteredList.Count == 0) return;
+                int next = LstShortcuts.SelectedIndex + 1;
+                if (next < _currentFilteredList.Count)
+                {
+                    LstShortcuts.SelectedIndex = next;
+                    LstShortcuts.ScrollIntoView(LstShortcuts.SelectedItem);
+                }
+            }));
+        }
+
+        public void SelectPrevious()
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (!IsVisible || _currentFilteredList == null || _currentFilteredList.Count == 0) return;
+                int prev = LstShortcuts.SelectedIndex - 1;
+                if (prev >= 0)
+                {
+                    LstShortcuts.SelectedIndex = prev;
+                    LstShortcuts.ScrollIntoView(LstShortcuts.SelectedItem);
+                }
+            }));
+        }
+
+        public void SelectNextPage()
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (!IsVisible || _currentFilteredList == null || _currentFilteredList.Count == 0) return;
+                int next = Math.Min(LstShortcuts.SelectedIndex + 8, _currentFilteredList.Count - 1);
+                LstShortcuts.SelectedIndex = next;
+                LstShortcuts.ScrollIntoView(LstShortcuts.SelectedItem);
+            }));
+        }
+
+        public void SelectPreviousPage()
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (!IsVisible || _currentFilteredList == null || _currentFilteredList.Count == 0) return;
+                int prev = Math.Max(LstShortcuts.SelectedIndex - 8, 0);
+                LstShortcuts.SelectedIndex = prev;
+                LstShortcuts.ScrollIntoView(LstShortcuts.SelectedItem);
+            }));
+        }
+
+        public void CloseQuickList()
+        {
+            if (_isDialogOpen) return;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                _typedPrefix = string.Empty;
+                Hide();
+            }));
+        }
+
+        public bool IsPointInside(int screenX, int screenY)
+        {
+            bool inside = false;
+            Dispatcher.Invoke(new Action(() =>
+            {
+                if (!IsVisible) return;
+                inside = screenX >= Left && screenX <= Left + ActualWidth &&
+                         screenY >= Top && screenY <= Top + ActualHeight;
+            }));
+            return inside;
+        }
+
+        public void ExecutePaste()
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                var entry = LstShortcuts.SelectedItem as MacroEntry;
+                if (entry == null && _currentFilteredList.Count > 0)
+                {
+                    entry = _currentFilteredList[0];
+                }
+                if (entry == null)
+                {
+                    CloseQuickList();
+                    return;
+                }
+
+                string text = entry.Replacement ?? string.Empty;
+                if (_settings != null && _settings.DynamicMacroEnabled)
+                {
+                    text = MacroManager.ExpandDynamicPlaceholders(text);
+                }
+
+                int charsToDelete = _typedPrefix.Length;
+                IntPtr target = _lastTargetHwnd;
+
+                CloseQuickList();
+
+                ThreadPool.QueueUserWorkItem(_ =>
+                {
+                    if (target != IntPtr.Zero)
+                    {
+                        SetForegroundWindow(target);
+                        Thread.Sleep(20);
+                    }
+                    if (charsToDelete > 0)
+                    {
+                        KeySender.SendBackspaces(charsToDelete);
+                        Thread.Sleep(10);
+                    }
+                    KeySender.SendViaClipboardPaste(text);
+                });
+            }));
+        }
+
+        public void ExecuteSequenceKey()
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                var entry = LstShortcuts.SelectedItem as MacroEntry;
+                if (entry == null && _currentFilteredList.Count > 0)
+                {
+                    entry = _currentFilteredList[0];
+                }
+                if (entry == null)
+                {
+                    CloseQuickList();
+                    return;
+                }
+
+                string text = entry.Replacement ?? string.Empty;
+                if (_settings != null && _settings.DynamicMacroEnabled)
+                {
+                    text = MacroManager.ExpandDynamicPlaceholders(text);
+                }
+
+                int charsToDelete = _typedPrefix.Length;
+                IntPtr target = _lastTargetHwnd;
+
+                CloseQuickList();
+
+                ThreadPool.QueueUserWorkItem(_ =>
+                {
+                    if (target != IntPtr.Zero)
+                    {
+                        SetForegroundWindow(target);
+                        Thread.Sleep(20);
+                    }
+                    if (charsToDelete > 0)
+                    {
+                        KeySender.SendBackspaces(charsToDelete);
+                        Thread.Sleep(10);
+                    }
+                    KeySender.SendKeystrokeSequence(text);
+                });
+            }));
         }
 
         private void BtnPaste_Click(object sender, RoutedEventArgs e)
@@ -185,13 +413,22 @@ namespace ModernKey
             ExecuteSequenceKey();
         }
 
+        private void LstShortcuts_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            ExecutePaste();
+        }
+
+        private void LstShortcuts_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // TxtPreview automatically updates via ElementName binding in XAML
+        }
+
         private void BtnAdd_Click(object sender, RoutedEventArgs e)
         {
             _isDialogOpen = true;
             try
             {
-                string query = TxtSearch?.Text?.Trim();
-                var dlg = new EditMacroDialog(initialShortcut: query, isEdit: false)
+                var dlg = new EditMacroDialog(initialShortcut: _typedPrefix, isEdit: false)
                 {
                     Owner = this
                 };
@@ -205,21 +442,25 @@ namespace ModernKey
                     var added = _currentFilteredList.FirstOrDefault(x => string.Equals(x.Shortcut, dlg.Shortcut, StringComparison.OrdinalIgnoreCase));
                     if (added != null)
                     {
-                        DgMacroList.SelectedItem = added;
-                        DgMacroList.ScrollIntoView(added);
+                        LstShortcuts.SelectedItem = added;
+                        LstShortcuts.ScrollIntoView(added);
                     }
                 }
             }
             finally
             {
                 _isDialogOpen = false;
-                TxtSearch?.Focus();
+                if (_lastTargetHwnd != IntPtr.Zero)
+                {
+                    SetForegroundWindow(_lastTargetHwnd);
+                }
             }
         }
 
         private void BtnEdit_Click(object sender, RoutedEventArgs e)
         {
-            var entry = GetSelectedOrFirstEntry();
+            var entry = LstShortcuts.SelectedItem as MacroEntry;
+            if (entry == null && _currentFilteredList.Count > 0) entry = _currentFilteredList[0];
             if (entry == null) return;
 
             _isDialogOpen = true;
@@ -244,113 +485,24 @@ namespace ModernKey
                     var updated = _currentFilteredList.FirstOrDefault(x => string.Equals(x.Shortcut, dlg.Shortcut, StringComparison.OrdinalIgnoreCase));
                     if (updated != null)
                     {
-                        DgMacroList.SelectedItem = updated;
-                        DgMacroList.ScrollIntoView(updated);
+                        LstShortcuts.SelectedItem = updated;
+                        LstShortcuts.ScrollIntoView(updated);
                     }
                 }
             }
             finally
             {
                 _isDialogOpen = false;
-                TxtSearch?.Focus();
+                if (_lastTargetHwnd != IntPtr.Zero)
+                {
+                    SetForegroundWindow(_lastTargetHwnd);
+                }
             }
         }
 
         private void BtnClose_Click(object sender, RoutedEventArgs e)
         {
-            Hide();
-        }
-
-        private void BtnClearSearch_Click(object sender, RoutedEventArgs e)
-        {
-            TxtSearch.Text = string.Empty;
-            TxtSearch.Focus();
-        }
-
-        private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            RefreshMacroList();
-        }
-
-        private void TxtSearch_PreviewKeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Down)
-            {
-                if (_currentFilteredList.Count > 0)
-                {
-                    DgMacroList.Focus();
-                    if (DgMacroList.SelectedIndex < 0)
-                    {
-                        DgMacroList.SelectedIndex = 0;
-                    }
-                    e.Handled = true;
-                }
-            }
-            else if (e.Key == Key.Enter)
-            {
-                if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0)
-                {
-                    ExecuteSequenceKey();
-                }
-                else
-                {
-                    ExecutePaste();
-                }
-                e.Handled = true;
-            }
-            else if (e.Key == Key.Escape)
-            {
-                Hide();
-                e.Handled = true;
-            }
-        }
-
-        private void DgMacroList_PreviewKeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Up && DgMacroList.SelectedIndex == 0)
-            {
-                TxtSearch.Focus();
-                e.Handled = true;
-            }
-            else if (e.Key == Key.Enter)
-            {
-                if ((Keyboard.Modifiers & ModifierKeys.Shift) != 0)
-                {
-                    ExecuteSequenceKey();
-                }
-                else
-                {
-                    ExecutePaste();
-                }
-                e.Handled = true;
-            }
-            else if (e.Key == Key.Escape)
-            {
-                Hide();
-                e.Handled = true;
-            }
-        }
-
-        private void DgMacroList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
-        {
-            ExecutePaste();
-        }
-
-        private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Escape)
-            {
-                Hide();
-                e.Handled = true;
-            }
-        }
-
-        private void Window_Deactivated(object sender, EventArgs e)
-        {
-            if (!_isDialogOpen && IsVisible)
-            {
-                Hide();
-            }
+            CloseQuickList();
         }
 
         private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -362,3 +514,4 @@ namespace ModernKey
         }
     }
 }
+

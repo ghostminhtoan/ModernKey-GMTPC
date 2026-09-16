@@ -71,6 +71,19 @@ namespace ModernKey.Core
 
         public bool HasPendingWord => _charBuffer.Count > 0;
 
+        public string GetCurrentBufferWord()
+        {
+            if (_charBuffer != null && _charBuffer.Count > 0)
+            {
+                return new string(_charBuffer.ToArray());
+            }
+            if (_macroBuffer != null && _macroBuffer.Count > 0)
+            {
+                return new string(_macroBuffer.ToArray());
+            }
+            return string.Empty;
+        }
+
         private static bool IsSymbolOnly(string text)
         {
             if (string.IsNullOrEmpty(text)) return false;

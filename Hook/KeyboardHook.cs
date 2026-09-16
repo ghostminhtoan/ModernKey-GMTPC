@@ -76,6 +76,23 @@ namespace ModernKey.Hook
         private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 
         [StructLayout(LayoutKind.Sequential)]
+        private struct POINT
+        {
+            public int x;
+            public int y;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MSLLHOOKSTRUCT
+        {
+            public POINT pt;
+            public uint mouseData;
+            public uint flags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
         private struct KBDLLHOOKSTRUCT
         {
             public uint vkCode;
@@ -251,7 +268,7 @@ namespace ModernKey.Hook
         public event Action OpenClipboardFavoriteRequested;
         public Func<int, uint, bool> CheckClipboardShortcutRequested;
         public event Action OpenTextTransformRequested;
-        public event Action OpenMacroQuickListRequested;
+        public event Action<string> OpenMacroQuickListRequested;
         public static event Action<InputMethod> InputMethodChanged;
         public static event Action<bool> GameModeChanged;
 
@@ -298,7 +315,7 @@ namespace ModernKey.Hook
             "cmd.exe", "powershell.exe", "pwsh.exe", "windowsterminal.exe", "wt.exe",
             "mintty.exe", "bash.exe", "git-bash.exe", "conhost.exe", "alacritty.exe", "wezterm-gui.exe",
             "code.exe", "devenv.exe", "clion64.exe", "idea64.exe", "pycharm64.exe",
-            "webstorm64.exe", "rider64.exe", "sublime_text.exe", "notepad++.exe",
+            "webstorm64.exe", "rider64.exe", "sublime_text.exe",
             "steam.exe", "epicgameslauncher.exe", "league of legends.exe", "valorant.exe",
             "csgo.exe", "cs2.exe", "dota2.exe", "gta5.exe", "overwatch.exe"
         };
@@ -421,6 +438,11 @@ namespace ModernKey.Hook
 
         private void OnForegroundWindowChanged(IntPtr hWnd)
         {
+            if (MacroQuickListWindow.IsQuickListOpen)
+            {
+                MacroQuickListWindow.Instance?.CloseQuickList();
+            }
+
             ResetModifierState();
             if (hWnd == IntPtr.Zero) return;
             string exe = GetExeNameFromWindow(hWnd);
@@ -536,6 +558,19 @@ namespace ModernKey.Hook
 
                 if (msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN || msg == WM_MBUTTONDOWN)
                 {
+                    if (MacroQuickListWindow.IsQuickListOpen)
+                    {
+                        try
+                        {
+                            var mouseInfo = (MSLLHOOKSTRUCT)Marshal.PtrToStructure(lParam, typeof(MSLLHOOKSTRUCT));
+                            if (MacroQuickListWindow.Instance != null && !MacroQuickListWindow.Instance.IsPointInside(mouseInfo.pt.x, mouseInfo.pt.y))
+                            {
+                                MacroQuickListWindow.Instance.CloseQuickList();
+                            }
+                        }
+                        catch { }
+                    }
+
                     try
                     {
                         // Chỉ cần reset bộ gõ khi đang có ký tự gõ dở dang
@@ -702,9 +737,90 @@ namespace ModernKey.Hook
                         vkCode == 0x20)
                     {
                         KeySender.SuppressAltMenuActivation();
+                        string pendingWord = _engine != null ? _engine.GetCurrentBufferWord() : string.Empty;
                         _engine.Reset();
-                        OpenMacroQuickListRequested?.Invoke();
+                        OpenMacroQuickListRequested?.Invoke(pendingWord);
                         return (IntPtr)1;
+                    }
+
+                    // 6.5c. Xử lý điều hướng và lọc phím khi Quick-List Macro đang mở (Chuẩn Comfort Keys Pro không cướp focus)
+                    if (MacroQuickListWindow.IsQuickListOpen)
+                    {
+                        // Phím điều hướng mũi tên Lên / Xuống / PgUp / PgDn
+                        if (vkCode == 0x28) // VK_DOWN
+                        {
+                            MacroQuickListWindow.Instance?.SelectNext();
+                            return (IntPtr)1;
+                        }
+                        if (vkCode == 0x26) // VK_UP
+                        {
+                            MacroQuickListWindow.Instance?.SelectPrevious();
+                            return (IntPtr)1;
+                        }
+                        if (vkCode == 0x22) // VK_NEXT (Page Down)
+                        {
+                            MacroQuickListWindow.Instance?.SelectNextPage();
+                            return (IntPtr)1;
+                        }
+                        if (vkCode == 0x21) // VK_PRIOR (Page Up)
+                        {
+                            MacroQuickListWindow.Instance?.SelectPreviousPage();
+                            return (IntPtr)1;
+                        }
+
+                        // Phím Enter hoặc Tab để bung macro
+                        if (vkCode == 0x0D || vkCode == 0x09)
+                        {
+                            bool quickShift = ((_modifierFlag & MASK_SHIFT) != 0) || _shiftDown || ((GetAsyncKeyState(0x10) & 0x8000) != 0);
+                            _engine.Reset();
+                            if (quickShift)
+                            {
+                                MacroQuickListWindow.Instance?.ExecuteSequenceKey();
+                            }
+                            else
+                            {
+                                MacroQuickListWindow.Instance?.ExecutePaste();
+                            }
+                            return (IntPtr)1;
+                        }
+
+                        // Phím Escape để hủy popup
+                        if (vkCode == 0x1B)
+                        {
+                            MacroQuickListWindow.Instance?.CloseQuickList();
+                            return (IntPtr)1;
+                        }
+
+                        // Phím điều hướng ngang (Left/Right/Home/End) -> Người dùng rời khỏi vị trí gõ từ hiện tại
+                        if (vkCode == 0x25 || vkCode == 0x27 || vkCode == 0x24 || vkCode == 0x23)
+                        {
+                            MacroQuickListWindow.Instance?.CloseQuickList();
+                            return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
+                        }
+
+                        // Phím Backspace
+                        if (vkCode == 0x08)
+                        {
+                            MacroQuickListWindow.Instance?.HandleBackspace();
+                            // Không nuốt phím: để Windows xóa ký tự trong văn bản
+                        }
+                        else
+                        {
+                            // Ký tự chữ cái, chữ số, ký hiệu
+                            char quickChar = ConvertVkToChar(vkCode, scanCode);
+                            if (quickChar >= 32 && quickChar != 127)
+                            {
+                                if (quickChar == ' ')
+                                {
+                                    // Nhấn dấu cách mà không chọn macro -> đóng quick-list
+                                    MacroQuickListWindow.Instance?.CloseQuickList();
+                                }
+                                else
+                                {
+                                    MacroQuickListWindow.Instance?.HandleCharTyped(quickChar);
+                                }
+                            }
+                        }
                     }
 
                     // 6.6. Phím tắt mở/toggle nhanh Clipboard Favorite HUD: Alt+Insert (chuẩn Comfort Keys Pro)

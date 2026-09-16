@@ -315,11 +315,11 @@ namespace ModernKey
             };
 
             // Phím tắt Quick-List Macro (Win+Space chuẩn Comfort Keys Pro)
-            _keyboardHook.OpenMacroQuickListRequested += () =>
+            _keyboardHook.OpenMacroQuickListRequested += (pendingWord) =>
             {
                 Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
                 {
-                    ToggleMacroQuickList();
+                    ToggleMacroQuickList(pendingWord);
                 }));
             };
 
@@ -682,13 +682,13 @@ namespace ModernKey
             }
         }
 
-        public void ToggleMacroQuickList()
+        public void ToggleMacroQuickList(string pendingWord = null)
         {
             try
             {
                 if (_macroQuickListWindow != null && _macroQuickListWindow.IsVisible && _macroQuickListWindow.WindowState != WindowState.Minimized)
                 {
-                    _macroQuickListWindow.Hide();
+                    _macroQuickListWindow.CloseQuickList();
                     return;
                 }
 
@@ -696,7 +696,7 @@ namespace ModernKey
                 {
                     _macroQuickListWindow = new MacroQuickListWindow(_macroManager, _settings);
                 }
-                _macroQuickListWindow.ShowQuickList();
+                _macroQuickListWindow.ShowQuickList(pendingWord);
             }
             catch (Exception ex)
             {
