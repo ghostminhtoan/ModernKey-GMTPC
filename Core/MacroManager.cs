@@ -261,6 +261,20 @@ namespace ModernKey.Core
             MacroList.Add(new MacroEntry(shortcut, replacement));
         }
 
+        public bool Remove(string shortcut)
+        {
+            if (string.IsNullOrEmpty(shortcut)) return false;
+            for (int i = 0; i < MacroList.Count; i++)
+            {
+                if (string.Equals(MacroList[i].Shortcut, shortcut, StringComparison.OrdinalIgnoreCase))
+                {
+                    MacroList.RemoveAt(i);
+                    return true;
+                }
+            }
+            return false;
+        }
+
         public static string ReadMacroText(string filePath)
         {
             if (!File.Exists(filePath)) return string.Empty;

@@ -251,6 +251,7 @@ namespace ModernKey.Hook
         public event Action OpenClipboardFavoriteRequested;
         public Func<int, uint, bool> CheckClipboardShortcutRequested;
         public event Action OpenTextTransformRequested;
+        public event Action OpenMacroQuickListRequested;
         public static event Action<InputMethod> InputMethodChanged;
         public static event Action<bool> GameModeChanged;
 
@@ -692,6 +693,17 @@ namespace ModernKey.Hook
                         KeySender.SuppressAltMenuActivation();
                         _engine.Reset();
                         OpenClipboardRequested?.Invoke();
+                        return (IntPtr)1;
+                    }
+
+                    // 6.5b. Phím tắt mở/toggle nhanh Quick-List Macro: Win+Space (chuẩn Comfort Keys Pro)
+                    if (_settings.MacroQuickListWinSpace &&
+                        ((_modifierFlag & MASK_WIN) != 0 || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0) &&
+                        vkCode == 0x20)
+                    {
+                        KeySender.SuppressAltMenuActivation();
+                        _engine.Reset();
+                        OpenMacroQuickListRequested?.Invoke();
                         return (IntPtr)1;
                     }
 

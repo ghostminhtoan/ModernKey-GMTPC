@@ -109,8 +109,13 @@
 
         <!-- Cyberpunk Main Tabs -->
         <TabControl x:Name="MainTabControl" Grid.Row="1" Background="{StaticResource CyberDark}" BorderBrush="{StaticResource CyberBorderDim}">
+            <TabControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </TabControl.ItemsPanel>
             <!-- Tab 1: Bộ Gõ -->
-            <TabItem Header="  BỘ GÕ  ">
+            <TabItem Header="BỘ GÕ">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Margin="18">
                         <!-- Phần Bảng mã, Kiểu gõ, Phím chuyển -->
@@ -192,7 +197,7 @@
             </TabItem>
 
             <!-- Tab 2: Hệ Thống -->
-            <TabItem Header="  HỆ THỐNG  ">
+            <TabItem Header="HỆ THỐNG">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Margin="18">
                         <TextBlock Text="[CẤU HÌNH HỆ THỐNG &amp; KHỞI ĐỘNG]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,10" />
@@ -258,7 +263,7 @@
             </TabItem>
 
             <!-- Tab 3: Gõ tắt (Macro) -->
-            <TabItem Header="  GÕ TẮT  ">
+            <TabItem Header="GÕ TẮT">
                 <Grid Margin="16">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -279,7 +284,8 @@
                                 <CheckBox x:Name="ChkUseMacro" Content="Bật gõ tắt (Macro)" Margin="0,0,18,6" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" FontWeight="SemiBold" Foreground="{StaticResource CyberNeonCyan}" />
                                 <CheckBox x:Name="ChkUseMacroInEnglish" Content="Gõ tắt trong tiếng Anh" Margin="0,0,18,6" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" />
                                 <CheckBox x:Name="ChkAutoCapsMacro" Content="Tự động đổi chữ hoa (Auto-Caps)" Margin="0,0,18,6" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Gõ 'vn' -&gt; 'việt nam', 'Vn' -&gt; 'Việt nam', 'VN' -&gt; 'VIỆT NAM'" />
-                                <CheckBox x:Name="ChkDynamicMacro" Content="Bật biến động ({date}, {time}, {guid}, {clipboard}...)" Margin="0,0,0,6" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Tự động thay thế các biến động như {date}, {time}, {datetime}, {guid}, {clipboard}, {year} khi kích hoạt macro" Foreground="{StaticResource CyberNeonYellow}" />
+                                <CheckBox x:Name="ChkDynamicMacro" Content="Bật biến động ({date}, {time}, {guid}, {clipboard}...)" Margin="0,0,18,6" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Tự động thay thế các biến động như {date}, {time}, {datetime}, {guid}, {clipboard}, {year} khi kích hoạt macro" Foreground="{StaticResource CyberNeonYellow}" />
+                                <CheckBox x:Name="ChkMacroQuickListWinSpace" Content="Bấm Win+Space để hiển thị quick-list macro" Margin="0,0,0,6" Checked="SettingCheckChanged" Unchecked="SettingCheckChanged" ToolTip="Nhấn Win+Space để hiển thị danh sách gõ tắt nhanh và tìm kiếm (giống Comfort Keys Pro)" Foreground="{StaticResource CyberNeonCyan}" />
                             </WrapPanel>
 
                             <StackPanel Grid.Row="1" Orientation="Horizontal">
@@ -393,7 +399,7 @@
             </TabItem>
 
             <!-- Tab: Phím tắt (Hotkeys F1-F12 with customizable modifiers) chuẩn OpenKey C++ -->
-            <TabItem Header="  PHÍM TẮT  ">
+            <TabItem Header="PHÍM TẮT">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <Grid Margin="20">
                         <Grid.RowDefinitions>
@@ -538,7 +544,7 @@
             </TabItem>
 
             <!-- Tab 5: Chuyển mã -->
-            <TabItem Header="  CHUYỂN MÃ  ">
+            <TabItem Header="CHUYỂN MÃ">
                 <Grid Margin="16">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -575,7 +581,7 @@
             </TabItem>
 
             <!-- Tab 6: Quản lý Clipboard (Clipboard Manager HUD) -->
-            <TabItem Header="  CLIPBOARD  ">
+            <TabItem Header="CLIPBOARD">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Margin="18">
                         <TextBlock Text="[CẤU HÌNH LƯU TRỮ CLIPBOARD (CLIPBOARD MANAGER)]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,10" />
@@ -633,7 +639,7 @@
             </TabItem>
 
             <!-- Tab 7: Thống Kê Gõ Phím (Cyberpunk Typing Stats HUD) -->
-            <TabItem Header="  THỐNG KÊ  ">
+            <TabItem Header="THỐNG KÊ">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="18">
                         <TextBlock Text="[CYBERPUNK TYPING TELEMETRY &amp; STATS DASHBOARD]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,10" />
@@ -733,7 +739,7 @@
             </TabItem>
 
             <!-- Tab 7: Giới thiệu -->
-            <TabItem Header="  GIỚI THIỆU  ">
+            <TabItem Header="GIỚI THIỆU">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="24">
                         <TextBlock Text="MODERNKEY GMTPC // CYBER_EDITION" FontSize="20" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" />

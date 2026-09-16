@@ -211,8 +211,8 @@
                                 Background="Transparent"
                                 BorderThickness="0,0,0,2"
                                 BorderBrush="Transparent"
-                                Padding="12,7"
-                                Margin="0,0,4,0"
+                                Padding="9,6"
+                                Margin="0,0,2,0"
                                 Cursor="Hand">
                             <ContentPresenter x:Name="TabContent"
                                               ContentSource="Header"

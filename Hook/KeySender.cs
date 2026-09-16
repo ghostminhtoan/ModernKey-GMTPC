@@ -14,6 +14,8 @@ namespace ModernKey.Hook
         private const uint KEYEVENTF_UNICODE = 0x0004;
 
         private const byte VK_BACK = 0x08;
+        private const byte VK_TAB = 0x09;
+        private const byte VK_RETURN = 0x0D;
         private const byte VK_SHIFT = 0x10;
         private const byte VK_CONTROL = 0x11;
         private const byte VK_V = 0x56;
@@ -599,6 +601,64 @@ namespace ModernKey.Hook
             }
 
             SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT)));
+        }
+
+        public static void SendKeystrokeSequence(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+
+            ReleaseAllModifiers();
+            Thread.Sleep(20);
+
+            for (int i = 0; i < text.Length; i++)
+            {
+                char ch = text[i];
+                if (ch == '\r')
+                {
+                    if (i + 1 < text.Length && text[i + 1] == '\n')
+                    {
+                        continue; // Skip \r in \r\n, handle on \n
+                    }
+                    INPUT[] retInput = new INPUT[]
+                    {
+                        CreateKeyInput(VK_RETURN, 0),
+                        CreateKeyInput(VK_RETURN, KEYEVENTF_KEYUP)
+                    };
+                    SendInput(2, retInput, Marshal.SizeOf(typeof(INPUT)));
+                }
+                else if (ch == '\n')
+                {
+                    INPUT[] retInput = new INPUT[]
+                    {
+                        CreateKeyInput(VK_RETURN, 0),
+                        CreateKeyInput(VK_RETURN, KEYEVENTF_KEYUP)
+                    };
+                    SendInput(2, retInput, Marshal.SizeOf(typeof(INPUT)));
+                }
+                else if (ch == '\t')
+                {
+                    INPUT[] tabInput = new INPUT[]
+                    {
+                        CreateKeyInput(VK_TAB, 0),
+                        CreateKeyInput(VK_TAB, KEYEVENTF_KEYUP)
+                    };
+                    SendInput(2, tabInput, Marshal.SizeOf(typeof(INPUT)));
+                }
+                else
+                {
+                    INPUT[] charInput = new INPUT[]
+                    {
+                        CreateUnicodeInput(ch, 0),
+                        CreateUnicodeInput(ch, KEYEVENTF_KEYUP)
+                    };
+                    SendInput(2, charInput, Marshal.SizeOf(typeof(INPUT)));
+                }
+
+                if (text.Length > 1)
+                {
+                    Thread.Sleep(2);
+                }
+            }
         }
 
         public static void SendViaClipboardPaste(string text)

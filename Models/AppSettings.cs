@@ -33,6 +33,7 @@ namespace ModernKey.Models
         public bool AutoCapsMacro { get; set; } = true;
         public bool UseMacroInEnglish { get; set; } = false;
         public int MacroTriggerMask { get; set; } = 3; // 1: Space, 2: Enter, 4: 2x LShift, 8: 2x RShift
+        public bool MacroQuickListWinSpace { get; set; } = true; // Bấm Win+Space để hiển thị quick-list macro giống Comfort Keys Pro
 
         // Tùy chọn gõ tiếng Việt OpenKey C++
         public bool AllowConsonantZFWJ { get; set; } = false;

@@ -341,6 +341,9 @@ namespace ModernKey.Config
                         case "MacroTriggerMask":
                             if (int.TryParse(val, out var mtm)) settings.MacroTriggerMask = mtm;
                             break;
+                        case "MacroQuickListWinSpace":
+                            if (bool.TryParse(val, out var mql)) settings.MacroQuickListWinSpace = mql;
+                            break;
                         case "AllowConsonantZFWJ":
                             if (bool.TryParse(val, out var zfwj)) settings.AllowConsonantZFWJ = zfwj;
                             break;
@@ -567,6 +570,7 @@ namespace ModernKey.Config
                 sb.AppendLine("AutoCapsMacro=" + settings.AutoCapsMacro);
                 sb.AppendLine("UseMacroInEnglish=" + settings.UseMacroInEnglish);
                 sb.AppendLine("MacroTriggerMask=" + settings.MacroTriggerMask);
+                sb.AppendLine("MacroQuickListWinSpace=" + settings.MacroQuickListWinSpace);
                 sb.AppendLine("AllowConsonantZFWJ=" + settings.AllowConsonantZFWJ);
                 sb.AppendLine("FixRecommendBrowser=" + settings.FixRecommendBrowser);
                 sb.AppendLine("UpperCaseFirstChar=" + settings.UpperCaseFirstChar);

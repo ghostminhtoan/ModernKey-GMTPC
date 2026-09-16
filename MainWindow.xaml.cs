@@ -249,6 +249,7 @@ namespace ModernKey
                 if (ChkUseMacroInEnglish != null) ChkUseMacroInEnglish.IsChecked = _settings.UseMacroInEnglish;
                 if (ChkAutoCapsMacro != null) ChkAutoCapsMacro.IsChecked = _settings.AutoCapsMacro;
                 if (ChkDynamicMacro != null) ChkDynamicMacro.IsChecked = _settings.DynamicMacroEnabled;
+                if (ChkMacroQuickListWinSpace != null) ChkMacroQuickListWinSpace.IsChecked = _settings.MacroQuickListWinSpace;
 
                 // Phím kích hoạt (Trigger Mask: bit 0=Space, bit 1=Enter, bit 2=2x LShift, bit 3=2x RShift)
                 if (ChkTriggerSpace != null) ChkTriggerSpace.IsChecked = (_settings.MacroTriggerMask & 0x01) != 0;
@@ -371,6 +372,7 @@ namespace ModernKey
             if (ChkUseMacroInEnglish != null) _settings.UseMacroInEnglish = ChkUseMacroInEnglish.IsChecked == true;
             if (ChkAutoCapsMacro != null) _settings.AutoCapsMacro = ChkAutoCapsMacro.IsChecked == true;
             if (ChkDynamicMacro != null) _settings.DynamicMacroEnabled = ChkDynamicMacro.IsChecked == true;
+            if (ChkMacroQuickListWinSpace != null) _settings.MacroQuickListWinSpace = ChkMacroQuickListWinSpace.IsChecked == true;
 
             // Trigger Mask
             int mask = 0;

@@ -1,0 +1,80 @@
+<Window x:Class="ModernKey.EditMacroDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Edit Macro"
+        Height="360" Width="480" MinWidth="400" MinHeight="300"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource CyberBlack}"
+        Foreground="{StaticResource CyberTextPrimary}"
+        ShowInTaskbar="False"
+        ResizeMode="CanResizeWithGrip"
+        Icon="Resources/AppIcon.ico"
+        PreviewKeyDown="Window_PreviewKeyDown">
+
+    <Grid Margin="14">
+        <Grid.RowDefinitions>
+            <!-- 0. Header -->
+            <RowDefinition Height="Auto" />
+            <!-- 1. Shortcut Input -->
+            <RowDefinition Height="Auto" />
+            <!-- 2. Replacement Input -->
+            <RowDefinition Height="*" />
+            <!-- 3. Actions -->
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- 0. Header -->
+        <Border Grid.Row="0" Background="{StaticResource CyberDark}" CornerRadius="2" Padding="10,7" Margin="0,0,0,10"
+                BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1">
+            <Grid>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="⚡ " FontSize="14" Foreground="{StaticResource CyberNeonYellow}" VerticalAlignment="Center" />
+                    <TextBlock x:Name="TxtHeaderTitle" Text="MACRO EDITOR // QUẢN LÝ TỪ GÕ TẮT" FontSize="11" FontWeight="Bold" FontFamily="Consolas"
+                               Foreground="{StaticResource CyberNeonCyan}" VerticalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 1. Shortcut Input -->
+        <StackPanel Grid.Row="1" Margin="0,0,0,10">
+            <TextBlock Text="Từ viết tắt (Shortcut):" FontFamily="Consolas" FontSize="11" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,4" />
+            <Border Background="{StaticResource CyberInput}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2">
+                <TextBox x:Name="TxtShortcut" Height="28" BorderThickness="0" Background="Transparent"
+                         Foreground="{StaticResource CyberNeonYellow}" FontFamily="Consolas" FontSize="13" FontWeight="Bold"
+                         VerticalContentAlignment="Center" Padding="8,0" />
+            </Border>
+        </StackPanel>
+
+        <!-- 2. Replacement Input -->
+        <Grid Grid.Row="2" Margin="0,0,0,12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="Cụm từ thay thế (Replacement text):" FontFamily="Consolas" FontSize="11" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,4" />
+            <Border Grid.Row="1" Background="{StaticResource CyberInput}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2">
+                <TextBox x:Name="TxtReplacement" Background="Transparent" BorderThickness="0"
+                         Foreground="{StaticResource CyberTextPrimary}" FontFamily="Consolas" FontSize="12"
+                         AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Padding="8" />
+            </Border>
+        </Grid>
+
+        <!-- 3. Actions OK & Cancel -->
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0" Text="[Ctrl+Enter = Lưu | Esc = Hủy]" FontFamily="Consolas" FontSize="10"
+                       Foreground="{StaticResource CyberTextSecondary}" VerticalAlignment="Center" />
+
+            <Button Grid.Column="1" x:Name="BtnOk" Content="OK (LƯU)" Click="BtnOk_Click" Width="95" Margin="0,0,8,0"
+                    Background="#16291C" BorderBrush="#00FF66" Foreground="#00FF66" FontWeight="Bold" />
+            <Button Grid.Column="2" x:Name="BtnCancel" Content="CANCEL (HỦY)" Click="BtnCancel_Click" Width="105"
+                    Background="#24141E" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}" />
+        </Grid>
+    </Grid>
+</Window>

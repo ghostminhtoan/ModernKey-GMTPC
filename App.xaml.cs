@@ -29,6 +29,7 @@ namespace ModernKey
         private ClipboardListener _clipboardListener;
         private ClipboardWindow _clipboardWindow;
         private CaretIndicatorWindow _caretIndicatorWindow;
+        private MacroQuickListWindow _macroQuickListWindow;
 
         public ClipboardHistoryManager ClipboardHistory => _clipboardHistory;
 
@@ -310,6 +311,15 @@ namespace ModernKey
                 Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
                 {
                     ShowTextTransformWindow();
+                }));
+            };
+
+            // Phím tắt Quick-List Macro (Win+Space chuẩn Comfort Keys Pro)
+            _keyboardHook.OpenMacroQuickListRequested += () =>
+            {
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
+                {
+                    ToggleMacroQuickList();
                 }));
             };
 
@@ -672,6 +682,28 @@ namespace ModernKey
             }
         }
 
+        public void ToggleMacroQuickList()
+        {
+            try
+            {
+                if (_macroQuickListWindow != null && _macroQuickListWindow.IsVisible && _macroQuickListWindow.WindowState != WindowState.Minimized)
+                {
+                    _macroQuickListWindow.Hide();
+                    return;
+                }
+
+                if (_macroQuickListWindow == null)
+                {
+                    _macroQuickListWindow = new MacroQuickListWindow(_macroManager, _settings);
+                }
+                _macroQuickListWindow.ShowQuickList();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("ToggleMacroQuickList error: " + ex.Message);
+            }
+        }
+
         public void ExitApplication()
         {
             SettingsManager.StopSyncWatcher();
@@ -683,6 +715,7 @@ namespace ModernKey
             _trayManager?.Dispose();
             _statusOsdWindow?.Close();
             _clipboardWindow?.Close();
+            _macroQuickListWindow?.Close();
             _appMutex?.ReleaseMutex();
             Shutdown();
         }
