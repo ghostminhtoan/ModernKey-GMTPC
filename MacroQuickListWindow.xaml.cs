@@ -81,6 +81,7 @@ namespace ModernKey
         private readonly MacroManager _macroManager;
         private readonly AppSettings _settings;
         private IntPtr _lastTargetHwnd = IntPtr.Zero;
+        private IntPtr _lastFocusHwnd = IntPtr.Zero;
         private string _typedPrefix = string.Empty;
         private List<MacroEntry> _allMacros = new List<MacroEntry>();
         private List<MacroEntry> _currentFilteredList = new List<MacroEntry>();
@@ -107,13 +108,29 @@ namespace ModernKey
         public void ShowQuickList(string initialKeyword = null, IntPtr targetHwnd = default)
         {
             IntPtr myHandle = new WindowInteropHelper(this).Handle;
-            _lastTargetHwnd = (targetHwnd != IntPtr.Zero && targetHwnd != myHandle)
+            IntPtr fg = (targetHwnd != IntPtr.Zero && targetHwnd != myHandle)
                 ? targetHwnd
                 : GetForegroundWindow();
 
-            if (_lastTargetHwnd == myHandle)
+            if (fg != myHandle)
+            {
+                _lastTargetHwnd = fg;
+                uint tid = GetWindowThreadProcessId(fg, out _);
+                var gui = new GUITHREADINFO();
+                gui.cbSize = Marshal.SizeOf(typeof(GUITHREADINFO));
+                if (GetGUIThreadInfo(tid, ref gui) && gui.hwndFocus != IntPtr.Zero)
+                {
+                    _lastFocusHwnd = gui.hwndFocus;
+                }
+                else
+                {
+                    _lastFocusHwnd = fg;
+                }
+            }
+            else
             {
                 _lastTargetHwnd = IntPtr.Zero;
+                _lastFocusHwnd = IntPtr.Zero;
             }
 
             _allMacros = _macroManager.MacroList.ToList();
@@ -340,6 +357,8 @@ namespace ModernKey
 
                 int charsToDelete = _typedPrefix.Length;
                 IntPtr target = _lastTargetHwnd;
+                IntPtr targetFocus = _lastFocusHwnd;
+                bool forceClip = _settings != null && _settings.SendViaClipboard;
 
                 CloseQuickList();
 
@@ -355,7 +374,17 @@ namespace ModernKey
                         KeySender.SendBackspaces(charsToDelete);
                         Thread.Sleep(10);
                     }
-                    KeySender.SendViaClipboardPaste(text);
+
+                    // Nếu macro 1 dòng thông thường (không có multiline newline), gửi trực tiếp bằng SendUnicodeString
+                    // Đảm bảo không delay, không lag, không phụ thuộc clipboard, tương thích 100% Notepad++ và mọi app
+                    if (!KeySender.ShouldUseClipboard(text, forceClip))
+                    {
+                        KeySender.SendUnicodeString(text);
+                    }
+                    else
+                    {
+                        KeySender.SendViaClipboardPaste(text, targetFocus != IntPtr.Zero ? targetFocus : target);
+                    }
                 });
             }));
         }

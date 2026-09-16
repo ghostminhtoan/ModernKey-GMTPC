@@ -19,6 +19,8 @@ namespace ModernKey.Hook
         private const byte VK_SHIFT = 0x10;
         private const byte VK_CONTROL = 0x11;
         private const byte VK_V = 0x56;
+        private const byte VK_INSERT = 0x2D;
+        private const byte VK_LSHIFT = 0xA0;
 
         private const uint CF_TEXT = 1;
         private const uint CF_BITMAP = 2;
@@ -69,6 +71,12 @@ namespace ModernKey.Hook
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+        [DllImport("user32.dll")]
+        private static extern uint MapVirtualKey(uint uCode, uint uMapType);
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool OpenClipboard(IntPtr hWndNewOwner);
@@ -562,9 +570,9 @@ namespace ModernKey.Hook
         {
             if (string.IsNullOrEmpty(text)) return false;
             if (forceClipboard) return true;
-            // Chỉ dùng clipboard khi có xuống dòng (multiline chuẩn OpenKey C++) hoặc văn bản rất dài (>= 60 ký tự)
+            // Chuẩn OpenKey C++: Chỉ dùng clipboard khi có xuống dòng (multiline) hoặc văn bản cực kỳ dài (>= 300 ký tự)
             if (text.IndexOf('\n') >= 0 || text.IndexOf('\r') >= 0) return true;
-            if (text.Length >= 60) return true;
+            if (text.Length >= 300) return true;
 
             // Ký tự ngoài BMP (như emoji 😏 U+1F60F, surrogate pair)
             for (int i = 0; i < text.Length; i++)
@@ -574,13 +582,13 @@ namespace ModernKey.Hook
             return false;
         }
 
-        public static void SendTextSmart(string text, bool forceClipboard)
+        public static void SendTextSmart(string text, bool forceClipboard, IntPtr targetHwnd = default)
         {
             if (string.IsNullOrEmpty(text)) return;
 
             if (ShouldUseClipboard(text, forceClipboard))
             {
-                SendViaClipboardPaste(text);
+                SendViaClipboardPaste(text, targetHwnd);
             }
             else
             {
@@ -661,7 +669,7 @@ namespace ModernKey.Hook
             }
         }
 
-        public static void SendViaClipboardPaste(string text)
+        public static void SendViaClipboardPaste(string text, IntPtr targetHwnd = default)
         {
             if (string.IsNullOrEmpty(text)) return;
 
@@ -712,31 +720,61 @@ namespace ModernKey.Hook
             }
 
             // 4. Giải phóng triệt để toàn bộ modifier keys (LShift, RShift, Ctrl, Alt) chuẩn OpenKey C++
-            // Tránh triệt để việc dán phím bị biến thành Ctrl+Shift+V khi kích hoạt bằng Double Shift
             ReleaseAllModifiers();
 
-            // Đợi clipboard ổn định (đối với ảnh cần 60ms để Notepad++ và các listener cập nhật trạng thái Enable Paste)
+            // Đợi clipboard ổn định
             Thread.Sleep(hadImage ? 60 : 25);
 
-            // 5. Gửi lệnh dán Ctrl+V chuẩn xác bằng SendInput (DUY NHẤT 1 LẦN, không gửi trùng lặp qua PostMessage)
-            INPUT[] ctrlDown = new INPUT[] { CreateKeyInput(VK_CONTROL, 0) };
-            SendInput(1, ctrlDown, Marshal.SizeOf(typeof(INPUT)));
-            Thread.Sleep(8);
-
-            INPUT[] vPress = new INPUT[]
+            // 5. Xác định cửa sổ mục tiêu (Target HWND / Focused Child HWND)
+            IntPtr hForeground = targetHwnd != IntPtr.Zero ? targetHwnd : GetForegroundWindow();
+            IntPtr hFocus = hForeground;
+            string className = string.Empty;
+            if (hForeground != IntPtr.Zero)
             {
-                CreateKeyInput(VK_V, 0),
-                CreateKeyInput(VK_V, KEYEVENTF_KEYUP)
-            };
-            SendInput(2, vPress, Marshal.SizeOf(typeof(INPUT)));
-            Thread.Sleep(8);
+                uint threadId = GetWindowThreadProcessId(hForeground, out _);
+                var gui = new GUITHREADINFO();
+                gui.cbSize = Marshal.SizeOf(typeof(GUITHREADINFO));
+                if (GetGUIThreadInfo(threadId, ref gui) && gui.hwndFocus != IntPtr.Zero)
+                {
+                    hFocus = gui.hwndFocus;
+                }
+                StringBuilder sb = new StringBuilder(256);
+                if (GetClassName(hFocus, sb, 256) > 0)
+                {
+                    className = sb.ToString();
+                }
+            }
 
-            INPUT[] ctrlUp = new INPUT[] { CreateKeyInput(VK_CONTROL, KEYEVENTF_KEYUP) };
-            SendInput(1, ctrlUp, Marshal.SizeOf(typeof(INPUT)));
+            bool isScintilla = !string.IsNullOrEmpty(className) &&
+                               className.IndexOf("Scintilla", StringComparison.OrdinalIgnoreCase) >= 0;
 
-            // 6. Lên lịch phục hồi lại clipboard ban đầu
-            // Delay 800ms cho văn bản và 1500ms cho hình ảnh để đảm bảo ứng dụng đích hoàn tất paste trước khi khôi phục,
-            // triệt tiêu hoàn toàn lỗi dán nhầm clipboard cũ ở lần gõ đầu tiên!
+            // 6. Gửi lệnh dán:
+            // Đối với Scintilla (Notepad++, Notepad2, Code Editor): Gửi đồng thời SCI_PASTE / WM_PASTE và Shift+Insert (với KEYEVENTF_EXTENDEDKEY chuẩn OpenKey C++)
+            if (isScintilla)
+            {
+                PostMessage(hFocus, SCI_PASTE, IntPtr.Zero, IntPtr.Zero);
+                PostMessage(hFocus, WM_PASTE, IntPtr.Zero, IntPtr.Zero);
+
+                INPUT[] shiftInsert = new INPUT[4];
+                shiftInsert[0] = CreateKeyInput(VK_LSHIFT, 0, 0x2A);
+                shiftInsert[1] = CreateKeyInput(VK_INSERT, KEYEVENTF_EXTENDEDKEY, 0x52);
+                shiftInsert[2] = CreateKeyInput(VK_INSERT, KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY, 0x52);
+                shiftInsert[3] = CreateKeyInput(VK_LSHIFT, KEYEVENTF_KEYUP, 0x2A);
+                SendInput(4, shiftInsert, Marshal.SizeOf(typeof(INPUT)));
+            }
+            else
+            {
+                // Ứng dụng thông thường: Gửi lệnh Ctrl+V NGUYÊN TỬ kèm Hardware Scan Codes (0x1D cho Ctrl, 0x2F cho V)
+                INPUT[] ctrlV = new INPUT[4];
+                ctrlV[0] = CreateKeyInput(VK_CONTROL, 0, 0x1D);
+                ctrlV[1] = CreateKeyInput(VK_V, 0, 0x2F);
+                ctrlV[2] = CreateKeyInput(VK_V, KEYEVENTF_KEYUP, 0x2F);
+                ctrlV[3] = CreateKeyInput(VK_CONTROL, KEYEVENTF_KEYUP, 0x1D);
+                SendInput(4, ctrlV, Marshal.SizeOf(typeof(INPUT)));
+            }
+
+            // 7. Lên lịch phục hồi lại clipboard ban đầu
+            // Delay 800ms cho văn bản và 1500ms cho hình ảnh để đảm bảo ứng dụng đích hoàn tất paste trước khi khôi phục
             int delayMs = hadImage ? 1500 : 800;
 
             lock (_clipLock)
@@ -774,24 +812,21 @@ namespace ModernKey.Hook
         {
             ReleaseAllModifiers();
             Thread.Sleep(15);
-            INPUT[] ctrlDown = new INPUT[] { CreateKeyInput(VK_CONTROL, 0) };
-            SendInput(1, ctrlDown, Marshal.SizeOf(typeof(INPUT)));
-            Thread.Sleep(8);
-
-            INPUT[] vPress = new INPUT[]
-            {
-                CreateKeyInput(VK_V, 0),
-                CreateKeyInput(VK_V, KEYEVENTF_KEYUP)
-            };
-            SendInput(2, vPress, Marshal.SizeOf(typeof(INPUT)));
-            Thread.Sleep(8);
-
-            INPUT[] ctrlUp = new INPUT[] { CreateKeyInput(VK_CONTROL, KEYEVENTF_KEYUP) };
-            SendInput(1, ctrlUp, Marshal.SizeOf(typeof(INPUT)));
+            INPUT[] ctrlV = new INPUT[4];
+            ctrlV[0] = CreateKeyInput(VK_CONTROL, 0, 0x1D);
+            ctrlV[1] = CreateKeyInput(VK_V, 0, 0x2F);
+            ctrlV[2] = CreateKeyInput(VK_V, KEYEVENTF_KEYUP, 0x2F);
+            ctrlV[3] = CreateKeyInput(VK_CONTROL, KEYEVENTF_KEYUP, 0x1D);
+            SendInput(4, ctrlV, Marshal.SizeOf(typeof(INPUT)));
         }
 
-        private static INPUT CreateKeyInput(ushort vk, uint flags)
+        private static INPUT CreateKeyInput(ushort vk, uint flags, ushort scan = 0)
         {
+            if (scan == 0 && vk != 0 && (flags & KEYEVENTF_UNICODE) == 0)
+            {
+                scan = (ushort)MapVirtualKey(vk, 0);
+            }
+
             return new INPUT
             {
                 type = INPUT_KEYBOARD,
@@ -800,7 +835,7 @@ namespace ModernKey.Hook
                     ki = new KEYBDINPUT
                     {
                         wVk = vk,
-                        wScan = 0,
+                        wScan = scan,
                         dwFlags = flags,
                         time = 0,
                         dwExtraInfo = INJECTED_SIGNATURE
