@@ -419,7 +419,7 @@
                                 <MenuItem x:Name="CtxMenuOcrPreserveLines" Header="📑 Trích xuất chữ (Giữ nguyên xuống dòng)" Click="CtxMenuOcrPreserveLines_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="⚙️ Tùy chọn mô hình &amp; Sửa lỗi OCR..." Style="{StaticResource CyberMenuItem}">
                                     <MenuItem Header="📥 Tải / Cập nhật lại mô hình AI (~70MB)..." Click="CtxMenuOcrDownloadPaddleModel_Click" Style="{StaticResource CyberMenuItem}" />
-                                    <MenuItem Header="✏️ Mở bảng tự sửa lỗi (ocr_user_corrections.txt)..." Click="CtxMenuOpenOcrCorrections_Click" Style="{StaticResource CyberMenuItem}" />
+                                    <MenuItem Header="✏️ Mở bảng tự sửa lỗi (ocruser_corrections.txt)..." Click="CtxMenuOpenOcrCorrections_Click" Style="{StaticResource CyberMenuItem}" />
                                 </MenuItem>
                                 
                                 <Separator Style="{StaticResource CyberMenuSeparator}" />

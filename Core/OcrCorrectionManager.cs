@@ -20,7 +20,7 @@ namespace ModernKey.Core
         private static DateTime _lastWriteTimeUtc = DateTime.MinValue;
 
         /// <summary>
-        /// Lấy đường dẫn tệp ocr_user_corrections.txt trong thư mục cấu hình (.portable)
+        /// Lấy đường dẫn tệp ocruser_corrections.txt trong thư mục cấu hình (.portable)
         /// </summary>
         public static string GetConfigFilePath()
         {
@@ -29,7 +29,24 @@ namespace ModernKey.Core
             {
                 try { Directory.CreateDirectory(dir); } catch { }
             }
-            return Path.Combine(dir, "ocr_user_corrections.txt");
+
+            string primaryTxt = Path.Combine(dir, "ocruser_corrections.txt");
+            string altTxt = Path.Combine(dir, "ocr_user_corrections.txt");
+
+            // Tự động chuyển đổi nếu trước đó đã tạo file có dấu gạch dưới
+            if (!File.Exists(primaryTxt) && File.Exists(altTxt))
+            {
+                try
+                {
+                    File.Move(altTxt, primaryTxt);
+                }
+                catch
+                {
+                    return altTxt;
+                }
+            }
+
+            return primaryTxt;
         }
 
         /// <summary>
@@ -40,12 +57,15 @@ namespace ModernKey.Core
             lock (_lock)
             {
                 string txtPath = GetConfigFilePath();
-                string jsonPath = Path.Combine(Path.GetDirectoryName(txtPath) ?? string.Empty, "ocr_user_corrections.json");
+                string dir = Path.GetDirectoryName(txtPath) ?? string.Empty;
+                string json1 = Path.Combine(dir, "ocruser_corrections.json");
+                string json2 = Path.Combine(dir, "ocr_user_corrections.json");
 
                 // Tự động chuyển đổi từ file json cũ nếu có
-                if (!File.Exists(txtPath) && File.Exists(jsonPath))
+                if (!File.Exists(txtPath))
                 {
-                    MigrateFromJsonFile(jsonPath, txtPath);
+                    if (File.Exists(json1)) MigrateFromJsonFile(json1, txtPath);
+                    else if (File.Exists(json2)) MigrateFromJsonFile(json2, txtPath);
                 }
 
                 if (!File.Exists(txtPath))
@@ -138,18 +158,21 @@ namespace ModernKey.Core
         }
 
         /// <summary>
-        /// Mở tệp ocr_user_corrections.txt bằng Notepad hoặc trình soạn thảo mặc định của Windows
+        /// Mở tệp ocruser_corrections.txt bằng trình soạn thảo mặc định của Windows (hoặc Notepad)
         /// </summary>
         public static bool OpenConfigFile()
         {
             try
             {
                 string path = GetConfigFilePath();
-                string jsonPath = Path.Combine(Path.GetDirectoryName(path) ?? string.Empty, "ocr_user_corrections.json");
+                string dir = Path.GetDirectoryName(path) ?? string.Empty;
+                string json1 = Path.Combine(dir, "ocruser_corrections.json");
+                string json2 = Path.Combine(dir, "ocr_user_corrections.json");
 
-                if (!File.Exists(path) && File.Exists(jsonPath))
+                if (!File.Exists(path))
                 {
-                    MigrateFromJsonFile(jsonPath, path);
+                    if (File.Exists(json1)) MigrateFromJsonFile(json1, path);
+                    else if (File.Exists(json2)) MigrateFromJsonFile(json2, path);
                 }
 
                 if (!File.Exists(path))
@@ -157,13 +180,50 @@ namespace ModernKey.Core
                     CreateDefaultConfigFile(path);
                 }
 
-                Process.Start(new ProcessStartInfo
+                // Cách 1: Mở trực tiếp bằng trình gán mặc định cho file .txt của Windows (ví dụ Notepad++, VS Code, v.v.)
+                try
                 {
-                    FileName = "notepad.exe",
-                    Arguments = $"\"{path}\"",
-                    UseShellExecute = true
-                });
-                return true;
+                    var psi = new ProcessStartInfo
+                    {
+                        FileName = path,
+                        UseShellExecute = true
+                    };
+                    Process.Start(psi);
+                    return true;
+                }
+                catch (Exception exShell)
+                {
+                    Debug.WriteLine("[OcrCorrectionManager] Lỗi mở qua ShellExecute: " + exShell.Message);
+                }
+
+                // Cách 2: Mở qua Notepad với đường dẫn hệ thống chuẩn System32
+                try
+                {
+                    string systemNotepad = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "notepad.exe");
+                    string notepadPath = File.Exists(systemNotepad) ? systemNotepad : "notepad.exe";
+                    var psiNotepad = new ProcessStartInfo
+                    {
+                        FileName = notepadPath,
+                        Arguments = $"\"{path}\"",
+                        UseShellExecute = true
+                    };
+                    Process.Start(psiNotepad);
+                    return true;
+                }
+                catch (Exception exNotepad)
+                {
+                    Debug.WriteLine("[OcrCorrectionManager] Lỗi mở qua Notepad: " + exNotepad.Message);
+                }
+
+                // Cách 3: Mở File Explorer và chọn sẵn tệp để người dùng mở bằng bất kỳ ứng dụng nào
+                try
+                {
+                    Process.Start("explorer.exe", $"/select,\"{path}\"");
+                    return true;
+                }
+                catch { }
+
+                return false;
             }
             catch (Exception ex)
             {
