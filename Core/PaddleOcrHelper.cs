@@ -82,16 +82,32 @@ namespace ModernKey.Core
             try
             {
                 string baseDir = GetAppDirectory();
-                string portableDir = Path.Combine(baseDir, ".portable", "paddleocr-models");
-                if (!Directory.Exists(portableDir))
+                string targetBinModelsDir = Path.Combine(baseDir, ".portable", "bin", "paddleocr-models");
+                string oldModelsDir = Path.Combine(baseDir, ".portable", "paddleocr-models");
+
+                // Tự động di chuyển từ .portable\paddleocr-models cũ sang .portable\bin\paddleocr-models mới nếu có
+                if (Directory.Exists(oldModelsDir) && !Directory.Exists(targetBinModelsDir))
                 {
-                    try { Directory.CreateDirectory(portableDir); } catch { }
+                    try
+                    {
+                        Directory.Move(oldModelsDir, targetBinModelsDir);
+                    }
+                    catch { }
                 }
-                return Directory.Exists(portableDir) ? portableDir : Path.Combine(baseDir, "paddleocr-models");
+
+                if (!Directory.Exists(targetBinModelsDir))
+                {
+                    try { Directory.CreateDirectory(targetBinModelsDir); } catch { }
+                }
+
+                if (Directory.Exists(targetBinModelsDir)) return targetBinModelsDir;
+                if (Directory.Exists(oldModelsDir)) return oldModelsDir;
+
+                return Path.Combine(baseDir, "paddleocr-models");
             }
             catch
             {
-                return Path.Combine(GetAppDirectory(), "paddleocr-models");
+                return Path.Combine(GetAppDirectory(), ".portable", "bin", "paddleocr-models");
             }
         }
 
@@ -106,8 +122,12 @@ namespace ModernKey.Core
 
         public static string GetVietnameseRecDirectory()
         {
+            string baseDir = GetAppDirectory();
             string[] candidateDirs = new[]
             {
+                Path.Combine(baseDir, ".portable", "bin", "paddleocr-models", ViModelSubDir),
+                Path.Combine(baseDir, ".portable", "paddleocr-models", ViModelSubDir),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".portable", "bin", "paddleocr-models", ViModelSubDir),
                 Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".portable", "paddleocr-models", ViModelSubDir),
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ModernKey", "paddleocr-models", ViModelSubDir),
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "paddleocr-models", ViModelSubDir),

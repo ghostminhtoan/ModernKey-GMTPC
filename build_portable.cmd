@@ -29,6 +29,13 @@ if exist "%TARGET_DIR%\dll" (
     rd /s /q "%TARGET_DIR%\dll" >nul 2>&1
 )
 
+:: Di chuyen paddleocr-models vao .portable\bin neu con nam o .portable goc
+if exist "%TARGET_DIR%\.portable\paddleocr-models" (
+    if not exist "%TARGET_DIR%\.portable\bin\paddleocr-models" (
+        move /y "%TARGET_DIR%\.portable\paddleocr-models" "%TARGET_DIR%\.portable\bin\" >nul 2>&1
+    )
+)
+
 echo.
 echo ========================================================
 echo [SUCCESS] Build Portable hoan tat tai: %TARGET_DIR%\ModernKey.exe
