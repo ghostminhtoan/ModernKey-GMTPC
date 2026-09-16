@@ -39,6 +39,7 @@ namespace ModernKey
         private string _activeGroupFilter = null;
         private bool _isSortDescending = true;
         private string _lastActiveItemId = null;
+        private volatile bool _isBatchUpdating = false;
         private readonly DateTime _sessionStartTime = DateTime.Now;
 
         private DateTime _showTime = DateTime.MinValue;
@@ -92,8 +93,11 @@ namespace ModernKey
 
         private void HistoryItems_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {
+            if (_isBatchUpdating) return;
+
             Dispatcher.BeginInvoke(new Action(() =>
             {
+                if (_isBatchUpdating) return;
                 if (_currentMode == "HISTORY")
                 {
                     if (LstClipboard != null && LstClipboard.ItemsSource != _itemsView)
@@ -120,8 +124,11 @@ namespace ModernKey
 
         private void FavoriteItems_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {
+            if (_isBatchUpdating) return;
+
             Dispatcher.BeginInvoke(new Action(() =>
             {
+                if (_isBatchUpdating) return;
                 if (_currentMode == "FAVORITES")
                 {
                     if (LstClipboard != null && LstClipboard.ItemsSource != _itemsView)
@@ -1602,14 +1609,32 @@ namespace ModernKey
 
             int curIdx = LstClipboard.SelectedIndex;
             bool isFavView = (_currentMode == "FAVORITES");
-            foreach (var item in selected)
+
+            try
             {
-                _historyManager?.DeleteItem(item, isFavView);
+                _isBatchUpdating = true;
+                // Bỏ chọn tất cả trước để WPF ListBox không phải tính toán lại Selection sau mỗi mục xóa
+                LstClipboard?.UnselectAll();
+
+                _historyManager?.DeleteItems(selected, isFavView);
             }
+            finally
+            {
+                _isBatchUpdating = false;
+            }
+
             _itemsView?.Refresh();
             if (LstClipboard.Items.Count > 0)
             {
-                LstClipboard.SelectedIndex = Math.Min(curIdx, LstClipboard.Items.Count - 1);
+                int newIdx = Math.Min(curIdx, LstClipboard.Items.Count - 1);
+                if (newIdx >= 0)
+                {
+                    LstClipboard.SelectedIndex = newIdx;
+                    if (LstClipboard.SelectedItem != null)
+                    {
+                        LstClipboard.ScrollIntoView(LstClipboard.SelectedItem);
+                    }
+                }
             }
             else
             {
@@ -1629,7 +1654,16 @@ namespace ModernKey
                                           "Xác nhận xóa Yêu thích", MessageBoxButton.YesNo, MessageBoxImage.Warning);
                 if (res == MessageBoxResult.Yes)
                 {
-                    _historyManager?.ClearFavorites();
+                    try
+                    {
+                        _isBatchUpdating = true;
+                        LstClipboard?.UnselectAll();
+                        _historyManager?.ClearFavorites();
+                    }
+                    finally
+                    {
+                        _isBatchUpdating = false;
+                    }
                     _itemsView?.Refresh();
                     ClearPreview();
                     if (TxtStatus != null) TxtStatus.Text = "✓ Đã xóa sạch toàn bộ mục Yêu thích!";
@@ -1641,7 +1675,16 @@ namespace ModernKey
                                           "Xác nhận xóa lịch sử", MessageBoxButton.YesNo, MessageBoxImage.Question);
                 if (res == MessageBoxResult.Yes)
                 {
-                    _historyManager?.ClearHistory();
+                    try
+                    {
+                        _isBatchUpdating = true;
+                        LstClipboard?.UnselectAll();
+                        _historyManager?.ClearHistory();
+                    }
+                    finally
+                    {
+                        _isBatchUpdating = false;
+                    }
                     _itemsView?.Refresh();
                     ClearPreview();
                     if (TxtStatus != null) TxtStatus.Text = "✓ Đã xóa sạch lịch sử clipboard (Mục Yêu thích được giữ an toàn)!";
@@ -1679,9 +1722,15 @@ namespace ModernKey
             var selected = LstClipboard?.SelectedItems?.Cast<ClipboardItem>().ToList();
             if (selected != null && selected.Count > 0)
             {
-                foreach (var it in selected)
+                try
                 {
-                    _historyManager?.RemoveFromFavorites(it);
+                    _isBatchUpdating = true;
+                    LstClipboard?.UnselectAll();
+                    _historyManager?.RemoveFromFavorites(selected);
+                }
+                finally
+                {
+                    _isBatchUpdating = false;
                 }
                 _itemsView?.Refresh();
                 UpdateGroupFilterButtonLabel();

@@ -541,6 +541,49 @@ namespace ModernKey.Core
             }
         }
 
+        public void RemoveFromFavorites(IEnumerable<ClipboardItem> items)
+        {
+            if (items == null) return;
+            var list = items.Where(x => x != null).ToList();
+            if (list.Count == 0) return;
+
+            if (list.Count == 1)
+            {
+                RemoveFromFavorites(list[0]);
+                return;
+            }
+
+            var targetIds = new HashSet<string>(list.Where(x => !string.IsNullOrEmpty(x.Id)).Select(x => x.Id), StringComparer.OrdinalIgnoreCase);
+            var targetItems = new HashSet<ClipboardItem>(list);
+
+            lock (_lock)
+            {
+                DispatchSafe(() =>
+                {
+                    for (int i = FavoriteItems.Count - 1; i >= 0; i--)
+                    {
+                        var it = FavoriteItems[i];
+                        if (targetItems.Contains(it) || (!string.IsNullOrEmpty(it.Id) && targetIds.Contains(it.Id)))
+                        {
+                            it.IsFavorite = false;
+                            FavoriteItems.RemoveAt(i);
+                        }
+                    }
+
+                    foreach (var histItem in Items)
+                    {
+                        if (targetItems.Contains(histItem) || (!string.IsNullOrEmpty(histItem.Id) && targetIds.Contains(histItem.Id)))
+                        {
+                            histItem.IsFavorite = false;
+                        }
+                    }
+                });
+
+                SaveHistoryAsync();
+                SaveFavoritesAsync();
+            }
+        }
+
         public Dictionary<string, int> GetFavoriteGroupsWithCount()
         {
             var dict = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -583,22 +626,128 @@ namespace ModernKey.Core
             }
         }
 
-        public void ClearHistory()
+        public void DeleteItems(IEnumerable<ClipboardItem> itemsToDelete, bool isFavoriteView = false)
         {
+            if (itemsToDelete == null) return;
+            var list = itemsToDelete.Where(x => x != null).ToList();
+            if (list.Count == 0) return;
+
+            if (list.Count == 1)
+            {
+                DeleteItem(list[0], isFavoriteView);
+                return;
+            }
+
+            var targetIds = new HashSet<string>(list.Where(x => !string.IsNullOrEmpty(x.Id)).Select(x => x.Id), StringComparer.OrdinalIgnoreCase);
+            var targetItems = new HashSet<ClipboardItem>(list);
+            var filesToDelete = new List<string>();
+
             lock (_lock)
             {
                 DispatchSafe(() =>
                 {
+                    if (isFavoriteView)
+                    {
+                        var histIds = new HashSet<string>(Items.Where(h => !string.IsNullOrEmpty(h.Id)).Select(h => h.Id), StringComparer.OrdinalIgnoreCase);
+                        var histPaths = new HashSet<string>(Items.Where(h => h.IsImage && !string.IsNullOrEmpty(h.ImagePath)).Select(h => h.ImagePath), StringComparer.OrdinalIgnoreCase);
+
+                        for (int i = FavoriteItems.Count - 1; i >= 0; i--)
+                        {
+                            var it = FavoriteItems[i];
+                            if (targetItems.Contains(it) || (!string.IsNullOrEmpty(it.Id) && targetIds.Contains(it.Id)))
+                            {
+                                bool existsInHistory = (!string.IsNullOrEmpty(it.Id) && histIds.Contains(it.Id)) ||
+                                                       (it.IsImage && !string.IsNullOrEmpty(it.ImagePath) && histPaths.Contains(it.ImagePath));
+                                if (!existsInHistory && it.IsImage)
+                                {
+                                    if (!string.IsNullOrEmpty(it.ImagePath)) filesToDelete.Add(it.ImagePath);
+                                    if (!string.IsNullOrEmpty(it.ThumbPath)) filesToDelete.Add(it.ThumbPath);
+                                }
+                                FavoriteItems.RemoveAt(i);
+                            }
+                        }
+
+                        foreach (var histItem in Items)
+                        {
+                            if (targetItems.Contains(histItem) || (!string.IsNullOrEmpty(histItem.Id) && targetIds.Contains(histItem.Id)))
+                            {
+                                histItem.IsFavorite = false;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var favIds = new HashSet<string>(FavoriteItems.Where(f => !string.IsNullOrEmpty(f.Id)).Select(f => f.Id), StringComparer.OrdinalIgnoreCase);
+                        var favPaths = new HashSet<string>(FavoriteItems.Where(f => f.IsImage && !string.IsNullOrEmpty(f.ImagePath)).Select(f => f.ImagePath), StringComparer.OrdinalIgnoreCase);
+
+                        for (int i = Items.Count - 1; i >= 0; i--)
+                        {
+                            var it = Items[i];
+                            if (targetItems.Contains(it) || (!string.IsNullOrEmpty(it.Id) && targetIds.Contains(it.Id)))
+                            {
+                                bool inFav = (!string.IsNullOrEmpty(it.Id) && favIds.Contains(it.Id)) ||
+                                             (it.IsImage && !string.IsNullOrEmpty(it.ImagePath) && favPaths.Contains(it.ImagePath));
+                                if (!inFav && it.IsImage)
+                                {
+                                    if (!string.IsNullOrEmpty(it.ImagePath)) filesToDelete.Add(it.ImagePath);
+                                    if (!string.IsNullOrEmpty(it.ThumbPath)) filesToDelete.Add(it.ThumbPath);
+                                }
+                                Items.RemoveAt(i);
+                            }
+                        }
+                    }
+                });
+
+                if (filesToDelete.Count > 0)
+                {
+                    System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+                    {
+                        foreach (var path in filesToDelete)
+                        {
+                            try { if (File.Exists(path)) File.Delete(path); } catch { }
+                        }
+                    });
+                }
+
+                SaveHistoryAsync();
+                if (isFavoriteView) SaveFavoritesAsync();
+            }
+        }
+
+        public void ClearHistory()
+        {
+            lock (_lock)
+            {
+                var filesToDelete = new List<string>();
+                DispatchSafe(() =>
+                {
+                    var favIds = new HashSet<string>(FavoriteItems.Where(f => !string.IsNullOrEmpty(f.Id)).Select(f => f.Id), StringComparer.OrdinalIgnoreCase);
+                    var favPaths = new HashSet<string>(FavoriteItems.Where(f => f.IsImage && !string.IsNullOrEmpty(f.ImagePath)).Select(f => f.ImagePath), StringComparer.OrdinalIgnoreCase);
+
                     for (int i = Items.Count - 1; i >= 0; i--)
                     {
                         var it = Items[i];
-                        if (FindMatchingItem(FavoriteItems, it) == null)
+                        bool inFav = (!string.IsNullOrEmpty(it.Id) && favIds.Contains(it.Id)) ||
+                                     (it.IsImage && !string.IsNullOrEmpty(it.ImagePath) && favPaths.Contains(it.ImagePath));
+                        if (!inFav && it.IsImage)
                         {
-                            DeleteCacheFile(it);
+                            if (!string.IsNullOrEmpty(it.ImagePath)) filesToDelete.Add(it.ImagePath);
+                            if (!string.IsNullOrEmpty(it.ThumbPath)) filesToDelete.Add(it.ThumbPath);
                         }
-                        Items.RemoveAt(i);
                     }
+                    Items.Clear();
                 });
+
+                if (filesToDelete.Count > 0)
+                {
+                    System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+                    {
+                        foreach (var path in filesToDelete)
+                        {
+                            try { if (File.Exists(path)) File.Delete(path); } catch { }
+                        }
+                    });
+                }
                 SaveHistoryAsync();
             }
         }
@@ -607,17 +756,40 @@ namespace ModernKey.Core
         {
             lock (_lock)
             {
+                var filesToDelete = new List<string>();
                 DispatchSafe(() =>
                 {
+                    var histIds = new HashSet<string>(Items.Where(h => !string.IsNullOrEmpty(h.Id)).Select(h => h.Id), StringComparer.OrdinalIgnoreCase);
+                    var histPaths = new HashSet<string>(Items.Where(h => h.IsImage && !string.IsNullOrEmpty(h.ImagePath)).Select(h => h.ImagePath), StringComparer.OrdinalIgnoreCase);
+
                     for (int i = FavoriteItems.Count - 1; i >= 0; i--)
                     {
                         var it = FavoriteItems[i];
-                        var matchHist = FindMatchingItem(Items, it);
-                        if (matchHist != null) matchHist.IsFavorite = false;
-                        if (matchHist == null) DeleteCacheFile(it);
-                        FavoriteItems.RemoveAt(i);
+                        bool inHist = (!string.IsNullOrEmpty(it.Id) && histIds.Contains(it.Id)) ||
+                                      (it.IsImage && !string.IsNullOrEmpty(it.ImagePath) && histPaths.Contains(it.ImagePath));
+                        if (!inHist && it.IsImage)
+                        {
+                            if (!string.IsNullOrEmpty(it.ImagePath)) filesToDelete.Add(it.ImagePath);
+                            if (!string.IsNullOrEmpty(it.ThumbPath)) filesToDelete.Add(it.ThumbPath);
+                        }
                     }
+                    foreach (var histItem in Items)
+                    {
+                        histItem.IsFavorite = false;
+                    }
+                    FavoriteItems.Clear();
                 });
+
+                if (filesToDelete.Count > 0)
+                {
+                    System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+                    {
+                        foreach (var path in filesToDelete)
+                        {
+                            try { if (File.Exists(path)) File.Delete(path); } catch { }
+                        }
+                    });
+                }
                 SaveFavoritesAsync();
                 SaveHistoryAsync();
             }

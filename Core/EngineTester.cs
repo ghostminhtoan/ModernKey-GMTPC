@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using ModernKey.Config;
@@ -1792,6 +1793,40 @@ namespace ModernKey.Core
                     {
                         allPassed = false;
                         sb.AppendLine("  FAIL: Không xử lý được chuỗi qua OCR Correction Manager!");
+                    }
+
+                    // Test 8: Batch Delete performance & correctness for passwords / sensitive items
+                    var testSettings = new Models.AppSettings();
+                    var histMgr = new ClipboardHistoryManager(testSettings);
+                    var mockPasswords = new List<Models.ClipboardItem>();
+                    for (int i = 0; i < 60; i++)
+                    {
+                        var pwdItem = new Models.ClipboardItem
+                        {
+                            Id = Guid.NewGuid().ToString("N"),
+                            ContentType = Models.ClipboardContentType.Text,
+                            TextContent = $"P@ssw0rd_{i}_SecureToken_{Guid.NewGuid():N}",
+                            PreviewText = $"P@ssw0rd_{i}...",
+                            Timestamp = DateTime.Now.AddSeconds(-i),
+                            IsSensitive = true
+                        };
+                        mockPasswords.Add(pwdItem);
+                        histMgr.Items.Add(pwdItem);
+                    }
+
+                    var toDelete = mockPasswords.Take(40).ToList();
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    histMgr.DeleteItems(toDelete, isFavoriteView: false);
+                    sw.Stop();
+
+                    if (histMgr.Items.Count == 20 && !toDelete.Any(x => histMgr.Items.Contains(x)) && sw.ElapsedMilliseconds < 500)
+                    {
+                        sb.AppendLine($"  PASS: Batch Delete 40 mật khẩu/mục clipboard siêu tốc ({sw.ElapsedMilliseconds}ms, còn lại {histMgr.Items.Count} mục, không giật lag)!");
+                    }
+                    else
+                    {
+                        allPassed = false;
+                        sb.AppendLine($"  FAIL: Batch Delete thất bại! (Items.Count={histMgr.Items.Count}, Elapsed={sw.ElapsedMilliseconds}ms)");
                     }
                 }
                 catch (Exception ex)
