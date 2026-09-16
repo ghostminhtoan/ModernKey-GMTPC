@@ -2731,6 +2731,31 @@ namespace ModernKey
 
         private void BtnWebAiImage_Click(object sender, RoutedEventArgs e)
         {
+            if (BtnWebAiImage != null && BtnWebAiImage.ContextMenu != null)
+            {
+                BtnWebAiImage.ContextMenu.PlacementTarget = BtnWebAiImage;
+                BtnWebAiImage.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Top;
+                BtnWebAiImage.ContextMenu.IsOpen = true;
+            }
+        }
+
+        private void MnuWebAiTranslate_Click(object sender, RoutedEventArgs e)
+        {
+            LaunchWebAiService("https://translate.google.com/?op=images", "Google Dịch Ảnh");
+        }
+
+        private void MnuWebAiLens_Click(object sender, RoutedEventArgs e)
+        {
+            LaunchWebAiService("https://lens.google.com/", "Google Lens");
+        }
+
+        private void MnuWebAiPictureToText_Click(object sender, RoutedEventArgs e)
+        {
+            LaunchWebAiService("https://www.picturetotext.org/", "PictureToText.org");
+        }
+
+        private void LaunchWebAiService(string targetUrl, string serviceName)
+        {
             var selected = LstClipboard?.SelectedItems?.Cast<ClipboardItem>().FirstOrDefault();
             if (selected == null || selected.ContentType != ClipboardContentType.Image || string.IsNullOrEmpty(selected.ImagePath))
             {
@@ -2740,33 +2765,50 @@ namespace ModernKey
 
             try
             {
-                // 1. Nạp ảnh vào Windows Clipboard hệ thống để người dùng có thể dán ngay bằng Ctrl+V
+                // 1. Nạp ảnh vào Windows Clipboard hệ thống (hỗ trợ cả Bitmap lẫn FileDrop List để tương thích 100% web dropzone)
                 if (File.Exists(selected.ImagePath))
                 {
+                    var dataObj = new DataObject();
                     var bmp = new BitmapImage();
                     bmp.BeginInit();
                     bmp.CacheOption = BitmapCacheOption.OnLoad;
                     bmp.UriSource = new Uri(selected.ImagePath, UriKind.Absolute);
                     bmp.EndInit();
                     bmp.Freeze();
-                    Clipboard.SetImage(bmp);
+                    dataObj.SetImage(bmp);
+
+                    var files = new System.Collections.Specialized.StringCollection();
+                    files.Add(selected.ImagePath);
+                    dataObj.SetFileDropList(files);
+
+                    Clipboard.SetDataObject(dataObj, true);
                 }
 
-                // 2. Mở trình duyệt mặc định đến Google Lens
+                // 2. Mở trình duyệt mặc định với URL của dịch vụ
                 Process.Start(new ProcessStartInfo
                 {
-                    FileName = "https://lens.google.com/",
+                    FileName = targetUrl,
                     UseShellExecute = true
                 });
 
                 if (TxtStatus != null)
                 {
-                    TxtStatus.Text = "✓ Đã nạp ảnh vào Clipboard và mở Web AI! Hãy nhấn Ctrl+V để trích xuất chữ.";
+                    TxtStatus.Text = $"✓ Đã mở {serviceName} & nạp ảnh vào Clipboard! Nhấn Ctrl+V để trích xuất.";
                 }
+
+                // 3. Hiển thị lời nhắc Toast thông minh 5s (không cướp focus trình duyệt, tự tắt sau 5 giây)
+                WebAiToastWindow.ShowToast(serviceName);
+
+                // 4. Đợi trình duyệt mở ra và tự động thực hiện Ctrl + V (sau ~2.5 giây)
+                System.Threading.Tasks.Task.Run(async () =>
+                {
+                    await System.Threading.Tasks.Task.Delay(2500);
+                    KeySender.SendCtrlVPaste();
+                });
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Lỗi khi mở Web AI: " + ex.Message, "Thông báo", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("Lỗi khi mở dịch vụ Web AI: " + ex.Message, "Thông báo", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 

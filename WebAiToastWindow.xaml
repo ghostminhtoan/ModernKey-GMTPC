@@ -1,0 +1,49 @@
+<Window x:Class="ModernKey.WebAiToastWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ModernKey Web AI Notification"
+        Width="440" SizeToContent="Height"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        Topmost="True" ShowInTaskbar="False" ShowActivated="False" Focusable="False"
+        WindowStartupLocation="Manual">
+    <Border Background="#F20B0C10" BorderBrush="{StaticResource CyberNeonCyan}" BorderThickness="1.5" CornerRadius="6" Padding="14,10" Margin="10">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="16" ShadowDepth="0" Color="#00F0FF" Opacity="0.55" />
+        </Border.Effect>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Row 0: Icon + Service Title + Countdown -->
+            <Grid Grid.Row="0" Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="🌐" FontSize="15" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBlock x:Name="TxtTitle" Text="ĐÃ NẠP ẢNH VÀO CLIPBOARD" FontFamily="Consolas" FontWeight="Bold" FontSize="13" Foreground="{StaticResource CyberNeonCyan}" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <TextBlock x:Name="TxtTimer" Grid.Column="1" Text="5s" FontFamily="Consolas" FontWeight="Bold" FontSize="11" Foreground="{StaticResource CyberNeonYellow}" VerticalAlignment="Center" />
+            </Grid>
+
+            <!-- Row 1: Instruction Message -->
+            <StackPanel Grid.Row="1" Margin="0,0,0,8">
+                <TextBlock FontFamily="Consolas, Segoe UI" FontSize="12" Foreground="{StaticResource CyberTextPrimary}" TextWrapping="Wrap">
+                    <Run Text="👉 Nhấn " />
+                    <Run Text="[Ctrl + V]" FontWeight="Bold" Foreground="{StaticResource CyberNeonYellow}" FontSize="13" />
+                    <Run Text=" để dán ảnh và lấy chữ từ ảnh!" />
+                </TextBlock>
+                <TextBlock Text="⚡ Hệ thống đang tự động dán ảnh sau giây lát..." FontFamily="Consolas" FontSize="11" Foreground="{StaticResource CyberTextSecondary}" Margin="0,3,0,0" />
+            </StackPanel>
+
+            <!-- Row 2: Countdown Progress Bar -->
+            <ProgressBar x:Name="PbCountdown" Grid.Row="2" Height="3" Maximum="50" Value="50" Background="#181926" Foreground="{StaticResource CyberNeonCyan}" BorderThickness="0" />
+        </Grid>
+    </Border>
+</Window>
