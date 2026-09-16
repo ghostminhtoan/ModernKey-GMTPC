@@ -166,6 +166,15 @@ namespace ModernKey
 
             base.OnStartup(e);
 
+            // 0. Đảm bảo khởi tạo thư mục .portable riêng biệt cho folder chứa file exe
+            SettingsManager.EnsurePortableDirectory();
+            try
+            {
+                string clipDir = Path.Combine(SettingsManager.GetConfigDirectory(), "clipboard");
+                if (!Directory.Exists(clipDir)) Directory.CreateDirectory(clipDir);
+            }
+            catch { }
+
             // 1. Tải cấu hình, macro và từ điển sửa lỗi chính tả
             _settings = SettingsManager.LoadSettings();
             _settings.IsVietnamese = true; // Luôn đảm bảo bật Tiếng Việt [VI] khi mới mở app

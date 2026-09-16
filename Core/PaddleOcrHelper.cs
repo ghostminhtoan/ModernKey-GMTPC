@@ -83,14 +83,11 @@ namespace ModernKey.Core
             {
                 string baseDir = GetAppDirectory();
                 string portableDir = Path.Combine(baseDir, ".portable", "paddleocr-models");
-                if (Directory.Exists(portableDir)) return portableDir;
-
-                string appDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ModernKey", "paddleocr-models");
-                if (!Directory.Exists(appDataDir))
+                if (!Directory.Exists(portableDir))
                 {
-                    Directory.CreateDirectory(appDataDir);
+                    try { Directory.CreateDirectory(portableDir); } catch { }
                 }
-                return appDataDir;
+                return Directory.Exists(portableDir) ? portableDir : Path.Combine(baseDir, "paddleocr-models");
             }
             catch
             {

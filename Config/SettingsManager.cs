@@ -22,8 +22,23 @@ namespace ModernKey.Config
 
         public static bool IsPortableMode()
         {
-            string portableMarker = Path.Combine(GetAppDirectory(), ".portable");
-            return Directory.Exists(portableMarker) || File.Exists(portableMarker);
+            // Luôn đảm bảo thư mục .portable được tự động tạo cạnh file exe để mỗi folder là 1 instance portable riêng biệt
+            EnsurePortableDirectory();
+            return true;
+        }
+
+        public static string EnsurePortableDirectory()
+        {
+            string portableDir = Path.Combine(GetAppDirectory(), ".portable");
+            if (!Directory.Exists(portableDir))
+            {
+                try
+                {
+                    Directory.CreateDirectory(portableDir);
+                }
+                catch { }
+            }
+            return Directory.Exists(portableDir) ? portableDir : GetAppDirectory();
         }
 
         public static string CustomSyncDirectory { get; set; } = null;
@@ -134,27 +149,8 @@ namespace ModernKey.Config
                 return CustomSyncDirectory;
             }
 
-            if (IsPortableMode())
-            {
-                string portableDir = Path.Combine(GetAppDirectory(), ".portable");
-                if (!Directory.Exists(portableDir))
-                {
-                    try
-                    {
-                        Directory.CreateDirectory(portableDir);
-                    }
-                    catch { }
-                }
-                return Directory.Exists(portableDir) ? portableDir : GetAppDirectory();
-            }
-
-            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            string folder = Path.Combine(appData, AppName);
-            if (!Directory.Exists(folder))
-            {
-                Directory.CreateDirectory(folder);
-            }
-            return folder;
+            // Mỗi folder chứa file exe luôn sở hữu thư mục .portable riêng biệt độc lập
+            return EnsurePortableDirectory();
         }
 
         public static string GetConfigFilePath()
