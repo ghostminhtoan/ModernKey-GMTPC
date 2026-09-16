@@ -48,12 +48,110 @@ namespace ModernKey.Core
 
         public string GetClipboardDirectory()
         {
-            string dir = Path.Combine(SettingsManager.GetConfigDirectory(), "clipboard");
+            string dir = null;
+            if (!string.IsNullOrEmpty(_settings?.ClipboardStorageFolder))
+            {
+                try
+                {
+                    if (Directory.Exists(_settings.ClipboardStorageFolder))
+                    {
+                        dir = _settings.ClipboardStorageFolder;
+                    }
+                }
+                catch { }
+            }
+
+            if (string.IsNullOrEmpty(dir))
+            {
+                dir = Path.Combine(SettingsManager.GetConfigDirectory(), "clipboard");
+            }
+
             if (!Directory.Exists(dir))
             {
                 try { Directory.CreateDirectory(dir); } catch { }
             }
             return dir;
+        }
+
+        public bool ChangeStorageDirectory(string newPath, bool copyExistingData = true)
+        {
+            lock (_lock)
+            {
+                string oldDir = GetClipboardDirectory();
+                string targetDir = string.IsNullOrWhiteSpace(newPath)
+                    ? Path.Combine(SettingsManager.GetConfigDirectory(), "clipboard")
+                    : newPath.Trim();
+
+                string fullOld = Path.GetFullPath(oldDir).TrimEnd('\\', '/');
+                string fullNew = Path.GetFullPath(targetDir).TrimEnd('\\', '/');
+
+                if (string.Equals(fullOld, fullNew, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                if (!Directory.Exists(targetDir))
+                {
+                    Directory.CreateDirectory(targetDir);
+                }
+
+                // Lưu dữ liệu hiện tại trước khi chuyển đổi
+                SaveHistoryNow();
+                SaveFavoritesNow();
+
+                if (copyExistingData && Directory.Exists(oldDir))
+                {
+                    CopyDirectoryRecursive(oldDir, targetDir);
+                }
+
+                if (_settings != null)
+                {
+                    _settings.ClipboardStorageFolder = string.IsNullOrWhiteSpace(newPath) ? string.Empty : targetDir;
+                    SettingsManager.SaveSettings(_settings);
+                }
+
+                ReloadData();
+                return true;
+            }
+        }
+
+        public void ReloadData()
+        {
+            lock (_lock)
+            {
+                DispatchSafe(() =>
+                {
+                    Items.Clear();
+                    FavoriteItems.Clear();
+                });
+                LoadHistory();
+                LoadFavorites();
+            }
+        }
+
+        private static void CopyDirectoryRecursive(string sourceDir, string targetDir)
+        {
+            if (!Directory.Exists(targetDir)) Directory.CreateDirectory(targetDir);
+
+            foreach (var file in Directory.GetFiles(sourceDir))
+            {
+                string dest = Path.Combine(targetDir, Path.GetFileName(file));
+                try
+                {
+                    if (!File.Exists(dest))
+                    {
+                        File.Copy(file, dest, false);
+                    }
+                }
+                catch { }
+            }
+
+            foreach (var dir in Directory.GetDirectories(sourceDir))
+            {
+                string folderName = Path.GetFileName(dir);
+                string destSub = Path.Combine(targetDir, folderName);
+                CopyDirectoryRecursive(dir, destSub);
+            }
         }
 
         private string GetHistoryFilePath()

@@ -1689,6 +1689,37 @@ namespace ModernKey.Core
                         allPassed = false;
                         sb.AppendLine($"  FAIL: Batch Delete thất bại! (Items.Count={histMgr.Items.Count}, Elapsed={sw.ElapsedMilliseconds}ms)");
                     }
+                    // Test 9: Tính năng chọn thư mục lưu trữ Clipboard tùy chỉnh
+                    string tempCustomDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ModernKey_Test_Clip_" + Guid.NewGuid().ToString("N"));
+                    try
+                    {
+                        string defaultDir = histMgr.GetClipboardDirectory();
+                        bool changed = histMgr.ChangeStorageDirectory(tempCustomDir, copyExistingData: true);
+                        string newDir = histMgr.GetClipboardDirectory();
+
+                        bool pathMatches = string.Equals(System.IO.Path.GetFullPath(newDir).TrimEnd('\\', '/'), System.IO.Path.GetFullPath(tempCustomDir).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
+                        bool resetSuccess = histMgr.ChangeStorageDirectory(string.Empty, copyExistingData: false);
+                        string resetDir = histMgr.GetClipboardDirectory();
+                        bool resetMatches = string.Equals(System.IO.Path.GetFullPath(resetDir).TrimEnd('\\', '/'), System.IO.Path.GetFullPath(defaultDir).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase);
+
+                        if (changed && pathMatches && resetSuccess && resetMatches)
+                        {
+                            sb.AppendLine("  PASS: Đổi thư mục lưu trữ Clipboard tùy chỉnh & khôi phục mặc định thành công 100%!");
+                        }
+                        else
+                        {
+                            allPassed = false;
+                            sb.AppendLine($"  FAIL: Đổi thư mục lưu trữ thất bại! changed={changed}, pathMatches={pathMatches}, resetSuccess={resetSuccess}");
+                        }
+                    }
+                    finally
+                    {
+                        try
+                        {
+                            if (System.IO.Directory.Exists(tempCustomDir)) System.IO.Directory.Delete(tempCustomDir, true);
+                        }
+                        catch { }
+                    }
                 }
                 catch (Exception ex)
                 {

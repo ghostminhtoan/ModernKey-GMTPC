@@ -2812,6 +2812,123 @@ namespace ModernKey
             }
         }
 
+        private void BtnStorageFolderFooter_Click(object sender, RoutedEventArgs e)
+        {
+            if (BtnStorageFolderFooter != null && BtnStorageFolderFooter.ContextMenu != null)
+            {
+                BtnStorageFolderFooter.ContextMenu.PlacementTarget = BtnStorageFolderFooter;
+                BtnStorageFolderFooter.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Top;
+                BtnStorageFolderFooter.ContextMenu.IsOpen = true;
+            }
+        }
+
+        private void MnuChangeStorageFolder_Click(object sender, RoutedEventArgs e)
+        {
+            string currentDir = _historyManager.GetClipboardDirectory();
+            using (var dlg = new System.Windows.Forms.FolderBrowserDialog())
+            {
+                dlg.Description = "Chọn thư mục lưu trữ dữ liệu Clipboard (Lịch sử, Yêu thích, Ảnh cache):";
+                dlg.ShowNewFolderButton = true;
+                if (System.IO.Directory.Exists(currentDir))
+                {
+                    dlg.SelectedPath = currentDir;
+                }
+
+                if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK && !string.IsNullOrWhiteSpace(dlg.SelectedPath))
+                {
+                    string target = dlg.SelectedPath.Trim();
+                    if (string.Equals(System.IO.Path.GetFullPath(target).TrimEnd('\\', '/'), System.IO.Path.GetFullPath(currentDir).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase))
+                    {
+                        return;
+                    }
+
+                    var result = MessageBox.Show(
+                        $"Bạn có muốn sao chép toàn bộ dữ liệu lịch sử và ảnh hiện tại sang thư mục mới không?\n\nThư mục mới:\n{target}",
+                        "Xác nhận chuyển thư mục lưu trữ",
+                        MessageBoxButton.YesNoCancel,
+                        MessageBoxImage.Question);
+
+                    if (result == MessageBoxResult.Cancel) return;
+
+                    bool copyExisting = (result == MessageBoxResult.Yes);
+                    try
+                    {
+                        _historyManager.ChangeStorageDirectory(target, copyExisting);
+                        _itemsView?.Refresh();
+                        EnsureAppropriateSelection();
+
+                        if (TxtStatus != null)
+                        {
+                            TxtStatus.Text = $"✓ Đã chuyển thư mục lưu trữ sang: {target}";
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Lỗi khi chuyển thư mục lưu trữ: " + ex.Message, "Lỗi", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }
+            }
+        }
+
+        private void MnuOpenStorageFolder_Click(object sender, RoutedEventArgs e)
+        {
+            string dir = _historyManager.GetClipboardDirectory();
+            if (!System.IO.Directory.Exists(dir))
+            {
+                try { System.IO.Directory.CreateDirectory(dir); } catch { }
+            }
+
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = dir,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Không thể mở thư mục: " + ex.Message, "Thông báo", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        private void MnuResetStorageFolder_Click(object sender, RoutedEventArgs e)
+        {
+            var defaultDir = System.IO.Path.Combine(SettingsManager.GetConfigDirectory(), "clipboard");
+            string currentDir = _historyManager.GetClipboardDirectory();
+
+            if (string.Equals(System.IO.Path.GetFullPath(currentDir).TrimEnd('\\', '/'), System.IO.Path.GetFullPath(defaultDir).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show("Thư mục lưu trữ hiện tại đã là thư mục mặc định!", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var confirm = MessageBox.Show(
+                "Bạn có muốn khôi phục về thư mục lưu trữ mặc định (clipboard\\) không?",
+                "Xác nhận",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (confirm == MessageBoxResult.Yes)
+            {
+                try
+                {
+                    _historyManager.ChangeStorageDirectory(string.Empty, false);
+                    _itemsView?.Refresh();
+                    EnsureAppropriateSelection();
+
+                    if (TxtStatus != null)
+                    {
+                        TxtStatus.Text = "✓ Đã khôi phục về thư mục lưu trữ mặc định.";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Lỗi: " + ex.Message, "Lỗi", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
         private void BtnItemStickyNote_Click(object sender, RoutedEventArgs e)
         {
             if ((sender as FrameworkElement)?.DataContext is ClipboardItem item)

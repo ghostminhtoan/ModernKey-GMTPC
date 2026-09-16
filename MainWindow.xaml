@@ -632,8 +632,30 @@
                                 <TextBlock Text="• [COLOR SWATCH]: Tự động nhận diện chuỗi mã màu #HEX / RGB và hiển thị ô vuông màu trực quan kèm xem trước." FontSize="11" Foreground="{StaticResource CyberTextSecondary}" Margin="0,2,0,0" />
                             </StackPanel>
                         </Border>
-
-                        <TextBlock x:Name="TxtClipboardStoragePath" Text="Thư mục lưu trữ: clipboard\" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource CyberTextSecondary}" Margin="0,8,0,0" />
+                        <!-- THƯ MỤC LƯU TRỮ CLIPBOARD -->
+                        <Border Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="12,10" Margin="0,8,0,8">
+                            <StackPanel>
+                                <TextBlock Text="[THƯ MỤC LƯU TRỮ DỮ LIỆU CLIPBOARD]:" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,6" />
+                                <Grid Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="TxtClipboardStorageDir" Grid.Column="0" IsReadOnly="True" Background="{StaticResource CyberInput}"
+                                             Foreground="{StaticResource CyberTextPrimary}" BorderBrush="{StaticResource CyberBorderDim}"
+                                             FontFamily="Consolas" FontSize="11" Padding="8,5" VerticalAlignment="Center" />
+                                    <Button x:Name="BtnBrowseClipboardFolder" Grid.Column="1" Content="📁 CHỌN THƯ MỤC..." Click="BtnBrowseClipboardFolder_Click"
+                                            Margin="6,0,0,0" Padding="10,5" Background="#15212C" BorderBrush="{StaticResource CyberNeonCyan}" Foreground="{StaticResource CyberNeonCyan}" FontWeight="Bold" />
+                                    <Button x:Name="BtnOpenClipboardFolder" Grid.Column="2" Content="📂 MỞ THƯ MỤC" Click="BtnOpenClipboardFolder_Click"
+                                            Margin="6,0,0,0" Padding="10,5" Background="#10141E" BorderBrush="{StaticResource CyberTextSecondary}" Foreground="{StaticResource CyberTextSecondary}" ToolTip="Mở thư mục lưu trữ trong Windows Explorer" />
+                                    <Button x:Name="BtnResetClipboardFolder" Grid.Column="3" Content="↺ MẶC ĐỊNH" Click="BtnResetClipboardFolder_Click"
+                                            Margin="6,0,0,0" Padding="10,5" Background="#2B0914" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}" ToolTip="Khôi phục về thư mục mặc định (clipboard\)" />
+                                </Grid>
+                                <TextBlock Text="💡 Toàn bộ file lịch sử (clipboard_history.json), mục yêu thích và ảnh cache sẽ được lưu tại đây." FontSize="11" Foreground="{StaticResource CyberTextSecondary}" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

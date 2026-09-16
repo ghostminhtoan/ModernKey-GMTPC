@@ -86,6 +86,7 @@ namespace ModernKey.Models
         public bool ClipboardIgnoreDuplicates { get; set; } = true;
         public bool ClipboardPasteAsPlainText { get; set; } = false;
         public int ClipboardMaxItems { get; set; } = 200;
+        public string ClipboardStorageFolder { get; set; } = string.Empty; // Thư mục tùy chỉnh lưu trữ clipboard (nếu rỗng sẽ dùng clipboard\ mặc định)
 
         // Làm mờ Clipboard (Blur / Pixelated) với slider từ 0 đến 100
         // Mode: "None", "Blur", "Pixelate" (Mặc định: None - Không làm mờ)

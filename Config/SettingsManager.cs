@@ -442,6 +442,9 @@ namespace ModernKey.Config
                         case "ClipboardMaxItems":
                             if (int.TryParse(val, out var cmi)) settings.ClipboardMaxItems = (cmi >= 5 && cmi <= 99999) ? cmi : 200;
                             break;
+                        case "ClipboardStorageFolder":
+                            settings.ClipboardStorageFolder = val ?? string.Empty;
+                            break;
                         case "ClipboardMergeNumbering":
                             if (int.TryParse(val, out var cmn)) settings.ClipboardMergeNumbering = cmn;
                             break;
@@ -595,6 +598,7 @@ namespace ModernKey.Config
                 sb.AppendLine("ClipboardIgnoreDuplicates=" + settings.ClipboardIgnoreDuplicates);
                 sb.AppendLine("ClipboardPasteAsPlainText=" + settings.ClipboardPasteAsPlainText);
                 sb.AppendLine("ClipboardMaxItems=" + settings.ClipboardMaxItems);
+                sb.AppendLine("ClipboardStorageFolder=" + (settings.ClipboardStorageFolder ?? ""));
                 sb.AppendLine("ClipboardMergeNumbering=" + settings.ClipboardMergeNumbering);
                 sb.AppendLine("ClipboardMergePrefixDash=" + settings.ClipboardMergePrefixDash);
                 sb.AppendLine("ClipboardMergePrefixArrow=" + settings.ClipboardMergePrefixArrow);

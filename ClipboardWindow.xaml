@@ -420,6 +420,7 @@
                                     <MenuItem Header="🔍 2. Google Lens (Tìm kiếm &amp; AI Overview)" Click="MnuWebAiLens_Click" Style="{StaticResource CyberMenuItem}" />
                                     <MenuItem Header="📄 3. PictureToText.org (Chuyển ảnh thành văn bản)" Click="MnuWebAiPictureToText_Click" Style="{StaticResource CyberMenuItem}" />
                                 </MenuItem>
+                                <MenuItem Header="📁 Thư mục lưu trữ Clipboard..." Click="BtnStorageFolderFooter_Click" Style="{StaticResource CyberMenuItem}" />
                                 
                                 <Separator Style="{StaticResource CyberMenuSeparator}" />
                                 <!-- Tính năng Làm mờ Clipboard: chỉ áp dụng cho mục đang chọn (Selective Item Blur) -->
@@ -717,9 +718,22 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock x:Name="TxtStatus" Text="💡 Kéo &amp; Thả (Drag &amp; Drop) ra app khác | Enter/Ctrl+V = Dán | Ctrl+C = Chép | Del = Xóa"
                                    FontSize="11" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" />
-                        <Button x:Name="BtnClearAllFooter" Grid.Column="1" Content="XÓA TOÀN BỘ LỊCH SỬ" Click="BtnClearAll_Click"
-                                Background="Transparent" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}"
-                                FontSize="10" Padding="6,2" ToolTip="Xóa tất cả mục" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <Button x:Name="BtnStorageFolderFooter" Content="📁 THƯ MỤC..." Click="BtnStorageFolderFooter_Click"
+                                    Background="Transparent" BorderBrush="{StaticResource CyberNeonCyan}" Foreground="{StaticResource CyberNeonCyan}"
+                                    FontSize="10" Padding="6,2" Margin="0,0,6,0" ToolTip="Xem, mở hoặc thay đổi thư mục lưu trữ Clipboard">
+                                <Button.ContextMenu>
+                                    <ContextMenu Style="{StaticResource CyberContextMenu}">
+                                        <MenuItem Header="📁 Chọn thư mục lưu trữ mới..." Click="MnuChangeStorageFolder_Click" Style="{StaticResource CyberMenuItem}" />
+                                        <MenuItem Header="📂 Mở thư mục lưu trữ hiện tại trong Explorer" Click="MnuOpenStorageFolder_Click" Style="{StaticResource CyberMenuItem}" />
+                                        <MenuItem Header="↺ Khôi phục về thư mục mặc định" Click="MnuResetStorageFolder_Click" Style="{StaticResource CyberMenuItem}" />
+                                    </ContextMenu>
+                                </Button.ContextMenu>
+                            </Button>
+                            <Button x:Name="BtnClearAllFooter" Content="XÓA TOÀN BỘ LỊCH SỬ" Click="BtnClearAll_Click"
+                                    Background="Transparent" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}"
+                                    FontSize="10" Padding="6,2" ToolTip="Xóa tất cả mục" />
+                        </StackPanel>
                     </Grid>
                 </Grid>
             </Border>
