@@ -143,6 +143,12 @@ namespace ModernKey
 
         private void PositionAtCaret()
         {
+            double anchorPixelX = 0;
+            double anchorPixelY = 0;
+            double targetPixelX = 0;
+            double targetPixelY = 0;
+            bool hasCaret = false;
+
             try
             {
                 IntPtr hForeground = GetForegroundWindow();
@@ -157,32 +163,130 @@ namespace ModernKey
                         var pt = new POINT { X = gui.rcCaret.Left, Y = gui.rcCaret.Bottom };
                         if (ClientToScreen(gui.hwndCaret, ref pt))
                         {
-                            double screenWidth = SystemParameters.PrimaryScreenWidth;
-                            double screenHeight = SystemParameters.PrimaryScreenHeight;
-
-                            double w = ActualWidth > 0 ? ActualWidth : Width;
-                            double h = ActualHeight > 0 ? ActualHeight : Height;
-
-                            double x = pt.X;
-                            double y = pt.Y + 6;
-
-                            if (x + w > screenWidth) x = screenWidth - w - 10;
-                            if (x < 10) x = 10;
-                            if (y + h > screenHeight) y = pt.Y - h - 6;
-
-                            Left = x;
-                            Top = y;
-                            return;
+                            anchorPixelX = pt.X;
+                            anchorPixelY = pt.Y;
+                            targetPixelX = pt.X;
+                            targetPixelY = pt.Y + 6;
+                            hasCaret = true;
                         }
                     }
                 }
             }
             catch { }
 
-            // Fallback: vị trí con trỏ chuột
-            var mouse = System.Windows.Forms.Cursor.Position;
-            Left = mouse.X + 8;
-            Top = mouse.Y + 16;
+            if (!hasCaret)
+            {
+                var mouse = System.Windows.Forms.Cursor.Position;
+                anchorPixelX = mouse.X;
+                anchorPixelY = mouse.Y;
+                targetPixelX = mouse.X + 8;
+                targetPixelY = mouse.Y + 16;
+            }
+
+            ClampAndSetPosition(anchorPixelX, anchorPixelY, targetPixelX, targetPixelY, hasCaret);
+        }
+
+        private void ClampAndSetPosition(double anchorPixelX, double anchorPixelY, double targetPixelX, double targetPixelY, bool isCaret)
+        {
+            try
+            {
+                // Lấy hệ số co giãn DPI thực tế của cửa sổ
+                double dpiScaleX = 1.0;
+                double dpiScaleY = 1.0;
+                try
+                {
+                    var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(this);
+                    dpiScaleX = dpi.DpiScaleX > 0 ? dpi.DpiScaleX : 1.0;
+                    dpiScaleY = dpi.DpiScaleY > 0 ? dpi.DpiScaleY : 1.0;
+                }
+                catch
+                {
+                    dpiScaleX = 1.0;
+                    dpiScaleY = 1.0;
+                }
+
+                // Kích thước cửa sổ (DIPs)
+                double w = ActualWidth > 0 ? ActualWidth : (Width > 0 ? Width : 560);
+                double h = ActualHeight > 0 ? ActualHeight : (Height > 0 ? Height : 290);
+                if (double.IsNaN(w) || w <= 0) w = 560;
+                if (double.IsNaN(h) || h <= 0) h = 290;
+
+                // Xác định màn hình chứa điểm neo để lấy WorkingArea (loại trừ Taskbar)
+                var screen = System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point((int)anchorPixelX, (int)anchorPixelY));
+                var workArea = screen.WorkingArea;
+
+                // Quy đổi WorkingArea sang đơn vị DIPs
+                double workLeft = workArea.Left / dpiScaleX;
+                double workTop = workArea.Top / dpiScaleY;
+                double workRight = workArea.Right / dpiScaleX;
+                double workBottom = workArea.Bottom / dpiScaleY;
+
+                // Quy đổi tọa độ mục tiêu sang DIPs
+                double x = targetPixelX / dpiScaleX;
+                double y = targetPixelY / dpiScaleY;
+
+                const double margin = 10;
+
+                // Xử lý chống tràn ngang: nếu tràn mép phải, lật sang bên trái điểm neo
+                if (x + w > workRight - margin)
+                {
+                    double flippedX = (anchorPixelX / dpiScaleX) - w - (isCaret ? 4 : 8);
+                    if (flippedX >= workLeft + margin)
+                    {
+                        x = flippedX;
+                    }
+                    else
+                    {
+                        x = workRight - w - margin;
+                    }
+                }
+
+                // Đảm bảo không bao giờ tràn mép phải hoặc mép trái
+                if (x + w > workRight - margin)
+                {
+                    x = workRight - w - margin;
+                }
+                if (x < workLeft + margin)
+                {
+                    x = workLeft + margin;
+                }
+
+                // Xử lý chống tràn dọc: nếu tràn mép dưới (che Taskbar/rơi khỏi màn hình), lật lên trên điểm neo
+                if (y + h > workBottom - margin)
+                {
+                    double flippedY = (anchorPixelY / dpiScaleY) - h - (isCaret ? 6 : 8);
+                    if (flippedY >= workTop + margin)
+                    {
+                        y = flippedY;
+                    }
+                    else
+                    {
+                        y = workBottom - h - margin;
+                    }
+                }
+
+                // Đảm bảo không bao giờ tràn mép dưới hoặc mép trên
+                if (y + h > workBottom - margin)
+                {
+                    y = workBottom - h - margin;
+                }
+                if (y < workTop + margin)
+                {
+                    y = workTop + margin;
+                }
+
+                Left = x;
+                Top = y;
+            }
+            catch
+            {
+                // Fallback an toàn dùng SystemParameters.WorkArea
+                var wa = SystemParameters.WorkArea;
+                double w = ActualWidth > 0 ? ActualWidth : (Width > 0 ? Width : 560);
+                double h = ActualHeight > 0 ? ActualHeight : (Height > 0 ? Height : 290);
+                Left = Math.Max(wa.Left + 10, Math.Min(targetPixelX, wa.Right - w - 10));
+                Top = Math.Max(wa.Top + 10, Math.Min(targetPixelY, wa.Bottom - h - 10));
+            }
         }
 
         private void RefreshMacroList()
