@@ -512,6 +512,12 @@ namespace ModernKey.Models
 
                     // 1. Thư mục chuẩn mới: <ConfigDir>\clipboard\clipboard_cache\
                     string newCacheDir = Path.Combine(cfgDir, "clipboard", "clipboard_cache");
+                    string candHist = Path.Combine(newCacheDir, "history", fn);
+                    if (File.Exists(candHist)) return candHist;
+
+                    string candFav = Path.Combine(newCacheDir, "favorites", fn);
+                    if (File.Exists(candFav)) return candFav;
+
                     string candNew = Path.Combine(newCacheDir, fn);
                     if (File.Exists(candNew)) return candNew;
 
@@ -520,6 +526,12 @@ namespace ModernKey.Models
 
                     // 2. Dự phòng thư mục cũ nếu chưa chuyển: <ConfigDir>\clipboard_cache\
                     string oldCacheDir = Path.Combine(cfgDir, "clipboard_cache");
+                    string candOldHist = Path.Combine(oldCacheDir, "history", fn);
+                    if (File.Exists(candOldHist)) return candOldHist;
+
+                    string candOldFav = Path.Combine(oldCacheDir, "favorites", fn);
+                    if (File.Exists(candOldFav)) return candOldFav;
+
                     string candOld = Path.Combine(oldCacheDir, fn);
                     if (File.Exists(candOld)) return candOld;
 

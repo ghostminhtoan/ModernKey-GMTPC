@@ -174,6 +174,26 @@ namespace ModernKey.Core
             return dir;
         }
 
+        public string GetHistoryCacheDirectory()
+        {
+            string dir = Path.Combine(GetCacheDirectory(), "history");
+            if (!Directory.Exists(dir))
+            {
+                try { Directory.CreateDirectory(dir); } catch { }
+            }
+            return dir;
+        }
+
+        public string GetFavoritesCacheDirectory()
+        {
+            string dir = Path.Combine(GetCacheDirectory(), "favorites");
+            if (!Directory.Exists(dir))
+            {
+                try { Directory.CreateDirectory(dir); } catch { }
+            }
+            return dir;
+        }
+
         public string GetBackupDirectory()
         {
             string dir = Path.Combine(GetClipboardDirectory(), "backups");
@@ -224,7 +244,27 @@ namespace ModernKey.Core
                 }
 
                 GetCacheDirectory();
+                string histCache = GetHistoryCacheDirectory();
+                string favCache = GetFavoritesCacheDirectory();
                 GetBackupDirectory();
+
+                // 3. Tự động chuyển các file ảnh cũ còn nằm trực tiếp trong clipboard_cache\ vào history\
+                if (Directory.Exists(newCache))
+                {
+                    foreach (var file in Directory.GetFiles(newCache, "*.png", SearchOption.TopDirectoryOnly))
+                    {
+                        try
+                        {
+                            string fn = Path.GetFileName(file);
+                            string destHist = Path.Combine(histCache, fn);
+                            if (!File.Exists(destHist))
+                            {
+                                File.Move(file, destHist);
+                            }
+                        }
+                        catch { }
+                    }
+                }
             }
             catch { }
         }
@@ -382,7 +422,7 @@ namespace ModernKey.Core
 
             lock (_lock)
             {
-                string cacheDir = GetCacheDirectory();
+                string cacheDir = GetHistoryCacheDirectory();
                 string id = GenerateUniqueImageId(cacheDir);
                 string filename = id + ".png";
                 string thumbFilename = id + "_t.png";
@@ -529,6 +569,94 @@ namespace ModernKey.Core
             }
         }
 
+        private void EnsureFavoriteImageInFavoritesFolder(ClipboardItem it)
+        {
+            if (it == null || !it.IsImage) return;
+            string favDir = GetFavoritesCacheDirectory();
+            try
+            {
+                if (!string.IsNullOrEmpty(it.ImagePath))
+                {
+                    string fn = Path.GetFileName(it.ImagePath);
+                    string dest = Path.Combine(favDir, fn);
+                    if (!File.Exists(dest))
+                    {
+                        string resolved = ClipboardItem.ResolvePath(it.ImagePath);
+                        if (File.Exists(resolved) && !string.Equals(resolved, dest, StringComparison.OrdinalIgnoreCase))
+                        {
+                            File.Copy(resolved, dest, true);
+                        }
+                    }
+                    if (File.Exists(dest))
+                    {
+                        it.ImagePath = dest;
+                    }
+                }
+                if (!string.IsNullOrEmpty(it.ThumbPath))
+                {
+                    string fnThumb = Path.GetFileName(it.ThumbPath);
+                    string destThumb = Path.Combine(favDir, fnThumb);
+                    if (!File.Exists(destThumb))
+                    {
+                        string resolvedThumb = ClipboardItem.ResolvePath(it.ThumbPath);
+                        if (File.Exists(resolvedThumb) && !string.Equals(resolvedThumb, destThumb, StringComparison.OrdinalIgnoreCase))
+                        {
+                            File.Copy(resolvedThumb, destThumb, true);
+                        }
+                    }
+                    if (File.Exists(destThumb))
+                    {
+                        it.ThumbPath = destThumb;
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private void EnsureHistoryImageInHistoryFolder(ClipboardItem it)
+        {
+            if (it == null || !it.IsImage) return;
+            string histDir = GetHistoryCacheDirectory();
+            try
+            {
+                if (!string.IsNullOrEmpty(it.ImagePath))
+                {
+                    string fn = Path.GetFileName(it.ImagePath);
+                    string dest = Path.Combine(histDir, fn);
+                    if (!File.Exists(dest))
+                    {
+                        string resolved = ClipboardItem.ResolvePath(it.ImagePath);
+                        if (File.Exists(resolved) && !string.Equals(resolved, dest, StringComparison.OrdinalIgnoreCase))
+                        {
+                            File.Copy(resolved, dest, true);
+                        }
+                    }
+                    if (File.Exists(dest))
+                    {
+                        it.ImagePath = dest;
+                    }
+                }
+                if (!string.IsNullOrEmpty(it.ThumbPath))
+                {
+                    string fnThumb = Path.GetFileName(it.ThumbPath);
+                    string destThumb = Path.Combine(histDir, fnThumb);
+                    if (!File.Exists(destThumb))
+                    {
+                        string resolvedThumb = ClipboardItem.ResolvePath(it.ThumbPath);
+                        if (File.Exists(resolvedThumb) && !string.Equals(resolvedThumb, destThumb, StringComparison.OrdinalIgnoreCase))
+                        {
+                            File.Copy(resolvedThumb, destThumb, true);
+                        }
+                    }
+                    if (File.Exists(destThumb))
+                    {
+                        it.ThumbPath = destThumb;
+                    }
+                }
+            }
+            catch { }
+        }
+
         public void ToggleFavorite(ClipboardItem item)
         {
             if (item == null) return;
@@ -544,6 +672,7 @@ namespace ModernKey.Core
                     {
                         var favClone = item.Clone();
                         favClone.IsFavorite = true;
+                        EnsureFavoriteImageInFavoritesFolder(favClone);
                         DispatchSafe(() =>
                         {
                             FavoriteItems.Insert(0, favClone);
@@ -554,15 +683,19 @@ namespace ModernKey.Core
                 }
                 else
                 {
+                    var matchHist = FindMatchingItem(Items, item);
                     var existing = FindMatchingItem(FavoriteItems, item);
                     if (existing != null)
                     {
+                        if (matchHist == null || !string.Equals(matchHist.ImagePath, existing.ImagePath, StringComparison.OrdinalIgnoreCase))
+                        {
+                            DeleteCacheFile(existing);
+                        }
                         DispatchSafe(() =>
                         {
                             FavoriteItems.Remove(existing);
                         });
                     }
-                    var matchHist = FindMatchingItem(Items, item);
                     if (matchHist != null) matchHist.IsFavorite = false;
                 }
 
@@ -596,6 +729,7 @@ namespace ModernKey.Core
                     var favClone = item.Clone();
                     favClone.IsFavorite = true;
                     favClone.GroupName = cleanGroup;
+                    EnsureFavoriteImageInFavoritesFolder(favClone);
                     DispatchSafe(() =>
                     {
                         FavoriteItems.Insert(0, favClone);
@@ -620,15 +754,19 @@ namespace ModernKey.Core
             lock (_lock)
             {
                 item.IsFavorite = false;
+                var matchHist = FindMatchingItem(Items, item);
                 var existing = FindMatchingItem(FavoriteItems, item);
                 if (existing != null)
                 {
+                    if (matchHist == null || !string.Equals(matchHist.ImagePath, existing.ImagePath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        DeleteCacheFile(existing);
+                    }
                     DispatchSafe(() =>
                     {
                         FavoriteItems.Remove(existing);
                     });
                 }
-                var matchHist = FindMatchingItem(Items, item);
                 if (matchHist != null)
                 {
                     matchHist.IsFavorite = false;
@@ -710,13 +848,19 @@ namespace ModernKey.Core
                         FavoriteItems.Remove(item);
                         var matchHist = FindMatchingItem(Items, item);
                         if (matchHist != null) matchHist.IsFavorite = false;
-                        if (matchHist == null) DeleteCacheFile(item);
+                        if (matchHist == null || !string.Equals(matchHist.ImagePath, item.ImagePath, StringComparison.OrdinalIgnoreCase))
+                        {
+                            DeleteCacheFile(item);
+                        }
                     }
                     else
                     {
                         Items.Remove(item);
                         var matchFav = FindMatchingItem(FavoriteItems, item);
-                        if (matchFav == null) DeleteCacheFile(item);
+                        if (matchFav == null || !string.Equals(matchFav.ImagePath, item.ImagePath, StringComparison.OrdinalIgnoreCase))
+                        {
+                            DeleteCacheFile(item);
+                        }
                     }
                 });
                 SaveHistoryAsync();
@@ -1076,6 +1220,10 @@ namespace ModernKey.Core
                     foreach (var item in list)
                     {
                         item.DetectMetadata();
+                        if (item.IsImage)
+                        {
+                            EnsureHistoryImageInHistoryFolder(item);
+                        }
                         Items.Add(item);
                     }
                     TrimLimit();
@@ -1105,6 +1253,10 @@ namespace ModernKey.Core
                     {
                         item.DetectMetadata();
                         item.IsFavorite = true;
+                        if (item.IsImage)
+                        {
+                            EnsureFavoriteImageInFavoritesFolder(item);
+                        }
                         FavoriteItems.Add(item);
                     }
                     // Đồng bộ cờ IsFavorite cho các mục tương ứng trong Items
@@ -1369,6 +1521,12 @@ namespace ModernKey.Core
                 if (!string.IsNullOrEmpty(fn))
                 {
                     string cacheDir = GetCacheDirectory();
+                    string candHist = Path.Combine(cacheDir, "history", fn);
+                    if (File.Exists(candHist)) return candHist;
+
+                    string candFav = Path.Combine(cacheDir, "favorites", fn);
+                    if (File.Exists(candFav)) return candFav;
+
                     string cand = Path.Combine(cacheDir, fn);
                     if (File.Exists(cand)) return cand;
 
