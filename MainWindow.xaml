@@ -605,8 +605,8 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="SỐ MỤC LƯU TỐI ĐA (FRAGMENTS):" VerticalAlignment="Center" FontFamily="Consolas" Foreground="{StaticResource CyberTextPrimary}" />
-                            <TextBox x:Name="TxtClipboardMaxItems" Grid.Column="1" Height="26" VerticalAlignment="Center" VerticalContentAlignment="Center" TextAlignment="Center" FontFamily="Consolas" FontWeight="Bold" TextChanged="TxtClipboardMaxItems_TextChanged" LostFocus="TxtClipboardMaxItems_LostFocus" ToolTip="Nhập từ 5 đến 99999 (Mặc định: 200)" />
-                            <TextBlock Grid.Column="2" Text="* Khuyến nghị: 5 - 99999 mục (Mặc định: 200, có thể đặt 5 để test nhanh)." VerticalAlignment="Center" Foreground="{StaticResource CyberTextSecondary}" FontFamily="Consolas" Margin="14,0,0,0" FontSize="11" />
+                            <TextBox x:Name="TxtClipboardMaxItems" Grid.Column="1" Height="26" VerticalAlignment="Center" VerticalContentAlignment="Center" TextAlignment="Center" FontFamily="Consolas" FontWeight="Bold" KeyDown="TxtClipboardMaxItems_KeyDown" LostFocus="TxtClipboardMaxItems_LostFocus" ToolTip="Nhập từ 5 đến 99999, bấm phím Enter để áp dụng (Mặc định: 200)" />
+                            <TextBlock Grid.Column="2" Text="* Nhập 5 - 99999 rồi bấm [ENTER] để áp dụng (Mặc định: 200)." VerticalAlignment="Center" Foreground="{StaticResource CyberTextSecondary}" FontFamily="Consolas" Margin="14,0,0,0" FontSize="11" />
                         </Grid>
 
                         <Border Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="12,10" Margin="0,0,0,14">

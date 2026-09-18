@@ -5,6 +5,9 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
+using Key = System.Windows.Input.Key;
+using Keyboard = System.Windows.Input.Keyboard;
 using ModernKey.Config;
 using ModernKey.Core;
 using ModernKey.Hook;
@@ -1069,37 +1072,41 @@ namespace ModernKey
             }
         }
 
-        private void TxtClipboardMaxItems_TextChanged(object sender, TextChangedEventArgs e)
+        private void TxtClipboardMaxItems_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                ApplyClipboardMaxItems();
+                Keyboard.ClearFocus();
+                e.Handled = true;
+            }
+        }
+
+        private void ApplyClipboardMaxItems()
         {
             if (_isUpdatingUi) return;
             if (int.TryParse(TxtClipboardMaxItems.Text.Trim(), out int val) && val >= 5 && val <= 99999)
             {
                 _settings.ClipboardMaxItems = val;
+                TxtClipboardMaxItems.Text = val.ToString();
                 if (Application.Current is App app && app.ClipboardHistory != null)
                 {
                     app.ClipboardHistory.ApplyMaxLimit();
                 }
+            }
+            else
+            {
+                int fallback = (_settings.ClipboardMaxItems >= 5 && _settings.ClipboardMaxItems <= 99999) ? _settings.ClipboardMaxItems : 200;
+                _settings.ClipboardMaxItems = fallback;
+                TxtClipboardMaxItems.Text = fallback.ToString();
             }
         }
 
         private void TxtClipboardMaxItems_LostFocus(object sender, RoutedEventArgs e)
         {
             if (_isUpdatingUi) return;
-            if (!int.TryParse(TxtClipboardMaxItems.Text.Trim(), out int val) || val < 5 || val > 99999)
-            {
-                int fallback = (_settings.ClipboardMaxItems >= 5 && _settings.ClipboardMaxItems <= 99999) ? _settings.ClipboardMaxItems : 200;
-                _settings.ClipboardMaxItems = fallback;
-                TxtClipboardMaxItems.Text = fallback.ToString();
-            }
-            else
-            {
-                _settings.ClipboardMaxItems = val;
-                TxtClipboardMaxItems.Text = val.ToString();
-            }
-            if (Application.Current is App app && app.ClipboardHistory != null)
-            {
-                app.ClipboardHistory.ApplyMaxLimit();
-            }
+            // Nếu người dùng chưa bấm Enter để áp dụng thì khôi phục lại giá trị đang lưu trong cài đặt
+            TxtClipboardMaxItems.Text = _settings.ClipboardMaxItems.ToString();
         }
 
         private void BtnOpenClipboardHud_Click(object sender, RoutedEventArgs e)
