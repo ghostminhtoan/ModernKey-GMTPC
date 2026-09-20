@@ -172,5 +172,38 @@ namespace ModernKey.Models
                 EscKeyUndo = true;
             }
         }
+
+        /// <summary>
+        /// Tự động cập nhật SwitchMode tương ứng với các cờ SwitchCtrl, SwitchAlt, SwitchWin, SwitchShift, SwitchKeyChar.
+        /// Tránh tình trạng SwitchMode bị kẹt giá trị cũ (AltZ) gây ra hiện tượng hardcode ngầm.
+        /// </summary>
+        public void UpdateSwitchModeFromCustomKeys()
+        {
+            string key = (SwitchKeyChar ?? "").Trim().ToUpperInvariant();
+            if (SwitchCtrl && SwitchShift && !SwitchAlt && !SwitchWin && string.IsNullOrEmpty(key))
+            {
+                SwitchMode = SwitchKeyMode.CtrlShift;
+            }
+            else if (SwitchAlt && SwitchShift && !SwitchCtrl && !SwitchWin && string.IsNullOrEmpty(key))
+            {
+                SwitchMode = SwitchKeyMode.AltShift;
+            }
+            else if (SwitchAlt && !SwitchCtrl && !SwitchWin && !SwitchShift && key == "Z")
+            {
+                SwitchMode = SwitchKeyMode.AltZ;
+            }
+            else if (SwitchWin && !SwitchCtrl && !SwitchAlt && !SwitchShift && (key == "SPACE" || key == " "))
+            {
+                SwitchMode = SwitchKeyMode.WinSpace;
+            }
+            else if (SwitchCtrl && !SwitchAlt && !SwitchWin && !SwitchShift && (key == "SPACE" || key == " "))
+            {
+                SwitchMode = SwitchKeyMode.CtrlSpace;
+            }
+            else
+            {
+                SwitchMode = SwitchKeyMode.Custom;
+            }
+        }
     }
 }

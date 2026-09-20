@@ -532,12 +532,15 @@ namespace ModernKey.Config
                 settings.EnableStatusOsd = false;
             }
 
+            settings.UpdateSwitchModeFromCustomKeys();
+
             return settings;
         }
 
         public static void SaveSettings(AppSettings settings)
         {
             if (settings == null) return;
+            settings.UpdateSwitchModeFromCustomKeys();
             string path = GetConfigFilePath();
             try
             {
@@ -710,6 +713,7 @@ namespace ModernKey.Config
                             break;
                     }
                 }
+                targetSettings.UpdateSwitchModeFromCustomKeys();
                 return true;
             }
             catch (Exception ex)

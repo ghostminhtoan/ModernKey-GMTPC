@@ -48,14 +48,17 @@ namespace ModernKey.Core
             _macroManager = macroManager ?? new MacroManager();
         }
 
-        public void Reset(bool clearLastWord = false)
+        public void Reset(bool clearLastWord = false, bool resetSentence = false)
         {
             _charBuffer.Clear();
             _macroBuffer.Clear();
             _mathBuffer.Clear();
             _inNumberSequence = false;
             _isFirstWordOfSentence = false;
-            _upperCaseSentenceStatus = 0;
+            if (resetSentence)
+            {
+                _upperCaseSentenceStatus = 0;
+            }
             _isRawWordOnScreen = false;
             if (clearLastWord)
             {
@@ -66,7 +69,19 @@ namespace ModernKey.Core
 
         public void Reset()
         {
-            Reset(false);
+            Reset(false, false);
+        }
+
+        public void ResetSentenceStatus()
+        {
+            _upperCaseSentenceStatus = 0;
+            _isFirstWordOfSentence = false;
+        }
+
+        public void SetSentenceStart()
+        {
+            _upperCaseSentenceStatus = 2;
+            _isFirstWordOfSentence = false;
         }
 
         public bool HasPendingWord => _charBuffer.Count > 0;
@@ -262,27 +277,7 @@ namespace ModernKey.Core
                 return false;
             }
 
-            // 1. Phím chuyển chế độ gõ (Ctrl+Shift hoặc Alt+Z)
-            if (_settings.SwitchMode == SwitchKeyMode.CtrlShift)
-            {
-                if (isCtrl && isShift && (vkCode == 0xA0 || vkCode == 0xA1 || vkCode == 0x10))
-                {
-                    _settings.IsVietnamese = !_settings.IsVietnamese;
-                    Reset();
-                    return false;
-                }
-            }
-            else if (_settings.SwitchMode == SwitchKeyMode.AltZ)
-            {
-                if (isAlt && (vkCode == 0x5A || ch == 'z' || ch == 'Z'))
-                {
-                    _settings.IsVietnamese = !_settings.IsVietnamese;
-                    Reset();
-                    return true;
-                }
-            }
-
-            // Nếu đang giữ phím điều khiển (Ctrl hoặc Alt hoặc Win)
+            // 1. Nếu đang giữ phím điều khiển (Ctrl hoặc Alt hoặc Win)
             if (isCtrl || isAlt)
             {
                 Reset();
@@ -355,6 +350,19 @@ namespace ModernKey.Core
                 }
                 _justCommittedSpace = false;
 
+                if (_charBuffer.Count == 1 && _isFirstWordOfSentence)
+                {
+                    _isFirstWordOfSentence = false;
+                    if (_settings.UpperCaseFirstChar)
+                    {
+                        _upperCaseSentenceStatus = 2;
+                    }
+                }
+                else if (_charBuffer.Count == 0 && _upperCaseSentenceStatus == 2)
+                {
+                    _upperCaseSentenceStatus = 0;
+                }
+
                 string currentDisplay = GetDisplayWord(_charBuffer);
                 if (string.IsNullOrEmpty(currentDisplay) || currentDisplay.Length <= 1)
                 {
@@ -423,10 +431,21 @@ namespace ModernKey.Core
 
                 if (_settings.UpperCaseFirstChar)
                 {
-                    if (_upperCaseSentenceStatus == 1 || isReturn)
+                    if (isReturn)
+                    {
                         _upperCaseSentenceStatus = 2;
-                    else if (!isSpace)
+                    }
+                    else if (isSpace)
+                    {
+                        if (_upperCaseSentenceStatus == 1)
+                        {
+                            _upperCaseSentenceStatus = 2;
+                        }
+                    }
+                    else if (!isTab)
+                    {
                         _upperCaseSentenceStatus = 0;
+                    }
                 }
 
                 // Tự sửa lỗi chính tả theo từ điển spelling_correction.txt (chỉ áp dụng cho Telex / Simple Telex khi bấm Space hoặc Enter)
@@ -700,9 +719,17 @@ namespace ModernKey.Core
                 if (_settings.UpperCaseFirstChar)
                 {
                     if (ch == '.' || ch == '!' || ch == '?')
+                    {
                         _upperCaseSentenceStatus = 1;
+                    }
+                    else if (ch == '\"' || ch == '\'' || ch == ')' || ch == ']' || ch == '}' || ch == '”' || ch == '’')
+                    {
+                        // Giữ nguyên trạng thái nếu vừa sau dấu câu kết thúc (ví dụ: ." hoặc !) )
+                    }
                     else
+                    {
                         _upperCaseSentenceStatus = 0;
+                    }
                 }
 
                 string lastWordOnScreen = GetDisplayWord(_charBuffer);
@@ -867,19 +894,32 @@ namespace ModernKey.Core
             }
 
             // 5.8. Tự động viết hoa chữ cái đầu câu (UpperCaseFirstChar)
-            if (_settings.UpperCaseFirstChar && _upperCaseSentenceStatus == 2 && _charBuffer.Count == 0 && !isSpace && !isReturn && !isTab && !isPunctuation)
+            bool wasAutoUpper = false;
+            if (_settings.UpperCaseFirstChar && _charBuffer.Count == 0 && !isSpace && !isReturn && !isTab && !isPunctuation)
             {
-                _isFirstWordOfSentence = true;
-                _upperCaseSentenceStatus = 0;
-                if (char.IsLetter(ch))
+                if (_upperCaseSentenceStatus == 2)
                 {
-                    ch = char.ToUpper(ch);
-                    isShift = true;
+                    _isFirstWordOfSentence = true;
+                    _upperCaseSentenceStatus = 0;
+                    if (char.IsLetter(ch))
+                    {
+                        bool physicallyUpper = isShift ^ isCaps;
+                        if (!physicallyUpper)
+                        {
+                            wasAutoUpper = true;
+                        }
+                        ch = char.ToUpper(ch);
+                        isShift = true;
+                    }
+                }
+                else if (_upperCaseSentenceStatus == 1)
+                {
+                    _upperCaseSentenceStatus = 0;
                 }
             }
 
             // 6. Xử lý gõ tiếng Việt với cơ chế Delta-Change thông minh
-            bool transformed = TryTransformVietnamese(ch, out backspaceCount, out newString);
+            bool transformed = TryTransformVietnamese(ch, wasAutoUpper, out backspaceCount, out newString);
             if (transformed)
             {
                 _mathBuffer.Clear();
@@ -1082,6 +1122,11 @@ namespace ModernKey.Core
 
         private bool TryTransformVietnamese(char ch, out int backspaceCount, out string newString)
         {
+            return TryTransformVietnamese(ch, false, out backspaceCount, out newString);
+        }
+
+        private bool TryTransformVietnamese(char ch, bool wasAutoUpper, out int backspaceCount, out string newString)
+        {
             backspaceCount = 0;
             newString = null;
 
@@ -1099,6 +1144,15 @@ namespace ModernKey.Core
             if (_isFirstWordOfSentence && actualDisplayWord.Length > 0)
             {
                 actualDisplayWord = char.ToUpper(actualDisplayWord[0]) + (actualDisplayWord.Length > 1 ? actualDisplayWord.Substring(1) : "");
+            }
+
+            // 3.2. Nếu phím này được tự động viết hoa (người dùng gõ phím thường không Shift, nhưng tính năng UpperCaseFirstChar yêu cầu viết HOA):
+            // Bắt buộc phải nuốt phím thường của Windows và gửi ký tự viết HOA ra màn hình!
+            if (wasAutoUpper)
+            {
+                backspaceCount = Math.Min(prevDisplayWord.Length, 15);
+                newString = CharsetConverter.FromUnicode(actualDisplayWord, _settings.CurrentCharset);
+                return true;
             }
 
             // 3.5. Smart English Bypass: Nếu toàn bộ từ thô tạo thành từ tiếng Anh thông dụng (vd: "post", "cost", "case", "test")

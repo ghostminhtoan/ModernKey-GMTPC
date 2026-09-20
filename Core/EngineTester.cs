@@ -1727,6 +1727,133 @@ namespace ModernKey.Core
                     sb.AppendLine($"  FAIL New Requirements Test: {ex.Message}\n{ex.StackTrace}");
                 }
 
+                // 16. Test đồng bộ SwitchMode và loại bỏ hardcode Alt+Z
+                try
+                {
+                    var swSettings = new AppSettings();
+
+                    // Ctrl + Shift
+                    swSettings.SwitchCtrl = true; swSettings.SwitchShift = true; swSettings.SwitchAlt = false; swSettings.SwitchWin = false; swSettings.SwitchKeyChar = "";
+                    swSettings.UpdateSwitchModeFromCustomKeys();
+                    bool t1 = swSettings.SwitchMode == SwitchKeyMode.CtrlShift;
+
+                    // Alt + Shift
+                    swSettings.SwitchCtrl = false; swSettings.SwitchShift = true; swSettings.SwitchAlt = true; swSettings.SwitchWin = false; swSettings.SwitchKeyChar = "";
+                    swSettings.UpdateSwitchModeFromCustomKeys();
+                    bool t2 = swSettings.SwitchMode == SwitchKeyMode.AltShift;
+
+                    // Alt + Z
+                    swSettings.SwitchCtrl = false; swSettings.SwitchShift = false; swSettings.SwitchAlt = true; swSettings.SwitchWin = false; swSettings.SwitchKeyChar = "Z";
+                    swSettings.UpdateSwitchModeFromCustomKeys();
+                    bool t3 = swSettings.SwitchMode == SwitchKeyMode.AltZ;
+
+                    // Win + Space
+                    swSettings.SwitchCtrl = false; swSettings.SwitchShift = false; swSettings.SwitchAlt = false; swSettings.SwitchWin = true; swSettings.SwitchKeyChar = "SPACE";
+                    swSettings.UpdateSwitchModeFromCustomKeys();
+                    bool t4 = swSettings.SwitchMode == SwitchKeyMode.WinSpace;
+
+                    // Ctrl + Space
+                    swSettings.SwitchCtrl = true; swSettings.SwitchShift = false; swSettings.SwitchAlt = false; swSettings.SwitchWin = false; swSettings.SwitchKeyChar = "Space";
+                    swSettings.UpdateSwitchModeFromCustomKeys();
+                    bool t5 = swSettings.SwitchMode == SwitchKeyMode.CtrlSpace;
+
+                    // Custom (VD: Ctrl + Q)
+                    swSettings.SwitchCtrl = true; swSettings.SwitchShift = false; swSettings.SwitchAlt = false; swSettings.SwitchWin = false; swSettings.SwitchKeyChar = "Q";
+                    swSettings.UpdateSwitchModeFromCustomKeys();
+                    bool t6 = swSettings.SwitchMode == SwitchKeyMode.Custom;
+
+                    // Test VietnameseEngine không nuốt phím Alt+Z và không đổi ngôn ngữ ngầm
+                    var engSettings = new AppSettings { IsVietnamese = true, SwitchMode = SwitchKeyMode.CtrlShift };
+                    var engine = new VietnameseEngine(engSettings, new MacroManager());
+                    bool handledAltZ = engine.ProcessKey('z', 0x5A, false, false, false, true, out int _, out string _);
+                    bool langNotChanged = engSettings.IsVietnamese == true; // Vẫn giữ nguyên trạng thái
+
+                    if (t1 && t2 && t3 && t4 && t5 && t6 && !handledAltZ && langNotChanged)
+                    {
+                        sb.AppendLine("  PASS: Kiểm tra đồng bộ SwitchMode và loại bỏ hoàn toàn hardcode Alt+Z thành công 100%!");
+                    }
+                    else
+                    {
+                        allPassed = false;
+                        sb.AppendLine($"  FAIL SwitchMode / AltZ test: t1={t1}, t2={t2}, t3={t3}, t4={t4}, t5={t5}, t6={t6}, handledAltZ={handledAltZ}, langNotChanged={langNotChanged}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    allPassed = false;
+                    sb.AppendLine($"  FAIL SwitchMode / AltZ test exception: {ex.Message}\n{ex.StackTrace}");
+                }
+
+                // 17. Test tính năng tự động viết hoa chữ cái đầu câu và sau Enter (UpperCaseFirstChar)
+                try
+                {
+                    var ufcSettings = new AppSettings
+                    {
+                        IsVietnamese = true,
+                        CurrentInputMethod = InputMethod.Telex,
+                        UpperCaseFirstChar = true
+                    };
+                    var ufcEngine = new VietnameseEngine(ufcSettings, new MacroManager());
+
+                    // Test 1: Chữ cái đầu câu khi vừa bắt đầu
+                    string u1 = SimulateTypingSentence(ufcEngine, "xin chao ban.");
+                    bool p1 = u1 == "Xin chao ban.";
+
+                    // Test 2: Tự động viết hoa sau dấu chấm và dấu cách
+                    string u2 = SimulateTypingSentence(ufcEngine, "troi mua to. toi o nha.");
+                    bool p2 = u2 == "Troi mua to. Toi o nha.";
+
+                    // Test 3: Tự động viết hoa sau Enter (xuống dòng)
+                    string u3 = SimulateTypingSentence(ufcEngine, "dong mot\ntoi go dong hai\nva dong ba.");
+                    bool p3 = u3 == "Dong mot\nToi go dong hai\nVa dong ba.";
+
+                    // Test 4: Tự động viết hoa sau Enter kèm dấu cách thụt đầu dòng
+                    string u4 = SimulateTypingSentence(ufcEngine, "tieu de:\n  doan van moi.");
+                    bool p4 = u4 == "Tieu de:\n  Doan van moi.";
+
+                    // Test 5: Tự động viết hoa sau dấu chấm than và dấu hỏi
+                    string u5 = SimulateTypingSentence(ufcEngine, "chao ban! ban khoe khong? toi rat khoe.");
+                    bool p5 = u5 == "Chao ban! Ban khoe khong? Toi rat khoe.";
+
+                    // Test 6: Từ có dấu tiếng Việt sau Enter (ví dụ: đường, ước)
+                    string u6 = SimulateTypingSentence(ufcEngine, "bat dau\ndduowfng ve nha\nwowsc mo");
+                    bool p6 = u6 == "Bat dau\nĐường ve nha\nƯớc mo";
+
+                    // Test 7: Từ không có dấu tiếng Việt sau Enter (ví dụ: lam, ban)
+                    string u7 = SimulateTypingSentence(ufcEngine, "cau mot\nlam viec\nban be");
+                    bool p7 = u7 == "Cau mot\nLam viec\nBan be";
+
+                    // Test 8: Số thứ tự sau Enter không bị viết hoa sai: "1. buoc mot" -> "1. Buoc mot"
+                    string u8 = SimulateTypingSentence(ufcEngine, "danh sach:\n1. buoc mot\n2. buoc hai");
+                    bool p8 = u8 == "Danh sach:\n1. Buoc mot\n2. Buoc hai";
+
+                    // Test 9: Khi TẮT UpperCaseFirstChar = false thì không tự viết hoa
+                    var offSettings = new AppSettings
+                    {
+                        IsVietnamese = true,
+                        CurrentInputMethod = InputMethod.Telex,
+                        UpperCaseFirstChar = false
+                    };
+                    var offEngine = new VietnameseEngine(offSettings, new MacroManager());
+                    string rOff = SimulateTypingSentence(offEngine, "xin chao.\ntoi la viet nam.");
+                    bool pOff = rOff == "xin chao.\ntoi la viet nam.";
+
+                    if (p1 && p2 && p3 && p4 && p5 && p6 && p7 && p8 && pOff)
+                    {
+                        sb.AppendLine("  PASS: Tính năng tự động viết hoa chữ cái đầu câu và sau Enter hoạt động hoàn hảo 100%!");
+                    }
+                    else
+                    {
+                        allPassed = false;
+                        sb.AppendLine($"  FAIL UpperCaseFirstChar test: p1={p1}('{u1}'), p2={p2}('{u2}'), p3={p3}('{u3}'), p4={p4}('{u4}'), p5={p5}('{u5}'), p6={p6}('{u6}'), p7={p7}('{u7}'), p8={p8}('{u8}'), pOff={pOff}('{rOff}')");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    allPassed = false;
+                    sb.AppendLine($"  FAIL UpperCaseFirstChar test exception: {ex.Message}\n{ex.StackTrace}");
+                }
+
             sb.AppendLine(allPassed ? "=== TAT CA CAC TEST DEU PASS 100% ===" : "=== CO TEST THAT BAI ===");
             report = sb.ToString();
             return allPassed;
@@ -1787,6 +1914,7 @@ namespace ModernKey.Core
         private static string SimulateTypingSentence(VietnameseEngine engine, string sentence)
         {
             engine.Reset();
+            engine.SetSentenceStart();
             var screen = new StringBuilder();
 
             foreach (char ch in sentence)
@@ -1794,6 +1922,7 @@ namespace ModernKey.Core
                 int vk = (int)ch;
                 if (ch == ' ') vk = 0x20;
                 else if (ch == '\r' || ch == '\n') vk = 0x0D;
+                else if (ch == '\b') vk = 0x08;
 
                 bool isShift = char.IsUpper(ch) || ch == '^' || ch == '&' || ch == '*' || ch == '(' || ch == '{' || ch == '}';
 
@@ -1820,7 +1949,28 @@ namespace ModernKey.Core
                 }
                 else
                 {
-                    screen.Append(ch);
+                    if (vk == 0x08)
+                    {
+                        if (screen.Length > 0)
+                        {
+                            screen.Remove(screen.Length - 1, 1);
+                        }
+                    }
+                    else if (ch == '\r')
+                    {
+                        screen.Append('\n');
+                    }
+                    else if (ch == '\n')
+                    {
+                        if (screen.Length == 0 || screen[screen.Length - 1] != '\n')
+                        {
+                            screen.Append('\n');
+                        }
+                    }
+                    else
+                    {
+                        screen.Append(ch);
+                    }
                 }
             }
 

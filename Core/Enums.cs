@@ -25,7 +25,8 @@ namespace ModernKey.Core
         AltZ = 1,
         WinSpace = 2,
         CtrlSpace = 3,
-        AltShift = 4
+        AltShift = 4,
+        Custom = 5
     }
 
     public enum TypingState

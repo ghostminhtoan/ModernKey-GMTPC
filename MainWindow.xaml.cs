@@ -333,6 +333,7 @@ namespace ModernKey
             if (ChkSwitchShift != null) _settings.SwitchShift = ChkSwitchShift.IsChecked == true;
             if (TxtSwitchKeyChar != null) _settings.SwitchKeyChar = TxtSwitchKeyChar.Text.Trim();
             if (ChkSwitchBeep != null) _settings.SwitchBeep = ChkSwitchBeep.IsChecked == true;
+            _settings.UpdateSwitchModeFromCustomKeys();
 
             // Tab Tùy chọn
             if (ChkCheckSpelling != null) _settings.CheckSpelling = ChkCheckSpelling.IsChecked == true;
@@ -531,6 +532,7 @@ namespace ModernKey
             if (TxtSwitchKeyChar != null)
             {
                 _settings.SwitchKeyChar = TxtSwitchKeyChar.Text.Trim();
+                _settings.UpdateSwitchModeFromCustomKeys();
                 SettingsManager.SaveSettings(_settings);
             }
         }
