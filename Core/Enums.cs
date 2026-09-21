@@ -16,7 +16,12 @@ namespace ModernKey.Core
         Unicode = 0,
         TCVN3 = 1,
         VniWindows = 2,
-        UnicodeCompound = 3
+        UnicodeCompound = 3,
+        Viqr = 4,
+        BkpHcm1 = 5,
+        BkpHcm2 = 6,
+        VietwareX = 7,
+        VietwareF = 8
     }
 
     public enum SwitchKeyMode

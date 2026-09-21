@@ -81,6 +81,11 @@ namespace ModernKey.Core
                 return text.Normalize(NormalizationForm.FormC);
             }
 
+            if (source != Charset.TCVN3 && source != Charset.VniWindows)
+            {
+                return text;
+            }
+
             string[] sourceArr = source == Charset.TCVN3 ? Tcvn3Chars : VniChars;
             var sb = new StringBuilder(text);
 
@@ -99,6 +104,11 @@ namespace ModernKey.Core
             if (target == Charset.UnicodeCompound)
             {
                 return unicodeText.Normalize(NormalizationForm.FormD);
+            }
+
+            if (target != Charset.TCVN3 && target != Charset.VniWindows)
+            {
+                return unicodeText;
             }
 
             string[] targetArr = target == Charset.TCVN3 ? Tcvn3Chars : VniChars;

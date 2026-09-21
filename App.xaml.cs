@@ -188,7 +188,7 @@ namespace ModernKey
             _keyboardHook.Start();
 
             // 3. Khởi tạo Tray Icon, OSD & Clipboard Listener
-            _trayManager = new SystemTrayManager(_settings, ShowMainWindow, ExitApplication, ShowClipboardWindow);
+            _trayManager = new SystemTrayManager(_settings, (tab) => ShowMainWindow(tab), ExitApplication, ShowClipboardWindow, QuickConvertClipboard);
             _statusOsdWindow = new StatusOsdWindow();
             _clipboardListener = new ClipboardListener(_clipboardHistory, _settings);
 
@@ -437,30 +437,57 @@ namespace ModernKey
         {
             try
             {
-                GC.Collect(2, GCCollectionMode.Forced, false);
-                GC.WaitForPendingFinalizers();
-                GC.Collect(2, GCCollectionMode.Forced, false);
-                // Giải phóng các trang nhớ chưa chạm tới của working set trả về cho hệ điều hành
-                EmptyWorkingSet(Process.GetCurrentProcess().Handle);
+                ThreadPool.QueueUserWorkItem(_ =>
+                {
+                    try
+                    {
+                        GC.Collect(1, GCCollectionMode.Optimized, false);
+                        EmptyWorkingSet(Process.GetCurrentProcess().Handle);
+                    }
+                    catch { }
+                });
             }
             catch { }
         }
 
         public void ShowMainWindow()
         {
-            if (_mainWindow == null)
+            ShowMainWindow(-1);
+        }
+
+        public void ShowMainWindow(int tabIndex)
+        {
+            if (Dispatcher != null && !Dispatcher.CheckAccess())
             {
-                _mainWindow = new MainWindow(_settings, _macroManager, _trayManager);
+                Dispatcher.BeginInvoke(new Action(() => ShowMainWindow(tabIndex)));
+                return;
             }
 
-            _mainWindow.RefreshState();
-
-            if (_mainWindow.WindowState == WindowState.Minimized)
+            try
             {
-                _mainWindow.WindowState = WindowState.Normal;
+                if (_mainWindow == null)
+                {
+                    _mainWindow = new MainWindow(_settings, _macroManager, _trayManager);
+                }
+
+                _mainWindow.RefreshState();
+
+                if (tabIndex >= 0)
+                {
+                    _mainWindow.SelectTab(tabIndex);
+                }
+
+                if (_mainWindow.WindowState == WindowState.Minimized)
+                {
+                    _mainWindow.WindowState = WindowState.Normal;
+                }
+                _mainWindow.Show();
+                _mainWindow.Activate();
             }
-            _mainWindow.Show();
-            _mainWindow.Activate();
+            catch (Exception ex)
+            {
+                Debug.WriteLine("ShowMainWindow error: " + ex.Message);
+            }
         }
 
         public void ShowClipboardWindow()
@@ -713,31 +740,76 @@ namespace ModernKey
             }
         }
 
+        public void QuickConvertClipboard()
+        {
+            try
+            {
+                if (Clipboard.ContainsText())
+                {
+                    string text = Clipboard.GetText();
+                    var src = Charset.Unicode;
+                    var dst = Charset.TCVN3;
+                    string converted = CharsetConverter.Convert(text, src, dst);
+                    KeySender.SuppressClipboardMonitoring = true;
+                    Clipboard.SetText(converted);
+                    ThreadPool.QueueUserWorkItem(_ =>
+                    {
+                        Thread.Sleep(300);
+                        KeySender.SuppressClipboardMonitoring = false;
+                    });
+                    _statusOsdWindow?.ShowMessage("✓ Đã chuyển mã Clipboard (Unicode ➔ TCVN3)", "#00FF66");
+                }
+                else
+                {
+                    _statusOsdWindow?.ShowMessage("Clipboard không có văn bản", "#FFAA00");
+                }
+            }
+            catch (Exception ex)
+            {
+                _statusOsdWindow?.ShowMessage("Lỗi chuyển mã: " + ex.Message, "#FF0055");
+            }
+        }
+
         public void ExitApplication()
         {
-            SettingsManager.StopSyncWatcher();
-            SoundManager.Cleanup();
-            _caretIndicatorWindow?.Close();
-            _keyboardHook?.Dispose();
-            _clipboardListener?.Dispose();
-            _clipboardHistory?.SaveHistoryNow();
-            _trayManager?.Dispose();
-            _statusOsdWindow?.Close();
-            _clipboardWindow?.Close();
-            _macroQuickListWindow?.Close();
-            _appMutex?.ReleaseMutex();
-            Shutdown();
+            try
+            {
+                SettingsManager.StopSyncWatcher();
+                SoundManager.Cleanup();
+                try { _caretIndicatorWindow?.Close(); } catch { }
+                try { _keyboardHook?.Dispose(); } catch { }
+                try { _clipboardListener?.Dispose(); } catch { }
+                try { _clipboardHistory?.SaveHistoryNow(); } catch { }
+                try { _trayManager?.Dispose(); } catch { }
+                try { _statusOsdWindow?.Close(); } catch { }
+                try { _clipboardWindow?.Close(); } catch { }
+                try { _macroQuickListWindow?.Close(); } catch { }
+                try { _mainWindow?.Close(); } catch { }
+                try { _appMutex?.ReleaseMutex(); } catch { }
+                try { _appMutex?.Dispose(); } catch { }
+            }
+            catch { }
+            finally
+            {
+                try { Shutdown(); } catch { }
+                // Đảm bảo thoát hoàn toàn 100%, không bị kẹt bởi bất kỳ thread ngầm nào
+                Environment.Exit(0);
+            }
         }
 
         protected override void OnExit(ExitEventArgs e)
         {
-            SettingsManager.StopSyncWatcher();
-            SoundManager.Cleanup();
-            _caretIndicatorWindow?.Close();
-            _keyboardHook?.Dispose();
-            _clipboardListener?.Dispose();
-            _clipboardHistory?.SaveHistoryNow();
-            _trayManager?.Dispose();
+            try
+            {
+                SettingsManager.StopSyncWatcher();
+                SoundManager.Cleanup();
+                try { _caretIndicatorWindow?.Close(); } catch { }
+                try { _keyboardHook?.Dispose(); } catch { }
+                try { _clipboardListener?.Dispose(); } catch { }
+                try { _clipboardHistory?.SaveHistoryNow(); } catch { }
+                try { _trayManager?.Dispose(); } catch { }
+            }
+            catch { }
             base.OnExit(e);
         }
     }

@@ -13,31 +13,38 @@ namespace ModernKey.Tray
     {
         private readonly NotifyIcon _notifyIcon;
         private readonly AppSettings _settings;
-        private readonly Action _showMainWindowAction;
+        private readonly Action<int> _showMainWindowAction;
         private readonly Action _showClipboardAction;
         private readonly Action _exitAction;
+        private readonly Action _quickConvertAction;
 
         private Icon _iconViet;
         private Icon _iconEng;
 
         public event Action StateChanged;
 
-        public SystemTrayManager(AppSettings settings, Action showMainWindowAction, Action exitAction, Action showClipboardAction = null)
+        public SystemTrayManager(AppSettings settings, Action<int> showMainWindowAction, Action exitAction, Action showClipboardAction = null, Action quickConvertAction = null)
         {
             _settings = settings;
             _showMainWindowAction = showMainWindowAction;
             _exitAction = exitAction;
             _showClipboardAction = showClipboardAction;
+            _quickConvertAction = quickConvertAction;
 
             _notifyIcon = new NotifyIcon();
             LoadIcons();
 
             _notifyIcon.Visible = true;
             _notifyIcon.MouseClick += NotifyIcon_MouseClick;
-            _notifyIcon.DoubleClick += (s, e) => _showMainWindowAction?.Invoke();
+            _notifyIcon.DoubleClick += (s, e) => _showMainWindowAction?.Invoke(-1);
 
             UpdateTrayIcon();
             BuildContextMenu();
+        }
+
+        public SystemTrayManager(AppSettings settings, Action showMainWindowAction, Action exitAction, Action showClipboardAction = null)
+            : this(settings, _ => showMainWindowAction?.Invoke(), exitAction, showClipboardAction, null)
+        {
         }
 
         [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]
@@ -150,7 +157,7 @@ namespace ModernKey.Tray
         {
             _notifyIcon.Icon = _settings.IsVietnamese ? _iconViet : _iconEng;
             string langStr = _settings.IsVietnamese ? "Tiếng Việt [VI]" : "English [EN]";
-            string modeStr = _settings.CurrentInputMethod.ToString();
+            string modeStr = _settings.CurrentInputMethod == InputMethod.TuBinhTran ? "Tư Bình Trần" : _settings.CurrentInputMethod.ToString();
             string portTag = SettingsManager.IsPortableMode() ? " (Portable)" : "";
             _notifyIcon.Text = $"ModernKey GMTPC [{langStr} - {modeStr}]{portTag}";
         }
@@ -159,83 +166,50 @@ namespace ModernKey.Tray
         {
             var menu = new ContextMenuStrip();
 
-            var itemOpen = new ToolStripMenuItem("Bảng điều khiển ModernKey", null, (s, e) => _showMainWindowAction?.Invoke());
-            itemOpen.Font = new Font(itemOpen.Font, FontStyle.Bold);
-            menu.Items.Add(itemOpen);
-
-            var itemClipboard = new ToolStripMenuItem("Quản lý Clipboard (Win+Ins / Ctrl+Alt+V)", null, (s, e) => _showClipboardAction?.Invoke());
-            menu.Items.Add(itemClipboard);
-
-            menu.Items.Add(new ToolStripSeparator());
-
-            // Chuyển nhanh chế độ gõ
-            var itemLang = new ToolStripMenuItem(_settings.IsVietnamese ? "Chế độ: Tiếng Việt [VI]" : "Chế độ: Tiếng Anh [EN]", null, (s, e) =>
+            // 1. Nhóm Bật/Tắt tính năng nhanh (Chuẩn OpenKey C++ - Ảnh 2)
+            var itemVietnamese = new ToolStripMenuItem("Bật Tiếng Việt", null, (s, e) =>
             {
                 _settings.IsVietnamese = !_settings.IsVietnamese;
                 SettingsManager.SaveSettings(_settings);
                 UpdateTrayIcon();
                 BuildContextMenu();
                 StateChanged?.Invoke();
-            });
-            itemLang.Checked = _settings.IsVietnamese;
-            menu.Items.Add(itemLang);
-
-            // Submenu Kiểu gõ
-            var itemMethod = new ToolStripMenuItem("Kiểu gõ");
-            foreach (InputMethod im in Enum.GetValues(typeof(InputMethod)))
+            })
             {
-                var subItem = new ToolStripMenuItem(im.ToString(), null, (s, e) =>
-                {
-                    _settings.CurrentInputMethod = im;
-                    SettingsManager.SaveSettings(_settings);
-                    UpdateTrayIcon();
-                    BuildContextMenu();
-                    StateChanged?.Invoke();
-                })
-                {
-                    Checked = (_settings.CurrentInputMethod == im)
-                };
-                itemMethod.DropDownItems.Add(subItem);
-            }
-            menu.Items.Add(itemMethod);
+                Checked = _settings.IsVietnamese
+            };
+            menu.Items.Add(itemVietnamese);
 
-            // Submenu Bảng mã
-            var itemCharset = new ToolStripMenuItem("Bảng mã");
-            foreach (Charset cs in Enum.GetValues(typeof(Charset)))
-            {
-                var subItem = new ToolStripMenuItem(cs.ToString(), null, (s, e) =>
-                {
-                    _settings.CurrentCharset = cs;
-                    SettingsManager.SaveSettings(_settings);
-                    BuildContextMenu();
-                    StateChanged?.Invoke();
-                })
-                {
-                    Checked = (_settings.CurrentCharset == cs)
-                };
-                itemCharset.DropDownItems.Add(subItem);
-            }
-            menu.Items.Add(itemCharset);
-
-            menu.Items.Add(new ToolStripSeparator());
-
-            // Tùy chọn nhanh
-            var itemSpelling = new ToolStripMenuItem("Kiểm tra chính tả", null, (s, e) =>
+            var itemSpelling = new ToolStripMenuItem("Bật kiểm tra chính tả", null, (s, e) =>
             {
                 _settings.CheckSpelling = !_settings.CheckSpelling;
                 SettingsManager.SaveSettings(_settings);
                 BuildContextMenu();
+                StateChanged?.Invoke();
             })
             {
                 Checked = _settings.CheckSpelling
             };
             menu.Items.Add(itemSpelling);
 
-            var itemMacro = new ToolStripMenuItem("Cho phép gõ tắt", null, (s, e) =>
+            var itemSmartExclusion = new ToolStripMenuItem("Bật loại trừ ứng dụng thông minh", null, (s, e) =>
+            {
+                _settings.SmartCodePassthrough = !_settings.SmartCodePassthrough;
+                SettingsManager.SaveSettings(_settings);
+                BuildContextMenu();
+                StateChanged?.Invoke();
+            })
+            {
+                Checked = _settings.SmartCodePassthrough
+            };
+            menu.Items.Add(itemSmartExclusion);
+
+            var itemMacro = new ToolStripMenuItem("Bật gõ tắt", null, (s, e) =>
             {
                 _settings.UseMacro = !_settings.UseMacro;
                 SettingsManager.SaveSettings(_settings);
                 BuildContextMenu();
+                StateChanged?.Invoke();
             })
             {
                 Checked = _settings.UseMacro
@@ -244,6 +218,183 @@ namespace ModernKey.Tray
 
             menu.Items.Add(new ToolStripSeparator());
 
+            // 2. Nhóm Công cụ (Chuẩn OpenKey C++ - Ảnh 2)
+            var itemConfigMacro = new ToolStripMenuItem("Cấu hình gõ tắt...", null, (s, e) =>
+            {
+                _showMainWindowAction?.Invoke(2); // Mở Tab Gõ tắt (Tab index 2)
+            });
+            menu.Items.Add(itemConfigMacro);
+
+            var itemConvertTool = new ToolStripMenuItem("Công cụ chuyển mã...", null, (s, e) =>
+            {
+                _showMainWindowAction?.Invoke(3); // Mở Tab Chuyển mã (Tab index 3)
+            });
+            menu.Items.Add(itemConvertTool);
+
+            var itemQuickConvert = new ToolStripMenuItem("Chuyển mã nhanh", null, (s, e) =>
+            {
+                _quickConvertAction?.Invoke();
+            });
+            menu.Items.Add(itemQuickConvert);
+
+            menu.Items.Add(new ToolStripSeparator());
+
+            // 3. Nhóm Kiểu gõ hiển thị 1 chạm (Chuẩn OpenKey C++ - Ảnh 2)
+            void SetMethod(InputMethod im)
+            {
+                _settings.CurrentInputMethod = im;
+                SettingsManager.SaveSettings(_settings);
+                UpdateTrayIcon();
+                BuildContextMenu();
+                StateChanged?.Invoke();
+            }
+
+            var itemTelex = new ToolStripMenuItem("Kiểu gõ Telex", null, (s, e) => SetMethod(InputMethod.Telex))
+            {
+                Checked = (_settings.CurrentInputMethod == InputMethod.Telex)
+            };
+            menu.Items.Add(itemTelex);
+
+            var itemVni = new ToolStripMenuItem("Kiểu gõ VNI", null, (s, e) => SetMethod(InputMethod.Vni))
+            {
+                Checked = (_settings.CurrentInputMethod == InputMethod.Vni)
+            };
+            menu.Items.Add(itemVni);
+
+            var itemSimpleTelex = new ToolStripMenuItem("Kiểu gõ Simple Telex", null, (s, e) => SetMethod(InputMethod.SimpleTelex))
+            {
+                Checked = (_settings.CurrentInputMethod == InputMethod.SimpleTelex)
+            };
+            menu.Items.Add(itemSimpleTelex);
+
+            var itemTuBinhTran = new ToolStripMenuItem("Kiểu gõ Tự Bình Trần đơn giản", null, (s, e) => SetMethod(InputMethod.TuBinhTran))
+            {
+                Checked = (_settings.CurrentInputMethod == InputMethod.TuBinhTran)
+            };
+            menu.Items.Add(itemTuBinhTran);
+
+            var itemCustom = new ToolStripMenuItem("Kiểu gõ Tự định nghĩa", null, (s, e) =>
+            {
+                SetMethod(InputMethod.Custom);
+                // Mở cửa sổ cấu hình kiểu gõ tự định nghĩa
+                System.Windows.Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        var wnd = new CustomInputMethodWindow(_settings);
+                        wnd.Show();
+                        wnd.Activate();
+                    }
+                    catch { }
+                }));
+            })
+            {
+                Checked = (_settings.CurrentInputMethod == InputMethod.Custom)
+            };
+            menu.Items.Add(itemCustom);
+
+            menu.Items.Add(new ToolStripSeparator());
+
+            // 4. Nhóm Bảng mã hiển thị 1 chạm & Bảng mã khác (Chuẩn OpenKey C++ - Ảnh 2)
+            void SetCharset(Charset cs)
+            {
+                _settings.CurrentCharset = cs;
+                SettingsManager.SaveSettings(_settings);
+                BuildContextMenu();
+                StateChanged?.Invoke();
+            }
+
+            var itemUnicode = new ToolStripMenuItem("Unicode dựng sẵn", null, (s, e) => SetCharset(Charset.Unicode))
+            {
+                Checked = (_settings.CurrentCharset == Charset.Unicode)
+            };
+            menu.Items.Add(itemUnicode);
+
+            var itemTcvn3 = new ToolStripMenuItem("TCVN3 (ABC)", null, (s, e) => SetCharset(Charset.TCVN3))
+            {
+                Checked = (_settings.CurrentCharset == Charset.TCVN3)
+            };
+            menu.Items.Add(itemTcvn3);
+
+            var itemVniWin = new ToolStripMenuItem("VNI Windows", null, (s, e) => SetCharset(Charset.VniWindows))
+            {
+                Checked = (_settings.CurrentCharset == Charset.VniWindows)
+            };
+            menu.Items.Add(itemVniWin);
+
+            // Submenu Bảng mã khác (Chuẩn OpenKey C++ - Ảnh 2)
+            var itemOtherCharsets = new ToolStripMenuItem("Bảng mã khác");
+            var otherCharsets = new[]
+            {
+                new { Name = "Unicode tổ hợp", Charset = Charset.UnicodeCompound },
+                new { Name = "VIQR", Charset = Charset.Viqr },
+                new { Name = "BK HCM1", Charset = Charset.BkpHcm1 },
+                new { Name = "BK HCM2", Charset = Charset.BkpHcm2 },
+                new { Name = "Vietware X", Charset = Charset.VietwareX },
+                new { Name = "Vietware F", Charset = Charset.VietwareF }
+            };
+
+            foreach (var oc in otherCharsets)
+            {
+                var csVal = oc.Charset;
+                var subItem = new ToolStripMenuItem(oc.Name, null, (s, e) => SetCharset(csVal))
+                {
+                    Checked = (_settings.CurrentCharset == csVal)
+                };
+                itemOtherCharsets.DropDownItems.Add(subItem);
+            }
+            menu.Items.Add(itemOtherCharsets);
+
+            menu.Items.Add(new ToolStripSeparator());
+
+            // 5. Nhóm Khởi động cùng Windows / Admin (Chuẩn OpenKey C++ - Ảnh 2)
+            var itemStartupUser = new ToolStripMenuItem("Khởi động (không quyền Admin)", null, (s, e) =>
+            {
+                bool willEnable = !(_settings.StartWithWindows && !_settings.StartAsAdmin);
+                _settings.StartWithWindows = willEnable;
+                _settings.StartAsAdmin = false;
+                SettingsManager.ApplyStartupConfig(_settings.StartWithWindows, _settings.StartAsAdmin);
+                SettingsManager.SaveSettings(_settings);
+                BuildContextMenu();
+            })
+            {
+                Checked = (_settings.StartWithWindows && !_settings.StartAsAdmin)
+            };
+            menu.Items.Add(itemStartupUser);
+
+            var itemStartupAdmin = new ToolStripMenuItem("Khởi động với quyền Admin", null, (s, e) =>
+            {
+                bool willEnable = !(_settings.StartWithWindows && _settings.StartAsAdmin);
+                _settings.StartWithWindows = willEnable;
+                _settings.StartAsAdmin = willEnable;
+                SettingsManager.ApplyStartupConfig(_settings.StartWithWindows, _settings.StartAsAdmin);
+                SettingsManager.SaveSettings(_settings);
+                BuildContextMenu();
+            })
+            {
+                Checked = (_settings.StartWithWindows && _settings.StartAsAdmin)
+            };
+            menu.Items.Add(itemStartupAdmin);
+
+            menu.Items.Add(new ToolStripSeparator());
+
+            // 6. Nhóm Bảng điều khiển & Tiện ích ModernKey
+            var itemOpen = new ToolStripMenuItem("Bảng điều khiển...", null, (s, e) => _showMainWindowAction?.Invoke(-1));
+            itemOpen.Font = new Font(itemOpen.Font, FontStyle.Bold);
+            menu.Items.Add(itemOpen);
+
+            var itemClipboard = new ToolStripMenuItem("Quản lý Clipboard (Win+Ins / Ctrl+Alt+V)", null, (s, e) => _showClipboardAction?.Invoke());
+            menu.Items.Add(itemClipboard);
+
+            var itemAbout = new ToolStripMenuItem("Giới thiệu ModernKey...", null, (s, e) =>
+            {
+                _showMainWindowAction?.Invoke(7); // Mở Tab Thông tin (Tab index 7)
+            });
+            menu.Items.Add(itemAbout);
+
+            menu.Items.Add(new ToolStripSeparator());
+
+            // 7. Nút Thoát sạch an toàn
             var itemExit = new ToolStripMenuItem("Thoát", null, (s, e) => _exitAction?.Invoke());
             menu.Items.Add(itemExit);
 
@@ -252,10 +403,14 @@ namespace ModernKey.Tray
 
         public void Dispose()
         {
-            _notifyIcon.Visible = false;
-            _notifyIcon.Dispose();
-            _iconViet?.Dispose();
-            _iconEng?.Dispose();
+            try
+            {
+                _notifyIcon.Visible = false;
+                _notifyIcon.Dispose();
+                _iconViet?.Dispose();
+                _iconEng?.Dispose();
+            }
+            catch { }
         }
     }
 }

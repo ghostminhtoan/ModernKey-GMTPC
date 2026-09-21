@@ -507,9 +507,17 @@ namespace ModernKey.Core
         {
             if (action == null) return;
             var app = Application.Current;
-            if (app != null && app.Dispatcher != null && !app.Dispatcher.CheckAccess())
+            if (app != null && app.Dispatcher != null)
             {
-                app.Dispatcher.Invoke(action);
+                if (app.Dispatcher.CheckAccess())
+                {
+                    action();
+                }
+                else
+                {
+                    // Dùng BeginInvoke bất đồng bộ để luồng nền không bao giờ bị khóa cứng (deadlock) khi UI thread bận
+                    app.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, action);
+                }
             }
             else
             {

@@ -673,12 +673,32 @@ namespace ModernKey
             }
         }
 
+        public void SelectTab(int index)
+        {
+            if (MainTabControl != null && index >= 0 && index < MainTabControl.Items.Count)
+            {
+                MainTabControl.SelectedIndex = index;
+            }
+        }
+
         public void SelectMacroTab()
         {
-            if (MainTabControl != null)
-            {
-                MainTabControl.SelectedIndex = 2; // Tab GÕ TẮT
-            }
+            SelectTab(2); // Tab 2: GÕ TẮT
+        }
+
+        public void SelectConvertTab()
+        {
+            SelectTab(3); // Tab 3: CHUYỂN MÃ
+        }
+
+        public void SelectOptionsTab()
+        {
+            SelectTab(1); // Tab 1: TÙY CHỌN
+        }
+
+        public void SelectAboutTab()
+        {
+            SelectTab(7); // Tab 7: THÔNG TIN
         }
 
         private void SettingCheckChanged(object sender, RoutedEventArgs e)
