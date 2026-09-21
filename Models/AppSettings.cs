@@ -103,6 +103,10 @@ namespace ModernKey.Models
         public bool ClipboardMergePrefixAsterisk { get; set; } = false;  // Dấu hoa thị: * 
         public bool ClipboardMergeDoubleSpacing { get; set; } = false;   // Xuống dòng đúp (\n\n) thay vì đơn (\n)
 
+        // Chế độ dán liên tiếp và giao diện thu gọn
+        public bool ClipboardSequentialPaste { get; set; } = false;
+        public bool ClipboardViewModeCompact { get; set; } = false;
+
         // Tạm dừng thông minh cho lập trình viên (Smart Passthrough & Esc Undo)
         public bool SmartCodePassthrough { get; set; } = true;
         public bool EscKeyUndo { get; set; } = true;

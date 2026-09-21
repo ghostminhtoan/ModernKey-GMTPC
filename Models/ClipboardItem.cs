@@ -106,6 +106,72 @@ namespace ModernKey.Models
         public string FavoriteIcon => IsFavorite ? "★" : "☆";
         public string FavoriteBrush => IsFavorite ? "#FFE600" : "#55657E";
 
+        private bool _isUrl = false;
+        public bool IsUrl
+        {
+            get => _isUrl;
+            set
+            {
+                if (_isUrl != value)
+                {
+                    _isUrl = value;
+                    OnPropertyChanged(nameof(IsUrl));
+                    OnPropertyChanged(nameof(TypeBadge));
+                }
+            }
+        }
+
+        private bool _isCode = false;
+        public bool IsCode
+        {
+            get => _isCode;
+            set
+            {
+                if (_isCode != value)
+                {
+                    _isCode = value;
+                    OnPropertyChanged(nameof(IsCode));
+                    OnPropertyChanged(nameof(TypeBadge));
+                }
+            }
+        }
+
+        private int _slotNumber = 0;
+        public int SlotNumber
+        {
+            get => _slotNumber;
+            set
+            {
+                if (_slotNumber != value)
+                {
+                    _slotNumber = value;
+                    OnPropertyChanged(nameof(SlotNumber));
+                    OnPropertyChanged(nameof(SlotBadgeText));
+                    OnPropertyChanged(nameof(SlotBadgeVisibility));
+                }
+            }
+        }
+        public string SlotBadgeText => _slotNumber >= 1 && _slotNumber <= 9 ? $"[{_slotNumber}]" : string.Empty;
+        public Visibility SlotBadgeVisibility => _slotNumber >= 1 && _slotNumber <= 9 ? Visibility.Visible : Visibility.Collapsed;
+
+        private bool _isCompactView = false;
+        public bool IsCompactView
+        {
+            get => _isCompactView;
+            set
+            {
+                if (_isCompactView != value)
+                {
+                    _isCompactView = value;
+                    OnPropertyChanged(nameof(IsCompactView));
+                    OnPropertyChanged(nameof(CompactItemPadding));
+                    OnPropertyChanged(nameof(CompactSubInfoVisibility));
+                }
+            }
+        }
+        public Thickness CompactItemPadding => _isCompactView ? new Thickness(6, 2, 6, 2) : new Thickness(8, 6, 8, 6);
+        public Visibility CompactSubInfoVisibility => _isCompactView ? Visibility.Collapsed : Visibility.Visible;
+
         public string TypeBadge
         {
             get
@@ -126,6 +192,9 @@ namespace ModernKey.Models
                     }
                     return "[FILES]";
                 }
+                if (IsColorCode) return "[COLOR]";
+                if (IsUrl) return "[LINK]";
+                if (IsCode) return "[CODE]";
                 return (TextContent != null && TextContent.IndexOf('\n') >= 0 ? "[TXT+]" : "[TXT]");
             }
         }
@@ -439,6 +508,40 @@ namespace ModernKey.Models
                 catch { }
             }
 
+            // 2. Nhận diện URL / Web Link
+            if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+                (trimmed.StartsWith("www.", StringComparison.OrdinalIgnoreCase) && trimmed.Contains(".")) ||
+                (Uri.TryCreate(trimmed, UriKind.Absolute, out Uri uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps)))
+            {
+                IsUrl = true;
+            }
+            else
+            {
+                IsUrl = false;
+            }
+
+            // 3. Nhận diện Code Snippet (từ khóa ngôn ngữ, cú pháp ngoặc, indentation, tag HTML/XML)
+            if (!IsUrl && !IsColorCode)
+            {
+                bool hasCodeKeywords = System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"\b(function|class|const|let|var|def|return|public|private|protected|import|using|namespace|typeof|console\.log|printf|SELECT|FROM|WHERE|INSERT|UPDATE|DELETE)\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                bool hasBracketsOrTags = (trimmed.Contains("{") && trimmed.Contains("}")) || (trimmed.Contains("</") || trimmed.Contains("/>")) || (trimmed.StartsWith("{") && trimmed.EndsWith("}")) || (trimmed.StartsWith("[") && trimmed.EndsWith("]"));
+                bool isMultiLine = trimmed.IndexOf('\n') >= 0;
+
+                if (hasCodeKeywords || (hasBracketsOrTags && (isMultiLine || trimmed.Length > 20)))
+                {
+                    IsCode = true;
+                }
+                else
+                {
+                    IsCode = false;
+                }
+            }
+            else
+            {
+                IsCode = false;
+            }
+
             // Tắt tính năng tự động mask dữ liệu (Feature 6 cũ đã bỏ)
             IsSensitive = false;
         }
@@ -493,7 +596,11 @@ namespace ModernKey.Models
                 IsBlurred = this.IsBlurred,
                 BlurMode = this.BlurMode,
                 BlurRadius = this.BlurRadius,
-                PixelateSize = this.PixelateSize
+                PixelateSize = this.PixelateSize,
+                IsUrl = this.IsUrl,
+                IsCode = this.IsCode,
+                SlotNumber = this.SlotNumber,
+                IsCompactView = this.IsCompactView
             };
         }
 

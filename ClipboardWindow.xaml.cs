@@ -29,6 +29,55 @@ namespace ModernKey
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool SetForegroundWindow(IntPtr hWnd);
 
+        [DllImport("user32.dll")]
+        private static extern bool ReleaseCapture();
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr MonitorFromWindow(IntPtr handle, uint flags);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        private static extern bool GetMonitorInfo(IntPtr hMonitor, MONITORINFO lpmi);
+
+        private const int WM_SYSCOMMAND = 0x0112;
+        private const int SC_SIZE = 0xF000;
+        private const int WM_GETMINMAXINFO = 0x0024;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT
+        {
+            public int x;
+            public int y;
+            public POINT(int x, int y) { this.x = x; this.y = y; }
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MINMAXINFO
+        {
+            public POINT ptReserved;
+            public POINT ptMaxSize;
+            public POINT ptMaxPosition;
+            public POINT ptMinTrackSize;
+            public POINT ptMaxTrackSize;
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+        private class MONITORINFO
+        {
+            public int cbSize = Marshal.SizeOf(typeof(MONITORINFO));
+            public RECT rcMonitor = new RECT();
+            public RECT rcWork = new RECT();
+            public int dwFlags = 0;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT
+        {
+            public int left, top, right, bottom;
+        }
+
         private readonly ClipboardHistoryManager _historyManager;
         private readonly AppSettings _settings;
         private IntPtr _lastTargetHwnd = IntPtr.Zero;
@@ -51,6 +100,12 @@ namespace ModernKey
             InitializeComponent();
 
             InitCollectionView();
+
+            if (_settings != null)
+            {
+                _isSequentialPaste = _settings.ClipboardSequentialPaste;
+                _isCompactMode = _settings.ClipboardViewModeCompact;
+            }
 
             if (_historyManager != null)
             {
@@ -178,6 +233,9 @@ namespace ModernKey
         private void ClipboardWindow_Loaded(object sender, RoutedEventArgs e)
         {
             UpdateMergeOptionsButtonLabel();
+            UpdateSequentialPasteUI();
+            UpdateCompactModeUI();
+            ApplyCompactModeToItems();
             if (LstClipboard != null && (LstClipboard.ItemsSource == null || LstClipboard.ItemsSource != _itemsView || _itemsView == null))
             {
                 InitCollectionView();
@@ -188,6 +246,7 @@ namespace ModernKey
             }
 
             EnsureAppropriateSelection();
+            UpdateSlotNumbers();
             ApplyBlurModeUI();
         }
 
@@ -253,6 +312,43 @@ namespace ModernKey
             }
 
             EnsureAppropriateSelection();
+            UpdateSlotNumbers();
+
+            // Gợi ý 1: Smart Anchoring - Neo thông minh theo vị trí con trỏ chuột/caret và chống tràn viền màn hình
+            try
+            {
+                var mousePos = System.Windows.Forms.Cursor.Position;
+                var currentScreen = System.Windows.Forms.Screen.FromPoint(mousePos);
+                var workArea = currentScreen.WorkingArea;
+
+                if (WindowState != WindowState.Maximized)
+                {
+                    double w = ActualWidth > 0 ? ActualWidth : Width;
+                    double h = ActualHeight > 0 ? ActualHeight : Height;
+
+                    double targetLeft = mousePos.X + 16;
+                    double targetTop = mousePos.Y + 16;
+
+                    // Lật sang trái nếu vượt quá mép phải
+                    if (targetLeft + w > workArea.Right)
+                    {
+                        targetLeft = mousePos.X - w - 16;
+                    }
+                    // Lật lên trên nếu vượt quá mép dưới
+                    if (targetTop + h > workArea.Bottom)
+                    {
+                        targetTop = mousePos.Y - h - 16;
+                    }
+
+                    // Đảm bảo không bị khuất ra ngoài cạnh trái / trên
+                    if (targetLeft < workArea.Left) targetLeft = workArea.Left + 8;
+                    if (targetTop < workArea.Top) targetTop = workArea.Top + 8;
+
+                    Left = targetLeft;
+                    Top = targetTop;
+                }
+            }
+            catch { }
 
             Show();
             if (WindowState == WindowState.Minimized)
@@ -299,11 +395,13 @@ namespace ModernKey
         {
             if (!(obj is ClipboardItem item)) return false;
 
-            // 1. Lọc theo tab danh mục & thời gian (Chuẩn Comfort Keys Pro)
+            // 1. Lọc theo tab danh mục & thời gian (Chuẩn Comfort Keys Pro & Tab Pills)
             if (_activeFilter == "FAV" && !item.IsFavorite) return false;
             if (_activeFilter == "TXT" && item.ContentType != ClipboardContentType.Text) return false;
             if (_activeFilter == "IMG" && item.ContentType != ClipboardContentType.Image) return false;
             if (_activeFilter == "FILES" && item.ContentType != ClipboardContentType.Files) return false;
+            if (_activeFilter == "URL" && !item.IsUrl) return false;
+            if (_activeFilter == "CODE" && !item.IsCode) return false;
 
             if (_activeFilter == "SESSION" && item.Timestamp < _sessionStartTime) return false;
             if (_activeFilter == "TODAY" && item.Timestamp.Date != DateTime.Today) return false;
@@ -319,14 +417,14 @@ namespace ModernKey
                 }
             }
 
-            // 2. Lọc theo từ khóa tìm kiếm
+            // 2. Lọc theo từ khóa tìm kiếm (Gợi ý 7: Fuzzy match hỗ trợ gõ tắt và không dấu)
             string query = TxtSearch.Text?.Trim();
             if (!string.IsNullOrEmpty(query))
             {
-                if (item.TextContent != null && item.TextContent.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
-                    return true;
-                if (item.PreviewText != null && item.PreviewText.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
-                    return true;
+                if (IsFuzzyMatch(item.TextContent, query)) return true;
+                if (IsFuzzyMatch(item.PreviewText, query)) return true;
+                if (IsFuzzyMatch(item.CustomTitle, query)) return true;
+                if (IsFuzzyMatch(item.GroupName, query)) return true;
                 return false;
             }
 
@@ -337,6 +435,7 @@ namespace ModernKey
         {
             if (LstClipboard == null) return;
             _itemsView?.Refresh();
+            UpdateSlotNumbers();
             EnsureAppropriateSelection();
         }
 
@@ -1424,8 +1523,10 @@ namespace ModernKey
             if (item == null) return;
             _lastActiveItemId = item.Id;
 
-            // Ẩn HUD ngay lập tức nếu bật AutoHide
-            if (_settings != null && _settings.ClipboardAutoHide)
+            bool keepHudOpen = _isSequentialPaste || (Keyboard.Modifiers & ModifierKeys.Control) != 0;
+
+            // Ẩn HUD ngay lập tức nếu bật AutoHide và không ở chế độ dán liên tiếp
+            if (!keepHudOpen && _settings != null && _settings.ClipboardAutoHide)
             {
                 Hide();
             }
@@ -1533,6 +1634,27 @@ namespace ModernKey
 
                 Thread.Sleep(30);
                 KeySender.SendCtrlVPaste();
+
+                if (keepHudOpen)
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (LstClipboard != null && LstClipboard.Items.Count > 0)
+                        {
+                            int nextIdx = LstClipboard.SelectedIndex + 1;
+                            if (nextIdx < LstClipboard.Items.Count)
+                            {
+                                LstClipboard.SelectedIndex = nextIdx;
+                                var nextItem = LstClipboard.SelectedItem as ClipboardItem;
+                                if (nextItem != null) LstClipboard.ScrollIntoView(nextItem);
+                            }
+                        }
+                        if (TxtStatus != null)
+                        {
+                            TxtStatus.Text = "✓ [DÁN LIÊN TIẾP] Đã dán mục, sẵn sàng dán mục tiếp theo!";
+                        }
+                    }));
+                }
 
                 ThreadPool.QueueUserWorkItem(__ =>
                 {
@@ -1685,11 +1807,427 @@ namespace ModernKey
 
         private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (e.LeftButton == MouseButtonState.Pressed)
+            if (e.ClickCount == 2)
+            {
+                ToggleMaximize();
+            }
+            else if (e.LeftButton == MouseButtonState.Pressed)
             {
                 DragMove();
             }
         }
+
+        #region Window Control & Resizing (Chuẩn Window, Maximize, Resize)
+
+        private void ClipboardWindow_SourceInitialized(object sender, EventArgs e)
+        {
+            var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+            var source = System.Windows.Interop.HwndSource.FromHwnd(handle);
+            source?.AddHook(WindowProc);
+        }
+
+        private IntPtr WindowProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (msg == WM_GETMINMAXINFO)
+            {
+                WmGetMinMaxInfo(hwnd, lParam);
+                handled = true;
+            }
+            return IntPtr.Zero;
+        }
+
+        private void WmGetMinMaxInfo(IntPtr hwnd, IntPtr lParam)
+        {
+            try
+            {
+                MINMAXINFO mmi = (MINMAXINFO)Marshal.PtrToStructure(lParam, typeof(MINMAXINFO));
+                IntPtr monitor = MonitorFromWindow(hwnd, 2); // MONITOR_DEFAULTTONEAREST
+                if (monitor != IntPtr.Zero)
+                {
+                    MONITORINFO mi = new MONITORINFO();
+                    if (GetMonitorInfo(monitor, mi))
+                    {
+                        RECT rcWork = mi.rcWork;
+                        RECT rcMonitor = mi.rcMonitor;
+                        mmi.ptMaxPosition.x = Math.Abs(rcWork.left - rcMonitor.left);
+                        mmi.ptMaxPosition.y = Math.Abs(rcWork.top - rcMonitor.top);
+                        mmi.ptMaxSize.x = Math.Abs(rcWork.right - rcWork.left);
+                        mmi.ptMaxSize.y = Math.Abs(rcWork.bottom - rcWork.top);
+                        mmi.ptMinTrackSize.x = (int)MinWidth;
+                        mmi.ptMinTrackSize.y = (int)MinHeight;
+                    }
+                }
+                Marshal.StructureToPtr(mmi, lParam, true);
+            }
+            catch { }
+        }
+
+        private void Window_StateChanged(object sender, EventArgs e)
+        {
+            if (WindowState == WindowState.Maximized)
+            {
+                if (MainContainerBorder != null)
+                {
+                    MainContainerBorder.Margin = new Thickness(0);
+                    MainContainerBorder.CornerRadius = new CornerRadius(0);
+                }
+                if (TxtMaximizeIcon != null) TxtMaximizeIcon.Text = "🗗";
+                if (BtnMaximize != null) BtnMaximize.ToolTip = "Khôi phục kích thước cửa sổ";
+            }
+            else
+            {
+                if (MainContainerBorder != null)
+                {
+                    MainContainerBorder.Margin = new Thickness(8);
+                    MainContainerBorder.CornerRadius = new CornerRadius(4);
+                }
+                if (TxtMaximizeIcon != null) TxtMaximizeIcon.Text = "🗖";
+                if (BtnMaximize != null) BtnMaximize.ToolTip = "Phóng to (Maximize)";
+            }
+        }
+
+        private void BtnMinimize_Click(object sender, RoutedEventArgs e)
+        {
+            WindowState = WindowState.Minimized;
+        }
+
+        private void BtnMaximize_Click(object sender, RoutedEventArgs e)
+        {
+            ToggleMaximize();
+        }
+
+        public void ToggleMaximize()
+        {
+            WindowState = (WindowState == WindowState.Maximized) ? WindowState.Normal : WindowState.Maximized;
+        }
+
+        private void ResizeHandle_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (WindowState == WindowState.Maximized) return;
+            if (e.LeftButton == MouseButtonState.Pressed && sender is FrameworkElement fe && fe.Tag is string tag)
+            {
+                int direction = 0;
+                switch (tag)
+                {
+                    case "Left": direction = 1; break;
+                    case "Right": direction = 2; break;
+                    case "Top": direction = 3; break;
+                    case "TopLeft": direction = 4; break;
+                    case "TopRight": direction = 5; break;
+                    case "Bottom": direction = 6; break;
+                    case "BottomLeft": direction = 7; break;
+                    case "BottomRight": direction = 8; break;
+                }
+                if (direction > 0)
+                {
+                    var hwnd = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+                    ReleaseCapture();
+                    SendMessage(hwnd, WM_SYSCOMMAND, (IntPtr)(SC_SIZE + direction), IntPtr.Zero);
+                    e.Handled = true;
+                }
+            }
+        }
+
+        #endregion
+
+        #region Dán Liên Tiếp & Giao Diện Thu Gọn (Sequential Paste & Compact Mode)
+
+        private bool _isSequentialPaste = false;
+        public bool IsSequentialPaste
+        {
+            get => _isSequentialPaste;
+            set
+            {
+                _isSequentialPaste = value;
+                if (_settings != null) _settings.ClipboardSequentialPaste = value;
+                UpdateSequentialPasteUI();
+            }
+        }
+
+        private void BtnSequentialPasteToggle_Click(object sender, RoutedEventArgs e)
+        {
+            ToggleSequentialPaste();
+        }
+
+        public void ToggleSequentialPaste()
+        {
+            IsSequentialPaste = !IsSequentialPaste;
+            if (TxtStatus != null)
+            {
+                TxtStatus.Text = _isSequentialPaste
+                    ? "✓ Chế độ Dán Liên Tiếp: ĐÃ BẬT (HUD sẽ giữ mở sau khi dán)"
+                    : "✓ Chế độ Dán Liên Tiếp: ĐÃ TẮT";
+            }
+        }
+
+        private void UpdateSequentialPasteUI()
+        {
+            if (BtnSequentialPasteToggle == null || TxtSequentialLabel == null || TxtSequentialIcon == null) return;
+            if (_isSequentialPaste)
+            {
+                BtnSequentialPasteToggle.Background = (Brush)new BrushConverter().ConvertFromString("#183526");
+                BtnSequentialPasteToggle.BorderBrush = (Brush)new BrushConverter().ConvertFromString("#00FF66");
+                TxtSequentialLabel.Foreground = (Brush)new BrushConverter().ConvertFromString("#00FF66");
+                TxtSequentialLabel.Text = "DÁN LIÊN TIẾP: BẬT";
+                TxtSequentialIcon.Foreground = (Brush)new BrushConverter().ConvertFromString("#00FF66");
+            }
+            else
+            {
+                BtnSequentialPasteToggle.Background = (Brush)new BrushConverter().ConvertFromString("#101B24");
+                BtnSequentialPasteToggle.BorderBrush = (Brush)FindResource("CyberBorderDim");
+                TxtSequentialLabel.Foreground = (Brush)FindResource("CyberTextSecondary");
+                TxtSequentialLabel.Text = "DÁN LIÊN TIẾP: TẮT";
+                TxtSequentialIcon.Foreground = (Brush)FindResource("CyberTextSecondary");
+            }
+        }
+
+        private bool _isCompactMode = false;
+        public bool IsCompactMode
+        {
+            get => _isCompactMode;
+            set
+            {
+                _isCompactMode = value;
+                if (_settings != null) _settings.ClipboardViewModeCompact = value;
+                UpdateCompactModeUI();
+                ApplyCompactModeToItems();
+            }
+        }
+
+        private void BtnCompactToggle_Click(object sender, RoutedEventArgs e)
+        {
+            ToggleCompactMode();
+        }
+
+        public void ToggleCompactMode()
+        {
+            IsCompactMode = !IsCompactMode;
+            if (TxtStatus != null)
+            {
+                TxtStatus.Text = _isCompactMode ? "✓ Chế độ xem: THU GỌN (1 dòng)" : "✓ Chế độ xem: ĐẦY ĐỦ (2 dòng)";
+            }
+        }
+
+        private void UpdateCompactModeUI()
+        {
+            if (BtnCompactToggle == null || TxtCompactLabel == null) return;
+            if (_isCompactMode)
+            {
+                BtnCompactToggle.Background = (Brush)new BrushConverter().ConvertFromString("#1F3325");
+                BtnCompactToggle.BorderBrush = (Brush)new BrushConverter().ConvertFromString("#00FF66");
+                TxtCompactLabel.Foreground = (Brush)new BrushConverter().ConvertFromString("#00FF66");
+                TxtCompactLabel.Text = "☰ GỌN (BẬT)";
+            }
+            else
+            {
+                BtnCompactToggle.Background = (Brush)new BrushConverter().ConvertFromString("#10141E");
+                BtnCompactToggle.BorderBrush = (Brush)FindResource("CyberNeonCyan");
+                TxtCompactLabel.Foreground = (Brush)FindResource("CyberNeonCyan");
+                TxtCompactLabel.Text = "☰ GỌN";
+            }
+        }
+
+        private void ApplyCompactModeToItems()
+        {
+            if (_historyManager != null)
+            {
+                foreach (var item in _historyManager.Items) item.IsCompactView = _isCompactMode;
+                foreach (var item in _historyManager.FavoriteItems) item.IsCompactView = _isCompactMode;
+            }
+            _itemsView?.Refresh();
+        }
+
+        private void UpdateSlotNumbers()
+        {
+            if (LstClipboard == null) return;
+            int slot = 1;
+            foreach (var obj in LstClipboard.Items)
+            {
+                if (obj is ClipboardItem item)
+                {
+                    item.SlotNumber = (slot <= 9) ? slot : 0;
+                    slot++;
+                }
+            }
+        }
+
+        #endregion
+
+        #region Tab Filter & Quick Look Inspector & In-Line Actions
+
+        private void FilterTab_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is string tag)
+            {
+                _activeFilter = tag;
+                HighlightActiveTab(tag);
+                _itemsView?.Refresh();
+                UpdateSlotNumbers();
+                EnsureAppropriateSelection();
+            }
+        }
+
+        private void HighlightActiveTab(string activeTag)
+        {
+            var tabs = new[] { BtnTabAll, BtnTabFav, BtnTabImg, BtnTabUrl, BtnTabCode, BtnTabFiles };
+            foreach (var t in tabs)
+            {
+                if (t == null) continue;
+                bool isActive = string.Equals(t.Tag as string, activeTag, StringComparison.OrdinalIgnoreCase);
+                t.Background = isActive ? (Brush)new BrushConverter().ConvertFromString("#142B3E") : (Brush)new BrushConverter().ConvertFromString("#10141E");
+                t.BorderBrush = isActive ? (Brush)FindResource("CyberNeonCyan") : (Brush)FindResource("CyberBorderDim");
+                t.FontWeight = isActive ? FontWeights.Bold : FontWeights.SemiBold;
+            }
+        }
+
+        public void ToggleQuickLook()
+        {
+            if (PnlQuickLook != null && PnlQuickLook.Visibility == Visibility.Visible)
+            {
+                CloseQuickLook();
+            }
+            else
+            {
+                if (LstClipboard?.SelectedItem is ClipboardItem item)
+                {
+                    OpenQuickLook(item);
+                }
+            }
+        }
+
+        public void OpenQuickLook(ClipboardItem item)
+        {
+            if (item == null || PnlQuickLook == null) return;
+
+            if (TxtQuickLookTitle != null)
+            {
+                string typeLabel = item.TypeBadge;
+                string sub = item.HasCustomTitle ? item.CustomTitle : (item.ContentType == ClipboardContentType.Image ? "[ẢNH]" : $"{item.CharCount} ký tự");
+                TxtQuickLookTitle.Text = $"{typeLabel} - {sub}";
+            }
+
+            if (item.ContentType == ClipboardContentType.Image)
+            {
+                if (TxtQuickLookBody != null) TxtQuickLookBody.Visibility = Visibility.Collapsed;
+                if (ImgQuickLookBody != null)
+                {
+                    ImgQuickLookBody.Visibility = Visibility.Visible;
+                    ImgQuickLookBody.Source = item.ImageSource;
+                }
+            }
+            else
+            {
+                if (ImgQuickLookBody != null) ImgQuickLookBody.Visibility = Visibility.Collapsed;
+                if (TxtQuickLookBody != null)
+                {
+                    TxtQuickLookBody.Visibility = Visibility.Visible;
+                    TxtQuickLookBody.Text = item.TextContent ?? string.Empty;
+                }
+            }
+
+            PnlQuickLook.Visibility = Visibility.Visible;
+        }
+
+        public void CloseQuickLook()
+        {
+            if (PnlQuickLook != null)
+            {
+                PnlQuickLook.Visibility = Visibility.Collapsed;
+                if (ImgQuickLookBody != null) ImgQuickLookBody.Source = null;
+            }
+        }
+
+        private void BtnCloseQuickLook_Click(object sender, RoutedEventArgs e)
+        {
+            CloseQuickLook();
+        }
+
+        private void BtnQuickLookPaste_Click(object sender, RoutedEventArgs e)
+        {
+            CloseQuickLook();
+            ExecutePasteSelected(false, false);
+        }
+
+        private void BtnQuickLookCopy_Click(object sender, RoutedEventArgs e)
+        {
+            ExecuteCopySelectedToClipboard();
+            if (TxtStatus != null) TxtStatus.Text = "✓ Đã sao chép nội dung Quick Look vào Clipboard!";
+        }
+
+        private void BtnItemQuickCopy_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.DataContext is ClipboardItem item)
+            {
+                LstClipboard.SelectedItem = item;
+                ExecuteCopySelectedToClipboard();
+            }
+        }
+
+        private void BtnItemQuickLook_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.DataContext is ClipboardItem item)
+            {
+                LstClipboard.SelectedItem = item;
+                OpenQuickLook(item);
+            }
+        }
+
+        private void BtnItemDelete_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.DataContext is ClipboardItem item)
+            {
+                LstClipboard.SelectedItem = item;
+                BtnDeleteItem_Click(sender, e);
+            }
+        }
+
+        private static bool IsFuzzyMatch(string source, string query)
+        {
+            if (string.IsNullOrEmpty(query)) return true;
+            if (string.IsNullOrEmpty(source)) return false;
+
+            // 1. So khớp trực tiếp (nhanh)
+            if (source.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+
+            // 2. So khớp không dấu tiếng Việt
+            string sClean = RemoveDiacritics(source);
+            string qClean = RemoveDiacritics(query);
+            if (sClean.IndexOf(qClean, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+
+            // 3. So khớp dãy ký tự con (Subsequence match - gõ tắt)
+            if (qClean.Length > 1 && qClean.Length <= 8)
+            {
+                int qIdx = 0;
+                for (int sIdx = 0; sIdx < sClean.Length && qIdx < qClean.Length; sIdx++)
+                {
+                    if (char.ToLowerInvariant(sClean[sIdx]) == char.ToLowerInvariant(qClean[qIdx]))
+                    {
+                        qIdx++;
+                    }
+                }
+                if (qIdx == qClean.Length) return true;
+            }
+
+            return false;
+        }
+
+        private static string RemoveDiacritics(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return string.Empty;
+            var normalized = text.Normalize(NormalizationForm.FormD);
+            var sb = new StringBuilder(normalized.Length);
+            foreach (char c in normalized)
+            {
+                var uc = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c);
+                if (uc != System.Globalization.UnicodeCategory.NonSpacingMark)
+                {
+                    sb.Append(c);
+                }
+            }
+            return sb.ToString().Normalize(NormalizationForm.FormC);
+        }
+
+        #endregion
 
         #region Context Menu Handlers (Comfort Keys Pro Standard)
 
@@ -2514,9 +3052,39 @@ namespace ModernKey
 
         private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
         {
+            // Nếu khung Quick Look Inspector đang mở
+            if (PnlQuickLook != null && PnlQuickLook.Visibility == Visibility.Visible)
+            {
+                if (e.Key == Key.Escape || e.Key == Key.Space)
+                {
+                    CloseQuickLook();
+                    e.Handled = true;
+                    return;
+                }
+                if (e.Key == Key.Enter)
+                {
+                    CloseQuickLook();
+                    ExecutePasteSelected(false, false);
+                    e.Handled = true;
+                    return;
+                }
+                if (e.Key == Key.C && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
+                {
+                    ExecuteCopySelectedToClipboard();
+                    e.Handled = true;
+                    return;
+                }
+            }
+
             if (e.Key == Key.Escape)
             {
                 Hide();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Enter && (Keyboard.Modifiers & ModifierKeys.Shift) != 0)
+            {
+                // Shift + Enter: Dán Plain Text (Văn bản thuần không định dạng)
+                ExecutePasteSelected(true, false);
                 e.Handled = true;
             }
             else if (e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.None)
@@ -2527,6 +3095,18 @@ namespace ModernKey
             else if (e.Key == Key.Insert && Keyboard.Modifiers == ModifierKeys.None)
             {
                 ExecutePasteSelected(false, false);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Space && (TxtSearch == null || !TxtSearch.IsFocused) && (TxtPreview == null || !TxtPreview.IsFocused))
+            {
+                // Phím Space: Bật/Tắt khung Quick Look Inspector phóng to
+                ToggleQuickLook();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Q && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
+            {
+                // Ctrl + Q: Bật/Tắt chế độ Dán liên tiếp
+                ToggleSequentialPaste();
                 e.Handled = true;
             }
             else if (e.Key == Key.D && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
@@ -2644,10 +3224,26 @@ namespace ModernKey
                 ExecutePasteSelected(true, false);
                 e.Handled = true;
             }
-            else if (e.Key == Key.D1 && !TxtSearch.IsFocused && Keyboard.Modifiers == ModifierKeys.None)
+            // Gợi ý 2: Bấm phím 1-9 dán tức thì slot 1-9 (hỗ trợ phím số chính, numpad, và Alt+1..9)
+            else if (((Keyboard.Modifiers == ModifierKeys.None && (TxtSearch == null || !TxtSearch.IsFocused) && (TxtPreview == null || !TxtPreview.IsFocused)) || (Keyboard.Modifiers & ModifierKeys.Alt) != 0)
+                     && ((e.Key >= Key.D1 && e.Key <= Key.D9) || (e.Key >= Key.NumPad1 && e.Key <= Key.NumPad9)))
             {
-                ExecutePasteSelected(false, true);
-                e.Handled = true;
+                int digit = -1;
+                if (e.Key >= Key.D1 && e.Key <= Key.D9) digit = (int)(e.Key - Key.D1) + 1;
+                else if (e.Key >= Key.NumPad1 && e.Key <= Key.NumPad9) digit = (int)(e.Key - Key.NumPad1) + 1;
+
+                if (digit >= 1 && digit <= 9 && LstClipboard != null)
+                {
+                    var items = LstClipboard.Items.Cast<ClipboardItem>().ToList();
+                    if (items.Count >= digit)
+                    {
+                        var target = items[digit - 1];
+                        LstClipboard.SelectedItem = target;
+                        ExecutePaste(target, false, false);
+                        e.Handled = true;
+                        return;
+                    }
+                }
             }
             else if ((e.Key == Key.Down || e.Key == Key.Up) && TxtSearch.IsFocused)
             {
