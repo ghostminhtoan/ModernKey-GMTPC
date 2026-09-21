@@ -60,10 +60,11 @@
                             </TextBlock>
                         </StackPanel>
                     </StackPanel>
-                </StackPanel>
-
-                <!-- Actions: Compact HUD Mode & Status Toggle VI/EN -->
+                </StackPanel>                <!-- Actions: Compact HUD Mode & Status Toggle VI/EN -->
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button x:Name="BtnTopComfortShortcuts" Click="BtnOpenComfortShortcuts_Click" Content="[PHÍM TẮT COMFORT]" Height="38" Margin="0,0,8,0" Padding="12,4"
+                            Background="#101E2E" BorderBrush="{StaticResource CyberNeonCyan}" Foreground="{StaticResource CyberNeonCyan}"
+                            FontFamily="Consolas" FontWeight="Bold" ToolTip="Mở bảng điều khiển phím tắt toàn cục Comfort Keys Pro (Đợt 1-5)" />
                     <Button x:Name="BtnTopClipboardHud" Click="BtnOpenClipboardHud_Click" Content="[KHO CLIPBOARD]" Height="38" Margin="0,0,8,0" Padding="12,4"
                             Background="#180424" BorderBrush="{StaticResource CyberNeonYellow}" Foreground="{StaticResource CyberNeonYellow}"
                             FontFamily="Consolas" FontWeight="Bold" ToolTip="Mở ngay kho Clipboard Manager HUD (Win+Insert / Ctrl+Alt+V)" />
@@ -73,7 +74,7 @@
                     <Button x:Name="BtnQuickLangToggle" Click="BtnQuickLangToggle_Click" Width="140" Height="38"
                             Background="#2B0914" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}" Padding="4">
                         <TextBlock x:Name="TxtQuickLangStatus" Text="[VI] TIẾNG VIỆT" FontWeight="Bold" FontSize="12"
-                                   FontFamily="Consolas" VerticalAlignment="Center" />
+                            FontFamily="Consolas" VerticalAlignment="Center" />
                     </Button>
                 </StackPanel>
             </Grid>
@@ -407,10 +408,27 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
+                        <!-- Khối 0: Bảng điều khiển Comfort Keys Pro Shortcuts (Đợt 1-5) -->
+                        <Border Grid.Row="0" Background="#0A1826" BorderBrush="{StaticResource CyberNeonCyan}" BorderThickness="1.5" CornerRadius="3" Padding="14,12" Margin="0,0,0,16">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="[BẢNG ĐIỀU KHIỂN PHÍM TẮT COMFORT KEYS PRO (NÂNG CAO)]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" FontSize="13" />
+                                    <TextBlock Text="Bàn phím ảo trực quan, quản lý Run program, Open URL, Paste text, Keystroke macro, Audio control, Monitor &amp; Window control." FontSize="11" Foreground="{StaticResource CyberTextSecondary}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <Button Grid.Column="1" Content="MỞ COMFORT SHORTCUTS..." Click="BtnOpenComfortShortcuts_Click" Height="34" Padding="14,4"
+                                        Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" FontFamily="Consolas" FontWeight="Bold" Margin="14,0,0,0" />
+                            </Grid>
+                        </Border>
+
                         <!-- Khối 1: Phím bổ trợ (Modifiers) -->
-                        <Border Grid.Row="0" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberNeonCyan}" BorderThickness="1" CornerRadius="3" Padding="14,12" Margin="0,0,0,16">
+                        <Border Grid.Row="1" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberNeonCyan}" BorderThickness="1" CornerRadius="3" Padding="14,12" Margin="0,0,0,16">
                             <StackPanel>
                                 <TextBlock Text="[TỔ HỢP PHÍM BỔ TRỢ CHO PHÍM F]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonYellow}" Margin="0,0,0,8" />
                                 <WrapPanel Orientation="Horizontal" Margin="0,4,0,6">
@@ -425,7 +443,7 @@
                         </Border>
 
                         <!-- Khối 2: Danh sách phím chức năng F1 - F12 (2 cột) -->
-                        <Border Grid.Row="1" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="3" Padding="14,12" Margin="0,0,0,16">
+                        <Border Grid.Row="2" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="3" Padding="14,12" Margin="0,0,0,16">
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
@@ -489,7 +507,7 @@
                         </Border>
 
                         <!-- Khối 2.5: Phím tắt Game Mode & Quick Text Transform -->
-                        <Border Grid.Row="2" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="14,10" Margin="0,0,0,12">
+                        <Border Grid.Row="3" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="14,10" Margin="0,0,0,12">
                             <StackPanel>
                                 <TextBlock Text="[TÙY CHỈNH PHÍM TẮT GAME MODE &amp; QUICK TEXT]:" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,10" />
 
@@ -530,7 +548,7 @@
                         </Border>
 
                         <!-- Khối 3: Ghi chú HUD Tip -->
-                        <Border Grid.Row="3" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="12,10">
+                        <Border Grid.Row="4" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="12,10">
                             <StackPanel>
                                 <TextBlock Text="[HUD SYSTEM INFO]:" FontWeight="Bold" Foreground="{StaticResource CyberNeonYellow}" FontFamily="Consolas" />
                                 <TextBlock Text="• Các phím tắt trên hoạt động toàn cục trên mọi ứng dụng khi bạn nhấn cùng lúc với các phím bổ trợ (Ctrl / Shift / Alt / Win)."

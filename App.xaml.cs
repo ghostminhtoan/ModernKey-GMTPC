@@ -30,6 +30,7 @@ namespace ModernKey
         private ClipboardWindow _clipboardWindow;
         private CaretIndicatorWindow _caretIndicatorWindow;
         private MacroQuickListWindow _macroQuickListWindow;
+        private ComfortShortcutsWindow _comfortShortcutsWindow;
 
         public ClipboardHistoryManager ClipboardHistory => _clipboardHistory;
 
@@ -188,7 +189,7 @@ namespace ModernKey
             _keyboardHook.Start();
 
             // 3. Khởi tạo Tray Icon, OSD & Clipboard Listener
-            _trayManager = new SystemTrayManager(_settings, (tab) => ShowMainWindow(tab), ExitApplication, ShowClipboardWindow, QuickConvertClipboard);
+            _trayManager = new SystemTrayManager(_settings, (tab) => ShowMainWindow(tab), ExitApplication, ShowClipboardWindow, QuickConvertClipboard, ShowComfortShortcutsWindow);
             _statusOsdWindow = new StatusOsdWindow();
             _clipboardListener = new ClipboardListener(_clipboardHistory, _settings);
 
@@ -564,6 +565,30 @@ namespace ModernKey
             }
         }
 
+        public void ShowComfortShortcutsWindow()
+        {
+            try
+            {
+                if (_comfortShortcutsWindow == null || !_comfortShortcutsWindow.IsLoaded)
+                {
+                    _comfortShortcutsWindow = new ComfortShortcutsWindow();
+                }
+                _comfortShortcutsWindow.Show();
+                if (_comfortShortcutsWindow.WindowState == WindowState.Minimized)
+                {
+                    _comfortShortcutsWindow.WindowState = WindowState.Normal;
+                }
+                _comfortShortcutsWindow.Activate();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("ShowComfortShortcutsWindow error: " + ex.Message);
+                _comfortShortcutsWindow = new ComfortShortcutsWindow();
+                _comfortShortcutsWindow.Show();
+                _comfortShortcutsWindow.Activate();
+            }
+        }
+
         public void ShowStatusOsd(bool isVietnamese)
         {
             if (_settings == null) return;
@@ -784,6 +809,7 @@ namespace ModernKey
                 try { _statusOsdWindow?.Close(); } catch { }
                 try { _clipboardWindow?.Close(); } catch { }
                 try { _macroQuickListWindow?.Close(); } catch { }
+                try { _comfortShortcutsWindow?.Close(); } catch { }
                 try { _mainWindow?.Close(); } catch { }
                 try { _appMutex?.ReleaseMutex(); } catch { }
                 try { _appMutex?.Dispose(); } catch { }

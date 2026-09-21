@@ -718,6 +718,22 @@ namespace ModernKey.Hook
                         return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
                     }
 
+                    // 6.0. Phím tắt toàn cục Comfort Keys Pro (Đợt 1 đến Đợt 5: Run program, Open URL, Paste text, Macro, Audio, Monitor, Window control)
+                    bool isComfortCtrl = (_modifierFlag & MASK_CTRL) != 0 || _ctrlDown;
+                    bool isComfortAlt = (_modifierFlag & MASK_ALT) != 0 || _altDown;
+                    bool isComfortShift = (_modifierFlag & MASK_SHIFT) != 0 || _shiftDown;
+                    bool isComfortWin = (_modifierFlag & MASK_WIN) != 0 || _winDown || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0;
+
+                    if (isComfortCtrl || isComfortAlt || isComfortWin)
+                    {
+                        if (ComfortShortcutManager.Instance.TryExecuteMatchingShortcut(vkCode, isComfortCtrl, isComfortAlt, isComfortShift, isComfortWin))
+                        {
+                            KeySender.SuppressAltMenuActivation();
+                            _engine.Reset();
+                            return (IntPtr)1;
+                        }
+                    }
+
                     // 6. Phím Numpad (VK_NUMPAD0..VK_NUMPAD9, Multiply, Add, Separator, Subtract, Decimal, Divide: 0x60..0x6F)
                     if (vkCode >= 0x60 && vkCode <= 0x6F)
                     {

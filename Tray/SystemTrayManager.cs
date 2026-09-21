@@ -17,19 +17,21 @@ namespace ModernKey.Tray
         private readonly Action _showClipboardAction;
         private readonly Action _exitAction;
         private readonly Action _quickConvertAction;
+        private readonly Action _showComfortShortcutsAction;
 
         private Icon _iconViet;
         private Icon _iconEng;
 
         public event Action StateChanged;
 
-        public SystemTrayManager(AppSettings settings, Action<int> showMainWindowAction, Action exitAction, Action showClipboardAction = null, Action quickConvertAction = null)
+        public SystemTrayManager(AppSettings settings, Action<int> showMainWindowAction, Action exitAction, Action showClipboardAction = null, Action quickConvertAction = null, Action showComfortShortcutsAction = null)
         {
             _settings = settings;
             _showMainWindowAction = showMainWindowAction;
             _exitAction = exitAction;
             _showClipboardAction = showClipboardAction;
             _quickConvertAction = quickConvertAction;
+            _showComfortShortcutsAction = showComfortShortcutsAction;
 
             _notifyIcon = new NotifyIcon();
             LoadIcons();
@@ -385,6 +387,9 @@ namespace ModernKey.Tray
 
             var itemClipboard = new ToolStripMenuItem("Quản lý Clipboard (Win+Ins / Ctrl+Alt+V)", null, (s, e) => _showClipboardAction?.Invoke());
             menu.Items.Add(itemClipboard);
+
+            var itemComfort = new ToolStripMenuItem("Phím tắt Comfort Keys Pro...", null, (s, e) => _showComfortShortcutsAction?.Invoke());
+            menu.Items.Add(itemComfort);
 
             var itemAbout = new ToolStripMenuItem("Giới thiệu ModernKey...", null, (s, e) =>
             {

@@ -1,0 +1,414 @@
+<Window x:Class="ModernKey.ComfortShortcutsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Keyboard Shortcuts Settings - [Comfort Keys default CsActions.cka]"
+        Height="780" Width="1180" MinWidth="950" MinHeight="620"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource CyberBlack}" Foreground="{StaticResource CyberTextPrimary}"
+        Icon="Resources/AppIcon.ico">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <!-- Row 0: Menu Bar -->
+            <RowDefinition Height="Auto" />
+            <!-- Row 1: Toolbar Actions -->
+            <RowDefinition Height="Auto" />
+            <!-- Row 2: Info Banner -->
+            <RowDefinition Height="Auto" />
+            <!-- Row 3: Main Split Content (Left Tree + Right Visual Keyboard & Inspector) -->
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Menu Bar -->
+        <Menu Grid.Row="0" Background="{StaticResource CyberDark}" Foreground="{StaticResource CyberTextPrimary}" FontFamily="Consolas">
+            <MenuItem Header="File">
+                <MenuItem Header="Mở Profile (.cka / .json)..." Click="BtnOpenProfile_Click" />
+                <MenuItem Header="Lưu Profile (Save)" Click="BtnSaveProfile_Click" />
+                <MenuItem Header="Xuất danh sách (Export)..." Click="BtnExportProfile_Click" />
+                <Separator Background="{StaticResource CyberBorderDim}" />
+                <MenuItem Header="Đóng cửa sổ" Click="BtnClose_Click" />
+            </MenuItem>
+            <MenuItem Header="Edit">
+                <MenuItem Header="Thêm phím tắt mới" Click="BtnAddShortcut_Click" />
+                <MenuItem Header="Đổi tổ hợp phím (Change Key Combination)..." Click="BtnChangeCombination_Click" />
+                <MenuItem Header="Nhân bản (Copy)" Click="BtnCopyShortcut_Click" />
+                <MenuItem Header="Xóa (Delete)" Click="BtnDeleteShortcut_Click" />
+            </MenuItem>
+            <MenuItem Header="Help">
+                <MenuItem Header="Hướng dẫn Comfort Keys..." Click="BtnHelpBanner_Click" />
+                <MenuItem Header="Giới thiệu Comfort Shortcuts GMTPC..." Click="BtnAbout_Click" />
+            </MenuItem>
+        </Menu>
+
+        <!-- Toolbar Actions -->
+        <Border Grid.Row="1" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}"
+                BorderThickness="0,0,0,1" Padding="8,5">
+            <StackPanel Orientation="Horizontal">
+                <Button Content="📂 Open" Click="BtnOpenProfile_Click" Height="28" Padding="10,2" Margin="0,0,6,0" FontFamily="Consolas" ToolTip="Mở file cấu hình profile" />
+                <Button Content="💾 Save" Click="BtnSaveProfile_Click" Height="28" Padding="10,2" Margin="0,0,6,0" Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" FontFamily="Consolas" FontWeight="Bold" ToolTip="Lưu lại toàn bộ phím tắt" />
+                <Button Content="📤 Export" Click="BtnExportProfile_Click" Height="28" Padding="10,2" Margin="0,0,12,0" FontFamily="Consolas" ToolTip="Xuất danh sách phím tắt ra file" />
+
+                <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="0,2,12,2" />
+
+                <Button Content="⌨ Change Key Combination" Click="BtnChangeCombination_Click" Height="28" Padding="12,2" Margin="0,0,6,0"
+                        Background="#101E2E" BorderBrush="{StaticResource CyberNeonCyan}" Foreground="{StaticResource CyberNeonCyan}" FontFamily="Consolas" FontWeight="Bold" ToolTip="Đổi phím tắt cho mục đang chọn" />
+                <Button Content="📋 Copy" Click="BtnCopyShortcut_Click" Height="28" Padding="10,2" Margin="0,0,6,0" FontFamily="Consolas" ToolTip="Nhân bản mục phím tắt" />
+                <Button Content="❌ Delete" Click="BtnDeleteShortcut_Click" Height="28" Padding="10,2" Margin="0,0,12,0"
+                        Background="#2B0914" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}" FontFamily="Consolas" ToolTip="Xóa phím tắt đang chọn" />
+
+                <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="0,2,12,2" />
+
+                <Button Content="❓ Help" Click="BtnHelpBanner_Click" Width="60" Height="28" FontFamily="Consolas" ToolTip="Trợ giúp" />
+            </StackPanel>
+        </Border>
+
+        <!-- Info Banner (Mô tả chi tiết phân biệt Left/Right control keys chuẩn Comfort Keys Pro) -->
+        <Border Grid.Row="2" Background="#0A1826" BorderBrush="{StaticResource CyberNeonCyan}" BorderThickness="1"
+                CornerRadius="2" Margin="10,8,10,6" Padding="10,6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="ℹ" FontSize="18" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                <TextBlock Grid.Column="1" Text="It is important to know that when you specify keyboard shortcuts, the left and right control keys (Shift, Ctrl, Alt or Win) are processed differently. If you want to use only right Shift, Ctrl, Alt or Win in a keyboard shortcut, press the right keys. If you want to use both right and left keys, press the left keys."
+                           FontSize="11" FontFamily="Consolas, Segoe UI" Foreground="{StaticResource CyberTextPrimary}" TextWrapping="Wrap" VerticalAlignment="Center" />
+            </Grid>
+        </Border>
+
+        <!-- Main Content (Left TreeView + Right Top Virtual Keyboard & Bottom Inspector) -->
+        <Grid Grid.Row="3" Margin="10,4,10,10">
+            <Grid.ColumnDefinitions>
+                <!-- Cột trái: Cây danh mục phím tắt -->
+                <ColumnDefinition Width="280" MinWidth="220" MaxWidth="400" />
+                <ColumnDefinition Width="6" />
+                <!-- Cột phải: Bàn phím ảo + Inspector cấu hình -->
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- CỘT TRÁI: Category & Shortcut TreeView -->
+            <Border Grid.Column="0" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Border Grid.Row="0" Background="{StaticResource CyberDark}" Padding="8,6" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="0,0,0,1">
+                        <TextBlock Text="[DANH MỤC PHÍM TẮT]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" />
+                    </Border>
+
+                    <!-- TreeView hiển thị phân cấp danh mục -->
+                    <TreeView x:Name="TvShortcuts" Grid.Row="1" Background="Transparent" BorderThickness="0"
+                              Foreground="{StaticResource CyberTextPrimary}" FontFamily="Consolas"
+                              SelectedItemChanged="TvShortcuts_SelectedItemChanged">
+                        <TreeView.ItemContainerStyle>
+                            <Style TargetType="{x:Type TreeViewItem}">
+                                <Setter Property="IsExpanded" Value="True" />
+                                <Setter Property="Foreground" Value="{StaticResource CyberTextPrimary}" />
+                                <Setter Property="Padding" Value="4,3" />
+                                <Style.Triggers>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter Property="Background" Value="#1A2D3B" />
+                                        <Setter Property="Foreground" Value="{StaticResource CyberNeonYellow}" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TreeView.ItemContainerStyle>
+                    </TreeView>
+
+                    <!-- Nút thêm/xóa nhanh ở đáy Tree -->
+                    <Border Grid.Row="2" Background="{StaticResource CyberDark}" Padding="6,5" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="0,1,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0" Content="+ Thêm mới" Click="BtnAddShortcut_Click" Margin="0,0,4,0" Height="24" FontFamily="Consolas" Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" FontWeight="Bold" />
+                            <Button Grid.Column="1" Content="X Xóa" Click="BtnDeleteShortcut_Click" Margin="4,0,0,0" Height="24" FontFamily="Consolas" Background="#2B0914" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}" />
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- Grid Splitter -->
+            <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="Transparent" />
+
+            <!-- CỘT PHẢI: Bàn phím ảo trực quan (Trên) + Bảng cấu hình Inspector (Dưới) -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <!-- Phía trên: Visual Interactive Keyboard Map -->
+                    <RowDefinition Height="250" MinHeight="180" MaxHeight="340" />
+                    <RowDefinition Height="6" />
+                    <!-- Phía dưới: Action Detail Inspector -->
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- 1. BÀN PHÍM ẢO TRỰC QUAN (Visual Interactive Keyboard Map) -->
+                <Border Grid.Row="0" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberNeonCyan}" BorderThickness="1" CornerRadius="2" Padding="8">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Text="[BÀN PHÍM TRỰC QUAN - VISUAL SHORTCUT MAPPER]" FontSize="11" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,4" />
+
+                        <!-- Khung bố trí toàn bộ keycap -->
+                        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                            <StackPanel x:Name="PnlVirtualKeyboard" Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <!-- Sẽ được populate tự động các hàng phím bằng code-behind -->
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+
+                <!-- Grid Splitter dọc -->
+                <GridSplitter Grid.Row="1" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" Background="Transparent" />
+
+                <!-- 2. BẢNG CẤU HÌNH THUỘC TÍNH CHI TIẾT (Action Detail Inspector) -->
+                <Border Grid.Row="2" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="12,10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <!-- Cột trái thuộc tính chung -->
+                            <ColumnDefinition Width="290" />
+                            <ColumnDefinition Width="16" />
+                            <!-- Cột phải cấu hình động theo Action Type -->
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Cột trái: Thuộc tính chung -->
+                        <StackPanel Grid.Column="0">
+                            <!-- Key combination -->
+                            <TextBlock Text="Key combination:" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonYellow}" Margin="0,0,0,4" />
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="TxtKeyCombination" Grid.Column="0" Height="26" VerticalContentAlignment="Center" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonYellow}" Background="{StaticResource CyberInput}" BorderBrush="{StaticResource CyberBorderDim}" IsReadOnly="True" />
+                                <Button Grid.Column="1" Content="⌨" Click="BtnChangeCombination_Click" Width="30" Height="26" Margin="4,0,0,0" FontFamily="Segoe UI Symbol" ToolTip="Nhấn tổ hợp phím mới" />
+                            </Grid>
+
+                            <!-- Action type -->
+                            <TextBlock Text="Action type:" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,4" />
+                            <ComboBox x:Name="CmbActionType" Height="26" Margin="0,0,0,10" SelectionChanged="CmbActionType_SelectionChanged" FontFamily="Consolas" />
+
+                            <!-- Active -->
+                            <TextBlock Text="Active:" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
+                            <ComboBox x:Name="CmbActiveScope" Height="26" Margin="0,0,0,10" FontFamily="Consolas" SelectionChanged="CommonField_Changed">
+                                <ComboBoxItem Content="In all screen modes" IsSelected="True" />
+                                <ComboBoxItem Content="Only in desktop mode" />
+                                <ComboBoxItem Content="Disabled in full screen games" />
+                            </ComboBox>
+
+                            <!-- Sound -->
+                            <TextBlock Text="Sound:" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="TxtSoundPath" Grid.Column="0" Height="26" VerticalContentAlignment="Center" FontFamily="Consolas" TextChanged="TxtSoundPath_TextChanged" Background="{StaticResource CyberInput}" BorderBrush="{StaticResource CyberBorderDim}" />
+                                <Button Grid.Column="1" Content="..." Click="BtnBrowseSound_Click" Width="30" Height="26" Margin="4,0,0,0" ToolTip="Chọn file âm thanh (.wav)" />
+                            </Grid>
+
+                            <!-- Label -->
+                            <TextBlock Text="Label:" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
+                            <TextBox x:Name="TxtLabel" Height="26" VerticalContentAlignment="Center" FontFamily="Consolas" Margin="0,0,0,12" TextChanged="TxtLabel_TextChanged" Background="{StaticResource CyberInput}" BorderBrush="{StaticResource CyberBorderDim}" />
+
+                            <!-- Last changed -->
+                            <TextBlock Text="Last changed:" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource CyberTextSecondary}" />
+                            <TextBlock x:Name="TxtLastChanged" Text="9/21/2026" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource CyberNeonCyan}" Margin="0,2,0,0" />
+                        </StackPanel>
+
+                        <Separator Grid.Column="1" Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" />
+
+                        <!-- Cột phải: Cấu hình động theo từng Action Type (Đợt 1 đến Đợt 5) -->
+                        <Grid Grid.Column="2">
+                            <!-- ACTION TYPE 1: RUN PROGRAM (Đợt 2) -->
+                            <Grid x:Name="PanelRunProgram" Visibility="Visible">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Text="Action type : Run program" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,8" />
+                                <TextBlock Grid.Row="1" Text="Program, folder or document name (each item in a separate line):" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
+
+                                <TextBox x:Name="TxtRunProgramPaths" Grid.Row="2" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12" Padding="6" Background="{StaticResource CyberInput}" Foreground="{StaticResource CyberTextPrimary}" BorderBrush="{StaticResource CyberBorderDim}" TextChanged="TxtRunProgramPaths_TextChanged" Margin="0,0,0,8" />
+
+                                <Grid Grid.Row="3" Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Start in folder:" VerticalAlignment="Center" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,8,0" />
+                                    <TextBox x:Name="TxtRunStartInFolder" Grid.Column="1" Height="26" VerticalContentAlignment="Center" FontFamily="Consolas" TextChanged="TxtRunStartInFolder_TextChanged" Background="{StaticResource CyberInput}" BorderBrush="{StaticResource CyberBorderDim}" />
+                                </Grid>
+
+                                <Grid Grid.Row="4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Button x:Name="BtnRunAddMenu" Grid.Column="0" Content="Add..." Click="BtnRunAddMenu_Click" Width="80" Height="26" FontFamily="Consolas" Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" FontWeight="Bold" />
+                                    <CheckBox x:Name="ChkRunSwitchAlreadyLaunched" Grid.Column="1" Content="Switch to the already launched program" VerticalAlignment="Center" Margin="14,0,0,0" FontFamily="Consolas" Checked="ChkRunSwitchAlreadyLaunched_Changed" Unchecked="ChkRunSwitchAlreadyLaunched_Changed" />
+                                </Grid>
+                            </Grid>
+
+                            <!-- ACTION TYPE 2: OPEN URL (Đợt 3) -->
+                            <Grid x:Name="PanelOpenUrl" Visibility="Collapsed">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Text="Action type : Open URL" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,8" />
+                                <TextBlock Grid.Row="1" Text="Open URL (to open a number of them, enter each address in a separate line):" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
+
+                                <TextBox x:Name="TxtOpenUrls" Grid.Row="2" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12" Padding="6" Background="{StaticResource CyberInput}" Foreground="{StaticResource CyberTextPrimary}" BorderBrush="{StaticResource CyberBorderDim}" TextChanged="TxtOpenUrls_TextChanged" Margin="0,0,0,10" />
+
+                                <Grid Grid.Row="3">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="180" />
+                                    </Grid.ColumnDefinitions>
+                                    <Button Grid.Column="0" Content="Add..." Click="BtnUrlAdd_Click" Width="80" Height="26" FontFamily="Consolas" Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" FontWeight="Bold" />
+                                    <TextBlock Grid.Column="2" Text="Type of URL opening:" VerticalAlignment="Center" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,8,0" />
+                                    <ComboBox x:Name="CmbUrlOpenType" Grid.Column="3" Height="26" FontFamily="Consolas" SelectionChanged="CmbUrlOpenType_SelectionChanged">
+                                        <ComboBoxItem Content="Default" IsSelected="True" />
+                                        <ComboBoxItem Content="In New Window" />
+                                        <ComboBoxItem Content="Working In Background" />
+                                    </ComboBox>
+                                </Grid>
+                            </Grid>
+
+                            <!-- ACTION TYPE 3: PASTE TEXT (Đợt 4) -->
+                            <Grid x:Name="PanelPasteText" Visibility="Collapsed">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Text="Action type : Paste text" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,8" />
+                                <TextBlock Grid.Row="1" Text="Text:" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
+
+                                <TextBox x:Name="TxtPasteContent" Grid.Row="2" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12" Padding="6" Background="{StaticResource CyberInput}" Foreground="{StaticResource CyberTextPrimary}" BorderBrush="{StaticResource CyberBorderDim}" TextChanged="TxtPasteContent_TextChanged" Margin="0,0,0,10" />
+
+                                <CheckBox x:Name="ChkShowTextOnKeyboard" Grid.Row="3" Content="Show text on the on-screen keyboard" FontFamily="Consolas" Margin="0,0,0,8" Checked="ChkShowTextOnKeyboard_Changed" Unchecked="ChkShowTextOnKeyboard_Changed" />
+
+                                <StackPanel Grid.Row="4" Orientation="Horizontal">
+                                    <Button x:Name="BtnInsertTag" Content="🪄 &amp;Insert Tag" Click="BtnInsertTag_Click" Height="28" Padding="14,2" FontFamily="Consolas" FontWeight="Bold" Background="#241E0A" BorderBrush="{StaticResource CyberNeonYellow}" Foreground="{StaticResource CyberNeonYellow}" ToolTip="Chèn thẻ ngày giờ, phím điều khiển, tag động" />
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- ACTION TYPE 4: PLAY KEYSTROKE MACRO (Đợt 5) -->
+                            <Grid x:Name="PanelKeystrokeMacro" Visibility="Collapsed">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Text="Action type : Play keystroke macro" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,12" />
+
+                                <!-- Nút Record và Edit -->
+                                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,16">
+                                    <Button x:Name="BtnMacroRecord" Content="⏺ (1) Record" Click="BtnMacroRecord_Click" Height="32" Padding="14,4" Margin="0,0,10,0" FontFamily="Consolas" FontWeight="Bold" Background="#2B0914" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}" />
+                                    <Button x:Name="BtnMacroEdit" Content="📝 (2) Edit" Click="BtnMacroEdit_Click" Height="32" Padding="14,4" FontFamily="Consolas" FontWeight="Bold" Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" ToolTip="Mở bảng chỉnh sửa sự kiện macro chi tiết (Edit Macro Dialog)" />
+                                </StackPanel>
+
+                                <!-- Slider Play speed -->
+                                <Grid Grid.Row="2" Margin="0,0,0,16">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Grid Grid.Row="0" Margin="0,0,0,4">
+                                        <TextBlock Text="Play speed:" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" />
+                                        <TextBlock x:Name="TxtMacroSpeedVal" Text="100%" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" HorizontalAlignment="Right" />
+                                    </Grid>
+                                    <Slider x:Name="SldMacroSpeed" Grid.Row="1" Minimum="10" Maximum="200" Value="100" TickFrequency="10" IsSnapToTickEnabled="True" ValueChanged="SldMacroSpeed_ValueChanged" />
+                                </Grid>
+
+                                <!-- Number of repetitions & Activate process -->
+                                <Grid Grid.Row="3" Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="160" />
+                                        <ColumnDefinition Width="20" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Number of repetitions:" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
+                                        <TextBox x:Name="TxtMacroRepetitions" Text="1" Height="26" VerticalContentAlignment="Center" TextAlignment="Center" FontFamily="Consolas" FontWeight="Bold" TextChanged="TxtMacroRepetitions_TextChanged" Background="{StaticResource CyberInput}" BorderBrush="{StaticResource CyberBorderDim}" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Activate process (optional):" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
+                                        <TextBox x:Name="TxtMacroActivateProcess" Height="26" VerticalContentAlignment="Center" FontFamily="Consolas" TextChanged="TxtMacroActivateProcess_TextChanged" Background="{StaticResource CyberInput}" BorderBrush="{StaticResource CyberBorderDim}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+
+                            <!-- ACTION TYPE 5: AUDIO CONTROL (Đợt 1) -->
+                            <Grid x:Name="PanelAudioControl" Visibility="Collapsed">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Text="Action type : Audio control" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,8" />
+                                <TextBlock Grid.Row="1" Text="Action:" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
+
+                                <ListBox x:Name="LstAudioActions" Grid.Row="2" Background="{StaticResource CyberInput}" BorderBrush="{StaticResource CyberBorderDim}" Foreground="{StaticResource CyberTextPrimary}" FontFamily="Consolas" SelectionChanged="LstAudioActions_SelectionChanged" Margin="0,0,0,10">
+                                    <ListBoxItem Content="🔊 Volume up" Tag="Volume up" />
+                                    <ListBoxItem Content="🔉 Volume down" Tag="Volume down" />
+                                    <ListBoxItem Content="🔇 Volume on/off" Tag="Volume on/off" />
+                                    <ListBoxItem Content="⏏ Eject/Close CD door" Tag="Eject/Close CD door" />
+                                    <ListBoxItem Content="🎧 Change the default playback device" Tag="Change the default playback device" />
+                                    <ListBoxItem Content="🎙 Change the default recording device" Tag="Change the default recording device" />
+                                </ListBox>
+
+                                <Grid Grid.Row="3">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Step size:" VerticalAlignment="Center" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,10,0" />
+                                    <Slider x:Name="SldAudioStepSize" Grid.Column="1" Minimum="2" Maximum="50" Value="10" TickFrequency="2" IsSnapToTickEnabled="True" VerticalAlignment="Center" ValueChanged="SldAudioStepSize_ValueChanged" />
+                                    <TextBlock x:Name="TxtAudioStepVal" Grid.Column="2" Text="10%" VerticalAlignment="Center" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" Margin="10,0,0,0" />
+                                </Grid>
+                            </Grid>
+
+                            <!-- ACTION TYPE 6: WINDOW / MONITOR / SYSTEM ACTIONS -->
+                            <Grid x:Name="PanelOtherActions" Visibility="Collapsed">
+                                <StackPanel>
+                                    <TextBlock x:Name="TxtOtherActionTitle" Text="Action type : Other" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,8" />
+                                    <TextBlock Text="Các tùy chỉnh hành động mở rộng tương thích Comfort Keys Pro." FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,6" />
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

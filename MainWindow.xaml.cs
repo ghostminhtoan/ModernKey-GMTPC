@@ -1131,6 +1131,20 @@ namespace ModernKey
             TxtClipboardMaxItems.Text = _settings.ClipboardMaxItems.ToString();
         }
 
+        private void BtnOpenComfortShortcuts_Click(object sender, RoutedEventArgs e)
+        {
+            if (Application.Current is App app)
+            {
+                app.ShowComfortShortcutsWindow();
+            }
+            else
+            {
+                var wnd = new ComfortShortcutsWindow();
+                wnd.Show();
+                wnd.Activate();
+            }
+        }
+
         private void BtnOpenClipboardHud_Click(object sender, RoutedEventArgs e)
         {
             if (Application.Current is App app)
