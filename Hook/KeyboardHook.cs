@@ -724,7 +724,7 @@ namespace ModernKey.Hook
                     bool isComfortShift = (_modifierFlag & MASK_SHIFT) != 0 || _shiftDown;
                     bool isComfortWin = (_modifierFlag & MASK_WIN) != 0 || _winDown || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0;
 
-                    if (isComfortCtrl || isComfortAlt || isComfortWin)
+                    if (isComfortCtrl || isComfortAlt || isComfortWin || isComfortShift || (vkCode >= 0x70 && vkCode <= 0x7B))
                     {
                         if (ComfortShortcutManager.Instance.TryExecuteMatchingShortcut(vkCode, isComfortCtrl, isComfortAlt, isComfortShift, isComfortWin))
                         {

@@ -213,23 +213,6 @@ namespace ModernKey.Core
                 LastChanged = DateTime.Now
             });
 
-            // 4. Play keystroke macro (Đợt 5)
-            var macroItem = new ComfortShortcutItem
-            {
-                Category = "Play keystroke macro",
-                KeyCombination = "Ctrl+Shift+Ins",
-                ActionType = ShortcutActionType.PlayKeystrokeMacro,
-                ActiveScope = "In all screen modes",
-                Label = "Open Run and Type CMD",
-                PlaySpeed = 100,
-                Repetitions = 1,
-                LastChanged = DateTime.Now
-            };
-            macroItem.MacroEvents.Add(new MacroKeyEvent { Delay = 0, Event = "Key Down", Key = "5B - Win", KeyCode = 0x5B, Extended = true });
-            macroItem.MacroEvents.Add(new MacroKeyEvent { Delay = 200, Event = "Key Down", Key = "52 - R", KeyCode = 0x52 });
-            macroItem.MacroEvents.Add(new MacroKeyEvent { Delay = 80, Event = "Key Up", Key = "52 - R", KeyCode = 0x52 });
-            macroItem.MacroEvents.Add(new MacroKeyEvent { Delay = 50, Event = "Key Up", Key = "5B - Win", KeyCode = 0x5B, Extended = true });
-            Shortcuts.Add(macroItem);
 
             // 5. Audio control (Đợt 1)
             Shortcuts.Add(new ComfortShortcutItem
@@ -326,10 +309,6 @@ namespace ModernKey.Core
 
                 case ShortcutActionType.PasteText:
                     ExecutePasteText(item);
-                    break;
-
-                case ShortcutActionType.PlayKeystrokeMacro:
-                    ExecuteKeystrokeMacro(item);
                     break;
 
                 case ShortcutActionType.AudioControl:
@@ -563,44 +542,6 @@ namespace ModernKey.Core
             }
         }
 
-        private void ExecuteKeystrokeMacro(ComfortShortcutItem item)
-        {
-            if (item.MacroEvents == null || item.MacroEvents.Count == 0) return;
-
-            // Nếu có chỉ định process cần kích hoạt
-            if (!string.IsNullOrWhiteSpace(item.ActivateProcess))
-            {
-                var procs = Process.GetProcessesByName(Path.GetFileNameWithoutExtension(item.ActivateProcess.Trim()));
-                if (procs.Length > 0 && procs[0].MainWindowHandle != IntPtr.Zero)
-                {
-                    ShowWindowAsync(procs[0].MainWindowHandle, SW_RESTORE);
-                    SetForegroundWindow(procs[0].MainWindowHandle);
-                    Thread.Sleep(100);
-                }
-            }
-
-            int repeat = Math.Max(1, item.Repetitions);
-            double speedFactor = Math.Max(10, item.PlaySpeed) / 100.0;
-
-            for (int r = 0; r < repeat; r++)
-            {
-                foreach (var ev in item.MacroEvents)
-                {
-                    int delay = (int)(ev.Delay / speedFactor);
-                    if (delay > 0)
-                    {
-                        Thread.Sleep(Math.Min(delay, 2000));
-                    }
-
-                    byte vk = (byte)ev.KeyCode;
-                    uint flags = 0;
-                    if (ev.Extended) flags |= 0x0001; // KEYEVENTF_EXTENDEDKEY
-                    if (ev.Event == "Key Up") flags |= KEYEVENTF_KEYUP;
-
-                    keybd_event(vk, 0, flags, UIntPtr.Zero);
-                }
-            }
-        }
 
         private void ExecuteAudioControl(ComfortShortcutItem item)
         {
@@ -670,6 +611,8 @@ namespace ModernKey.Core
 
             switch (vk)
             {
+                case 0x0D: return "Enter";
+                case 0x08: return "Backspace";
                 case 0x2D: return "Ins";
                 case 0x2E: return "Del";
                 case 0x24: return "Home";
@@ -685,9 +628,20 @@ namespace ModernKey.Core
                 case 0x14: return "Caps";
                 case 0x1B: return "Esc";
                 case 0x13: return "Pause";
+                case 0x2C: return "PrtSc";
+                case 0x90: return "NumL";
+                case 0x91: return "ScrLk";
                 case 0xBC: return ",";
                 case 0xBE: return ".";
                 case 0xBF: return "/";
+                case 0xBD: return "-";
+                case 0xBB: return "+";
+                case 0xC0: return "~";
+                case 0x6A: return "*";
+                case 0x6B: return "+";
+                case 0x6D: return "-";
+                case 0x6E: return ".";
+                case 0x6F: return "/";
                 default: return string.Empty;
             }
         }
@@ -737,20 +691,8 @@ namespace ModernKey.Core
                 sb.AppendLine($"    \"UrlOpenType\": \"{Escape(item.UrlOpenType)}\",");
                 sb.AppendLine($"    \"PasteText\": \"{Escape(item.PasteText)}\",");
                 sb.AppendLine($"    \"ShowTextOnKeyboard\": {item.ShowTextOnKeyboard.ToString().ToLower()},");
-                sb.AppendLine($"    \"PlaySpeed\": {item.PlaySpeed},");
-                sb.AppendLine($"    \"Repetitions\": {item.Repetitions},");
-                sb.AppendLine($"    \"ActivateProcess\": \"{Escape(item.ActivateProcess)}\",");
                 sb.AppendLine($"    \"AudioAction\": \"{Escape(item.AudioAction)}\",");
-                sb.AppendLine($"    \"AudioStepSize\": {item.AudioStepSize},");
-                sb.AppendLine("    \"MacroEvents\": [");
-                for (int j = 0; j < item.MacroEvents.Count; j++)
-                {
-                    var ev = item.MacroEvents[j];
-                    sb.Append($"      {{ \"Delay\": {ev.Delay}, \"Event\": \"{Escape(ev.Event)}\", \"Key\": \"{Escape(ev.Key)}\", \"KeyCode\": {ev.KeyCode}, \"Extended\": {ev.Extended.ToString().ToLower()} }}");
-                    if (j < item.MacroEvents.Count - 1) sb.Append(",");
-                    sb.AppendLine();
-                }
-                sb.AppendLine("    ]");
+                sb.AppendLine($"    \"AudioStepSize\": {item.AudioStepSize}");
                 sb.Append("  }");
                 if (i < list.Count - 1) sb.Append(",");
                 sb.AppendLine();
@@ -841,49 +783,10 @@ namespace ModernKey.Core
                     case "ShowTextOnKeyboard":
                         if (bool.TryParse(val, out var stk)) item.ShowTextOnKeyboard = stk;
                         break;
-                    case "PlaySpeed":
-                        if (int.TryParse(val, out var ps)) item.PlaySpeed = ps;
-                        break;
-                    case "Repetitions":
-                        if (int.TryParse(val, out var rep)) item.Repetitions = rep;
-                        break;
-                    case "ActivateProcess": item.ActivateProcess = val; break;
                     case "AudioAction": item.AudioAction = val; break;
                     case "AudioStepSize":
                         if (int.TryParse(val, out var ass)) item.AudioStepSize = ass;
                         break;
-                }
-            }
-
-            // Parse MacroEvents array nếu có
-            int macroStart = objJson.IndexOf("\"MacroEvents\"");
-            if (macroStart >= 0)
-            {
-                int arrOpen = objJson.IndexOf('[', macroStart);
-                int arrClose = objJson.IndexOf(']', arrOpen >= 0 ? arrOpen : macroStart);
-                if (arrOpen >= 0 && arrClose > arrOpen)
-                {
-                    string arrContent = objJson.Substring(arrOpen, arrClose - arrOpen + 1);
-                    var evMatches = Regex.Matches(arrContent, "\\{[^}]*\\}");
-                    foreach (Match evm in evMatches)
-                    {
-                        var ev = new MacroKeyEvent();
-                        var propMatches = Regex.Matches(evm.Value, "\"(\\w+)\"\\s*:\\s*(\"[^\"]*\"|true|false|\\d+)");
-                        foreach (Match pm in propMatches)
-                        {
-                            string pk = pm.Groups[1].Value;
-                            string pv = pm.Groups[2].Value.Trim('"');
-                            switch (pk)
-                            {
-                                case "Delay": if (int.TryParse(pv, out var d)) ev.Delay = d; break;
-                                case "Event": ev.Event = pv; break;
-                                case "Key": ev.Key = pv; break;
-                                case "KeyCode": if (uint.TryParse(pv, out var kc)) ev.KeyCode = kc; break;
-                                case "Extended": if (bool.TryParse(pv, out var ext)) ev.Extended = ext; break;
-                            }
-                        }
-                        item.MacroEvents.Add(ev);
-                    }
                 }
             }
 

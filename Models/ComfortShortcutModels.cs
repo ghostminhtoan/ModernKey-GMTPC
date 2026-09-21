@@ -11,7 +11,6 @@ namespace ModernKey.Models
         RunProgram,
         OpenUrl,
         PasteText,
-        PlayKeystrokeMacro,
         AudioControl,
         MonitorControl,
         WindowControl,
@@ -19,51 +18,6 @@ namespace ModernKey.Models
         ChangeLanguage,
         BlockKey,
         ReplaceKey
-    }
-
-    public class MacroKeyEvent : INotifyPropertyChanged
-    {
-        private int _delay = 50;
-        private string _event = "Key Down";
-        private string _key = "41 - A";
-        private uint _keyCode = 0x41;
-        private bool _extended = false;
-
-        public int Delay
-        {
-            get => _delay;
-            set { _delay = value; OnPropertyChanged(); }
-        }
-
-        public string Event
-        {
-            get => _event;
-            set { _event = value; OnPropertyChanged(); }
-        }
-
-        public string Key
-        {
-            get => _key;
-            set { _key = value; OnPropertyChanged(); }
-        }
-
-        public uint KeyCode
-        {
-            get => _keyCode;
-            set { _keyCode = value; OnPropertyChanged(); }
-        }
-
-        public bool Extended
-        {
-            get => _extended;
-            set { _extended = value; OnPropertyChanged(); }
-        }
-
-        public event PropertyChangedEventHandler PropertyChanged;
-        protected void OnPropertyChanged([CallerMemberName] string name = null)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-        }
     }
 
     public class ComfortShortcutItem : INotifyPropertyChanged
@@ -89,12 +43,6 @@ namespace ModernKey.Models
         // Paste text options
         private string _pasteText = string.Empty;
         private bool _showTextOnKeyboard = false;
-
-        // Play keystroke macro options
-        private ObservableCollection<MacroKeyEvent> _macroEvents = new ObservableCollection<MacroKeyEvent>();
-        private int _playSpeed = 100;
-        private int _repetitions = 1;
-        private string _activateProcess = string.Empty;
 
         // Audio control options
         private string _audioAction = "Volume up";
@@ -190,30 +138,6 @@ namespace ModernKey.Models
             set { _showTextOnKeyboard = value; OnPropertyChanged(); }
         }
 
-        public ObservableCollection<MacroKeyEvent> MacroEvents
-        {
-            get => _macroEvents;
-            set { _macroEvents = value; OnPropertyChanged(); }
-        }
-
-        public int PlaySpeed
-        {
-            get => _playSpeed;
-            set { _playSpeed = value; OnPropertyChanged(); }
-        }
-
-        public int Repetitions
-        {
-            get => _repetitions;
-            set { _repetitions = value; OnPropertyChanged(); }
-        }
-
-        public string ActivateProcess
-        {
-            get => _activateProcess;
-            set { _activateProcess = value; OnPropertyChanged(); }
-        }
-
         public string AudioAction
         {
             get => _audioAction;
@@ -251,24 +175,9 @@ namespace ModernKey.Models
                 UrlOpenType = this.UrlOpenType,
                 PasteText = this.PasteText,
                 ShowTextOnKeyboard = this.ShowTextOnKeyboard,
-                PlaySpeed = this.PlaySpeed,
-                Repetitions = this.Repetitions,
-                ActivateProcess = this.ActivateProcess,
                 AudioAction = this.AudioAction,
                 AudioStepSize = this.AudioStepSize
             };
-
-            foreach (var ev in this.MacroEvents)
-            {
-                item.MacroEvents.Add(new MacroKeyEvent
-                {
-                    Delay = ev.Delay,
-                    Event = ev.Event,
-                    Key = ev.Key,
-                    KeyCode = ev.KeyCode,
-                    Extended = ev.Extended
-                });
-            }
 
             return item;
         }

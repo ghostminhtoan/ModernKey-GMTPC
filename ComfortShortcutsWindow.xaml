@@ -256,7 +256,11 @@
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <Button x:Name="BtnRunAddMenu" Grid.Column="0" Content="Add..." Click="BtnRunAddMenu_Click" Width="80" Height="26" FontFamily="Consolas" Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" FontWeight="Bold" />
+                                    <ComboBox x:Name="CmbRunAddApp" Grid.Column="0" Width="210" Height="26" FontFamily="Consolas" SelectionChanged="CmbRunAddApp_SelectionChanged">
+                                        <ComboBoxItem Content="➕ Add App / File..." IsSelected="True" />
+                                        <ComboBoxItem Content="📁 Select File..." Tag="FILE" />
+                                        <ComboBoxItem Content="📂 Select Folder..." Tag="FOLDER" />
+                                    </ComboBox>
                                     <CheckBox x:Name="ChkRunSwitchAlreadyLaunched" Grid.Column="1" Content="Switch to the already launched program" VerticalAlignment="Center" Margin="14,0,0,0" FontFamily="Consolas" Checked="ChkRunSwitchAlreadyLaunched_Changed" Unchecked="ChkRunSwitchAlreadyLaunched_Changed" />
                                 </Grid>
                             </Grid>
@@ -309,59 +313,34 @@
 
                                 <CheckBox x:Name="ChkShowTextOnKeyboard" Grid.Row="3" Content="Show text on the on-screen keyboard" FontFamily="Consolas" Margin="0,0,0,8" Checked="ChkShowTextOnKeyboard_Changed" Unchecked="ChkShowTextOnKeyboard_Changed" />
 
-                                <StackPanel Grid.Row="4" Orientation="Horizontal">
-                                    <Button x:Name="BtnInsertTag" Content="🪄 &amp;Insert Tag" Click="BtnInsertTag_Click" Height="28" Padding="14,2" FontFamily="Consolas" FontWeight="Bold" Background="#241E0A" BorderBrush="{StaticResource CyberNeonYellow}" Foreground="{StaticResource CyberNeonYellow}" ToolTip="Chèn thẻ ngày giờ, phím điều khiển, tag động" />
-                                </StackPanel>
-                            </Grid>
-
-                            <!-- ACTION TYPE 4: PLAY KEYSTROKE MACRO (Đợt 5) -->
-                            <Grid x:Name="PanelKeystrokeMacro" Visibility="Collapsed">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-
-                                <TextBlock Grid.Row="0" Text="Action type : Play keystroke macro" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,12" />
-
-                                <!-- Nút Record và Edit -->
-                                <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,16">
-                                    <Button x:Name="BtnMacroRecord" Content="⏺ (1) Record" Click="BtnMacroRecord_Click" Height="32" Padding="14,4" Margin="0,0,10,0" FontFamily="Consolas" FontWeight="Bold" Background="#2B0914" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}" />
-                                    <Button x:Name="BtnMacroEdit" Content="📝 (2) Edit" Click="BtnMacroEdit_Click" Height="32" Padding="14,4" FontFamily="Consolas" FontWeight="Bold" Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" ToolTip="Mở bảng chỉnh sửa sự kiện macro chi tiết (Edit Macro Dialog)" />
-                                </StackPanel>
-
-                                <!-- Slider Play speed -->
-                                <Grid Grid.Row="2" Margin="0,0,0,16">
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-                                    <Grid Grid.Row="0" Margin="0,0,0,4">
-                                        <TextBlock Text="Play speed:" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" />
-                                        <TextBlock x:Name="TxtMacroSpeedVal" Text="100%" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" HorizontalAlignment="Right" />
-                                    </Grid>
-                                    <Slider x:Name="SldMacroSpeed" Grid.Row="1" Minimum="10" Maximum="200" Value="100" TickFrequency="10" IsSnapToTickEnabled="True" ValueChanged="SldMacroSpeed_ValueChanged" />
-                                </Grid>
-
-                                <!-- Number of repetitions & Activate process -->
-                                <Grid Grid.Row="3" Margin="0,0,0,10">
+                                <Grid Grid.Row="4">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="160" />
-                                        <ColumnDefinition Width="20" />
+                                        <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Number of repetitions:" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
-                                        <TextBox x:Name="TxtMacroRepetitions" Text="1" Height="26" VerticalContentAlignment="Center" TextAlignment="Center" FontFamily="Consolas" FontWeight="Bold" TextChanged="TxtMacroRepetitions_TextChanged" Background="{StaticResource CyberInput}" BorderBrush="{StaticResource CyberBorderDim}" />
-                                    </StackPanel>
-
-                                    <StackPanel Grid.Column="2">
-                                        <TextBlock Text="Activate process (optional):" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
-                                        <TextBox x:Name="TxtMacroActivateProcess" Height="26" VerticalContentAlignment="Center" FontFamily="Consolas" TextChanged="TxtMacroActivateProcess_TextChanged" Background="{StaticResource CyberInput}" BorderBrush="{StaticResource CyberBorderDim}" />
-                                    </StackPanel>
+                                    <TextBlock Grid.Column="0" Text="Insert Tag:" VerticalAlignment="Center" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,8,0" />
+                                    <ComboBox x:Name="CmbInsertTag" Grid.Column="1" HorizontalAlignment="Left" Width="300" Height="26" FontFamily="Consolas" SelectionChanged="CmbInsertTag_SelectionChanged">
+                                        <ComboBoxItem Content="🪄 Select Tag to Insert..." IsSelected="True" />
+                                        <ComboBoxItem Content="📅 Date: Long Default" Tag="&lt;DATE_LONG&gt;" />
+                                        <ComboBoxItem Content="📅 Date: Short Default [date]" Tag="{}{date}" />
+                                        <ComboBoxItem Content="📅 Date: mm/dd/yyyy" Tag="&lt;DATE_MM_DD_YYYY&gt;" />
+                                        <ComboBoxItem Content="📅 Date: dd.mm.yyyy" Tag="&lt;DATE_DD_MM_YYYY&gt;" />
+                                        <ComboBoxItem Content="⏰ Time: Default [time]" Tag="{}{time}" />
+                                        <ComboBoxItem Content="⏰ Time: 24h (HH:mm)" Tag="&lt;TIME_HH_MM_24&gt;" />
+                                        <ComboBoxItem Content="⏰ Time: 12h (hh:mm tt)" Tag="&lt;TIME_HH_MM_12&gt;" />
+                                        <ComboBoxItem Content="⏰ Time: Millis (HH:mm:ss.fff)" Tag="&lt;TIME_MILLIS&gt;" />
+                                        <ComboBoxItem Content="📆 Date &amp; Time: Long Format" Tag="&lt;DATETIME_LONG&gt;" />
+                                        <ComboBoxItem Content="📆 Date &amp; Time: Short Format" Tag="&lt;DATETIME_SHORT&gt;" />
+                                        <ComboBoxItem Content="📋 Paste Clipboard [clipboard]" Tag="{}{clipboard}" />
+                                        <ComboBoxItem Content="🎲 Tag: &lt;SomeOf: Option 1 | Option 2&gt;" Tag="&lt;SomeOf: Lựa chọn 1 | Lựa chọn 2&gt;" />
+                                        <ComboBoxItem Content="💬 Tag: &lt;POPUP: Title&gt;" Tag="&lt;POPUP: Tiêu đề&gt;" />
+                                        <ComboBoxItem Content="⌨ Key: Tab (&lt;KEY_TAB&gt;)" Tag="&lt;KEY_TAB&gt;" />
+                                        <ComboBoxItem Content="⌨ Key: Enter (&lt;KEY_ENTER&gt;)" Tag="&lt;KEY_ENTER&gt;" />
+                                        <ComboBoxItem Content="⌨ Key: Ctrl+Enter (&lt;KEY_CTRL_ENTER&gt;)" Tag="&lt;KEY_CTRL_ENTER&gt;" />
+                                        <ComboBoxItem Content="⌨ Key: Backspace (&lt;KEY_BACKSPACE&gt;)" Tag="&lt;KEY_BACKSPACE&gt;" />
+                                        <ComboBoxItem Content="⌨ Key: Delete (&lt;KEY_DEL&gt;)" Tag="&lt;KEY_DEL&gt;" />
+                                        <ComboBoxItem Content="⌨ Key: Space (&lt;KEY_SPACE&gt;)" Tag="&lt;KEY_SPACE&gt;" />
+                                    </ComboBox>
                                 </Grid>
                             </Grid>
 

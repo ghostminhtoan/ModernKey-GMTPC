@@ -23,6 +23,7 @@ namespace ModernKey
         {
             InitializeComponent();
             InitActionTypeCombo();
+            PopulateRunAppCombo();
             BuildVirtualKeyboard();
             PopulateTreeView();
         }
@@ -33,11 +34,40 @@ namespace ModernKey
             CmbActionType.Items.Add(new ComboBoxItem { Content = "Run program", Tag = ShortcutActionType.RunProgram });
             CmbActionType.Items.Add(new ComboBoxItem { Content = "Open URL", Tag = ShortcutActionType.OpenUrl });
             CmbActionType.Items.Add(new ComboBoxItem { Content = "Paste text", Tag = ShortcutActionType.PasteText });
-            CmbActionType.Items.Add(new ComboBoxItem { Content = "Play keystroke macro", Tag = ShortcutActionType.PlayKeystrokeMacro });
             CmbActionType.Items.Add(new ComboBoxItem { Content = "Audio control", Tag = ShortcutActionType.AudioControl });
             CmbActionType.Items.Add(new ComboBoxItem { Content = "Window control", Tag = ShortcutActionType.WindowControl });
             CmbActionType.Items.Add(new ComboBoxItem { Content = "Monitor control", Tag = ShortcutActionType.MonitorControl });
             CmbActionType.Items.Add(new ComboBoxItem { Content = "System action", Tag = ShortcutActionType.SystemAction });
+        }
+
+        private void PopulateRunAppCombo()
+        {
+            try
+            {
+                var runningProcs = Process.GetProcesses()
+                    .Where(p => !string.IsNullOrEmpty(p.MainWindowTitle) || IsCommonApp(p.ProcessName))
+                    .OrderBy(p => p.ProcessName)
+                    .Take(20)
+                    .ToList();
+
+                foreach (var proc in runningProcs)
+                {
+                    try
+                    {
+                        string exePath = proc.MainModule?.FileName;
+                        if (!string.IsNullOrEmpty(exePath))
+                        {
+                            CmbRunAddApp.Items.Add(new ComboBoxItem
+                            {
+                                Content = $"💻 {proc.ProcessName} ({Path.GetFileName(exePath)})",
+                                Tag = exePath
+                            });
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
         }
 
         #region Bàn Phím Ảo Trực Quan (Visual Interactive Keyboard)
@@ -115,12 +145,37 @@ namespace ModernKey
             return rowPanel;
         }
 
+        private bool MatchesKeyToken(string combo, string keyName)
+        {
+            if (string.IsNullOrEmpty(combo) || string.IsNullOrEmpty(keyName)) return false;
+            var tokens = combo.Split(new[] { '+' }, StringSplitOptions.RemoveEmptyEntries)
+                              .Select(t => t.Trim())
+                              .ToList();
+
+            foreach (var token in tokens)
+            {
+                if (string.Equals(token, keyName, StringComparison.OrdinalIgnoreCase)) return true;
+
+                // Khớp viết tắt Numpad
+                if (keyName.StartsWith("Nm ") && string.Equals(token, "Num " + keyName.Substring(3), StringComparison.OrdinalIgnoreCase)) return true;
+                if (token.StartsWith("Nm ") && string.Equals(keyName, "Num " + token.Substring(3), StringComparison.OrdinalIgnoreCase)) return true;
+
+                // Khớp phím modifier Left/Right vs Normal
+                if ((keyName == "LeftCtrl" || keyName == "RightCtrl") && string.Equals(token, "Ctrl", StringComparison.OrdinalIgnoreCase)) return true;
+                if ((keyName == "LeftAlt" || keyName == "RightAlt") && string.Equals(token, "Alt", StringComparison.OrdinalIgnoreCase)) return true;
+                if ((keyName == "LeftShift" || keyName == "RightShift") && string.Equals(token, "Shift", StringComparison.OrdinalIgnoreCase)) return true;
+                if ((keyName == "LeftWin" || keyName == "RightWin") && string.Equals(token, "Win", StringComparison.OrdinalIgnoreCase)) return true;
+            }
+
+            return false;
+        }
+
         private void VirtualKey_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is string keyName)
             {
-                // Tìm kiếm xem có phím tắt nào gắn với phím này không
-                var match = _manager.Shortcuts.FirstOrDefault(s => s.KeyCombination.IndexOf(keyName, StringComparison.OrdinalIgnoreCase) >= 0);
+                // Tìm kiếm chính xác theo token xem có shortcut nào khớp với phím này không
+                var match = _manager.Shortcuts.FirstOrDefault(s => MatchesKeyToken(s.KeyCombination, keyName));
                 if (match != null)
                 {
                     SelectShortcutInTree(match);
@@ -162,7 +217,7 @@ namespace ModernKey
             {
                 foreach (var kv in _keyButtons)
                 {
-                    if (sc.KeyCombination.IndexOf(kv.Key, StringComparison.OrdinalIgnoreCase) >= 0)
+                    if (MatchesKeyToken(sc.KeyCombination, kv.Key))
                     {
                         kv.Value.BorderBrush = new SolidColorBrush(Color.FromRgb(0, 180, 210));
                     }
@@ -174,25 +229,12 @@ namespace ModernKey
             {
                 string combo = _selectedItem.KeyCombination;
 
-                bool hasCtrl = combo.Contains("Ctrl");
-                bool hasAlt = combo.Contains("Alt");
-                bool hasShift = combo.Contains("Shift");
-                bool hasWin = combo.Contains("Win");
-
-                if (hasCtrl) HighlightKey("LeftCtrl", true);
-                if (hasAlt) HighlightKey("LeftAlt", true);
-                if (hasShift) HighlightKey("LeftShift", true);
-                if (hasWin) HighlightKey("LeftWin", true);
-
                 foreach (var kv in _keyButtons)
                 {
-                    // Kiểm tra phím chính không phải modifier
-                    if (kv.Key.Contains("Ctrl") || kv.Key.Contains("Alt") || kv.Key.Contains("Shift") || kv.Key.Contains("Win"))
-                        continue;
-
-                    if (combo.IndexOf(kv.Key, StringComparison.OrdinalIgnoreCase) >= 0)
+                    if (MatchesKeyToken(combo, kv.Key))
                     {
-                        HighlightKey(kv.Key, false);
+                        bool isMod = kv.Key.Contains("Ctrl") || kv.Key.Contains("Alt") || kv.Key.Contains("Shift") || kv.Key.Contains("Win");
+                        HighlightKey(kv.Key, isMod);
                     }
                 }
             }
@@ -237,8 +279,7 @@ namespace ModernKey
                 "Change language, layout or case",
                 "Block key or shortcut",
                 "Replace key or shortcut",
-                "Open URL",
-                "Play keystroke macro"
+                "Open URL"
             };
 
             var groupNodes = new Dictionary<string, TreeViewItem>(StringComparer.OrdinalIgnoreCase);
@@ -300,7 +341,6 @@ namespace ModernKey
                 case "Block key or shortcut": return "🚫 Block key or shortcut";
                 case "Replace key or shortcut": return "🔄 Replace key or shortcut";
                 case "Open URL": return "🌍 Open URL";
-                case "Play keystroke macro": return "▶ Play keystroke macro";
                 default: return "📁 " + cat;
             }
         }
@@ -313,7 +353,6 @@ namespace ModernKey
                 case ShortcutActionType.RunProgram: icon = "🚀"; break;
                 case ShortcutActionType.OpenUrl: icon = "🌍"; break;
                 case ShortcutActionType.PasteText: icon = "📝"; break;
-                case ShortcutActionType.PlayKeystrokeMacro: icon = "▶"; break;
                 case ShortcutActionType.AudioControl: icon = "🔊"; break;
                 case ShortcutActionType.WindowControl: icon = "🗔"; break;
                 case ShortcutActionType.MonitorControl: icon = "🖥"; break;
@@ -396,13 +435,7 @@ namespace ModernKey
             TxtPasteContent.Text = item.PasteText ?? string.Empty;
             ChkShowTextOnKeyboard.IsChecked = item.ShowTextOnKeyboard;
 
-            // 4. Macro
-            SldMacroSpeed.Value = Math.Max(10, item.PlaySpeed);
-            TxtMacroSpeedVal.Text = (int)SldMacroSpeed.Value + "%";
-            TxtMacroRepetitions.Text = Math.Max(1, item.Repetitions).ToString();
-            TxtMacroActivateProcess.Text = item.ActivateProcess ?? string.Empty;
-
-            // 5. Audio control
+            // 4. Audio control
             foreach (ListBoxItem lbi in LstAudioActions.Items)
             {
                 if (string.Equals(lbi.Tag?.ToString(), item.AudioAction, StringComparison.OrdinalIgnoreCase))
@@ -425,7 +458,6 @@ namespace ModernKey
             PanelRunProgram.Visibility = Visibility.Collapsed;
             PanelOpenUrl.Visibility = Visibility.Collapsed;
             PanelPasteText.Visibility = Visibility.Collapsed;
-            PanelKeystrokeMacro.Visibility = Visibility.Collapsed;
             PanelAudioControl.Visibility = Visibility.Collapsed;
             PanelOtherActions.Visibility = Visibility.Collapsed;
 
@@ -439,9 +471,6 @@ namespace ModernKey
                     break;
                 case ShortcutActionType.PasteText:
                     PanelPasteText.Visibility = Visibility.Visible;
-                    break;
-                case ShortcutActionType.PlayKeystrokeMacro:
-                    PanelKeystrokeMacro.Visibility = Visibility.Visible;
                     break;
                 case ShortcutActionType.AudioControl:
                     PanelAudioControl.Visibility = Visibility.Visible;
@@ -528,73 +557,46 @@ namespace ModernKey
             _selectedItem.LastChanged = DateTime.Now;
         }
 
-        private void BtnRunAddMenu_Click(object sender, RoutedEventArgs e)
+        private void CmbRunAddApp_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            var menu = new ContextMenu();
-
-            var itemFile = new MenuItem { Header = "Select File..." };
-            itemFile.Click += (s, ev) =>
+            if (_isUpdatingUi) return;
+            if (CmbRunAddApp.SelectedItem is ComboBoxItem cbi && cbi.Tag is string tag)
             {
-                var dlg = new Microsoft.Win32.OpenFileDialog
+                if (tag == "FILE")
                 {
-                    Filter = "Programs (*.exe;*.bat;*.cmd)|*.exe;*.bat;*.cmd|All Files (*.*)|*.*",
-                    Title = "Select Program to Run"
-                };
-                if (dlg.ShowDialog() == true)
-                {
-                    AppendToRunPaths(dlg.FileName);
-                }
-            };
-            menu.Items.Add(itemFile);
-
-            var itemFolder = new MenuItem { Header = "Select Folder..." };
-            itemFolder.Click += (s, ev) =>
-            {
-                using (var fbd = new System.Windows.Forms.FolderBrowserDialog())
-                {
-                    fbd.Description = "Select Folder to Open";
-                    if (fbd.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                    var dlg = new Microsoft.Win32.OpenFileDialog
                     {
-                        AppendToRunPaths(fbd.SelectedPath);
+                        Filter = "Programs (*.exe;*.bat;*.cmd)|*.exe;*.bat;*.cmd|All Files (*.*)|*.*",
+                        Title = "Select Program to Run"
+                    };
+                    if (dlg.ShowDialog() == true)
+                    {
+                        AppendToRunPaths(dlg.FileName);
                     }
                 }
-            };
-            menu.Items.Add(itemFolder);
-
-            menu.Items.Add(new Separator());
-
-            // Tự động quét danh sách các tiến trình đang chạy kèm đường dẫn (Running Process Picker từ Đợt 2)
-            try
-            {
-                var runningProcs = Process.GetProcesses()
-                    .Where(p => !string.IsNullOrEmpty(p.MainWindowTitle) || IsCommonApp(p.ProcessName))
-                    .OrderBy(p => p.ProcessName)
-                    .Take(15)
-                    .ToList();
-
-                foreach (var proc in runningProcs)
+                else if (tag == "FOLDER")
                 {
-                    try
+                    using (var fbd = new System.Windows.Forms.FolderBrowserDialog())
                     {
-                        string exePath = proc.MainModule?.FileName;
-                        if (!string.IsNullOrEmpty(exePath))
+                        fbd.Description = "Select Folder to Open";
+                        if (fbd.ShowDialog() == System.Windows.Forms.DialogResult.OK)
                         {
-                            var procItem = new MenuItem
-                            {
-                                Header = $"💻 {proc.ProcessName} ({Path.GetFileName(exePath)})",
-                                ToolTip = exePath
-                            };
-                            procItem.Click += (s, ev) => AppendToRunPaths(exePath);
-                            menu.Items.Add(procItem);
+                            AppendToRunPaths(fbd.SelectedPath);
                         }
                     }
-                    catch { }
                 }
-            }
-            catch { }
+                else if (!string.IsNullOrEmpty(tag))
+                {
+                    AppendToRunPaths(tag);
+                }
 
-            menu.PlacementTarget = BtnRunAddMenu;
-            menu.IsOpen = true;
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    _isUpdatingUi = true;
+                    CmbRunAddApp.SelectedIndex = 0;
+                    _isUpdatingUi = false;
+                }));
+            }
         }
 
         private bool IsCommonApp(string name)
@@ -663,77 +665,23 @@ namespace ModernKey
             _selectedItem.LastChanged = DateTime.Now;
         }
 
-        private void BtnInsertTag_Click(object sender, RoutedEventArgs e)
+        private void CmbInsertTag_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            var menu = new ContextMenu();
+            if (_isUpdatingUi) return;
+            if (CmbInsertTag.SelectedItem is ComboBoxItem cbi && cbi.Tag is string tag)
+            {
+                if (!string.IsNullOrEmpty(tag))
+                {
+                    InsertTagIntoEditor(tag);
+                }
 
-            // 1. Paste Current Date (10 định dạng)
-            var menuDate = new MenuItem { Header = "Paste Current Date" };
-            AddSubItem(menuDate, "Long Default Format (" + DateTime.Now.ToString("dddd, MMMM d, yyyy") + ")", "<DATE_LONG>");
-            AddSubItem(menuDate, "Short Default Format (" + DateTime.Now.ToString("M/d/yyyy") + ")", "{date}");
-            AddSubItem(menuDate, "mm/dd/yyyy (" + DateTime.Now.ToString("MM/dd/yyyy") + ")", "<DATE_MM_DD_YYYY>");
-            AddSubItem(menuDate, "m/d/yyyy (" + DateTime.Now.ToString("M/d/yyyy") + ")", "<DATE_M_D_YYYY>");
-            AddSubItem(menuDate, "mm/dd/yy (" + DateTime.Now.ToString("MM/dd/yy") + ")", "<DATE_MM_DD_YY>");
-            AddSubItem(menuDate, "m/d/yy (" + DateTime.Now.ToString("M/d/yy") + ")", "<DATE_M_D_YY>");
-            AddSubItem(menuDate, "dd.mm.yyyy (" + DateTime.Now.ToString("dd.MM.yyyy") + ")", "<DATE_DD_MM_YYYY>");
-            AddSubItem(menuDate, "d.m.yyyy (" + DateTime.Now.ToString("d.M.yyyy") + ")", "<DATE_D_M_YYYY>");
-            AddSubItem(menuDate, "dd.mm.yy (" + DateTime.Now.ToString("dd.MM.yy") + ")", "<DATE_DD_MM_YY>");
-            AddSubItem(menuDate, "d.m.yy (" + DateTime.Now.ToString("d.M.yy") + ")", "<DATE_D_M_YY>");
-            menu.Items.Add(menuDate);
-
-            // 2. Paste Current Time (6 định dạng)
-            var menuTime = new MenuItem { Header = "Paste Current Time" };
-            AddSubItem(menuTime, "Default Format (" + DateTime.Now.ToString("h:mm:ss tt") + ")", "{time}");
-            AddSubItem(menuTime, "hh:mm (" + DateTime.Now.ToString("HH:mm") + ")", "<TIME_HH_MM_24>");
-            AddSubItem(menuTime, "h:mm (" + DateTime.Now.ToString("H:mm") + ")", "<TIME_H_MM_24>");
-            AddSubItem(menuTime, "hh:mm am/pm (" + DateTime.Now.ToString("hh:mm tt") + ")", "<TIME_HH_MM_12>");
-            AddSubItem(menuTime, "h:mm am/pm (" + DateTime.Now.ToString("h:mm tt") + ")", "<TIME_H_MM_12>");
-            AddSubItem(menuTime, "hh:mm:ss.zzz (" + DateTime.Now.ToString("HH:mm:ss.fff") + ")", "<TIME_MILLIS>");
-            menu.Items.Add(menuTime);
-
-            // 3. Paste Date and Time (2 định dạng)
-            var menuDateTime = new MenuItem { Header = "Paste Date and Time" };
-            AddSubItem(menuDateTime, "Long Default Format (" + DateTime.Now.ToString("dddd, MMMM d, yyyy h:mm:ss tt") + ")", "<DATETIME_LONG>");
-            AddSubItem(menuDateTime, "Short Default Format (" + DateTime.Now.ToString("M/d/yyyy h:mm:ss tt") + ")", "<DATETIME_SHORT>");
-            menu.Items.Add(menuDateTime);
-
-            // 4. Press Keys (Tab, Enter, Ctrl+Enter, Backspace, Del, Ctrl+A, Space)
-            var menuKeys = new MenuItem { Header = "Press Keys" };
-            AddSubItem(menuKeys, "Tab", "<KEY_TAB>");
-            AddSubItem(menuKeys, "Enter", "<KEY_ENTER>");
-            AddSubItem(menuKeys, "Ctrl+Enter", "<KEY_CTRL_ENTER>");
-            AddSubItem(menuKeys, "Backspace", "<KEY_BACKSPACE>");
-            AddSubItem(menuKeys, "Del", "<KEY_DEL>");
-            AddSubItem(menuKeys, "Ctrl+A", "<KEY_CTRL_A>");
-            AddSubItem(menuKeys, "Space", "<KEY_SPACE>");
-            menu.Items.Add(menuKeys);
-
-            menu.Items.Add(new Separator());
-
-            // 5. Thẻ nâng cao
-            AddDirectItem(menu, "Insert <SomeOf> Tag", "<SomeOf: Lựa chọn 1 | Lựa chọn 2 | Lựa chọn 3>");
-            AddDirectItem(menu, "Insert <POPUP> Tag", "<POPUP: Tiêu đề menu>");
-            AddDirectItem(menu, "Insert <SCRIPT> Tag", "<SCRIPT: run>");
-            AddDirectItem(menu, "Insert Text File", "<FILE: C:\\path\\to\\file.txt>");
-            AddDirectItem(menu, "Paste Selection Text", "<SELECTION>");
-            AddDirectItem(menu, "Paste Clipboard Content", "<CLIPBOARD>");
-
-            menu.PlacementTarget = BtnInsertTag;
-            menu.IsOpen = true;
-        }
-
-        private void AddSubItem(MenuItem parent, string header, string tagValue)
-        {
-            var item = new MenuItem { Header = header };
-            item.Click += (s, e) => InsertTagIntoEditor(tagValue);
-            parent.Items.Add(item);
-        }
-
-        private void AddDirectItem(ContextMenu parent, string header, string tagValue)
-        {
-            var item = new MenuItem { Header = header };
-            item.Click += (s, e) => InsertTagIntoEditor(tagValue);
-            parent.Items.Add(item);
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    _isUpdatingUi = true;
+                    CmbInsertTag.SelectedIndex = 0;
+                    _isUpdatingUi = false;
+                }));
+            }
         }
 
         private void InsertTagIntoEditor(string tag)
@@ -749,55 +697,6 @@ namespace ModernKey
                 TxtPasteContent.Text += tag;
             }
             TxtPasteContent.Focus();
-        }
-
-        // --- 4. PLAY KEYSTROKE MACRO (Đợt 5) ---
-        private void BtnMacroRecord_Click(object sender, RoutedEventArgs e)
-        {
-            MessageBox.Show("Chế độ Record Macro đang hoạt động: Nhấn các phím cần ghi lại trong bất kỳ ứng dụng nào và nhấn phím Esc để hoàn tất ghi.", "Ghi Macro Trực Tiếp", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-
-        private void BtnMacroEdit_Click(object sender, RoutedEventArgs e)
-        {
-            if (_selectedItem == null) return;
-            var dlg = new EditMacroKeystrokesDialog(_selectedItem.MacroEvents);
-            dlg.Owner = this;
-            if (dlg.ShowDialog() == true)
-            {
-                _selectedItem.MacroEvents.Clear();
-                foreach (var ev in dlg.Events)
-                {
-                    _selectedItem.MacroEvents.Add(ev);
-                }
-                _selectedItem.LastChanged = DateTime.Now;
-                TxtLastChanged.Text = _selectedItem.LastChanged.ToString("M/d/yyyy h:mm:ss tt");
-            }
-        }
-
-        private void SldMacroSpeed_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        {
-            if (_isUpdatingUi || _selectedItem == null) return;
-            int speed = (int)SldMacroSpeed.Value;
-            _selectedItem.PlaySpeed = speed;
-            TxtMacroSpeedVal.Text = speed >= 200 ? "Max" : speed + "%";
-            _selectedItem.LastChanged = DateTime.Now;
-        }
-
-        private void TxtMacroRepetitions_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            if (_isUpdatingUi || _selectedItem == null) return;
-            if (int.TryParse(TxtMacroRepetitions.Text, out var rep))
-            {
-                _selectedItem.Repetitions = Math.Max(1, rep);
-                _selectedItem.LastChanged = DateTime.Now;
-            }
-        }
-
-        private void TxtMacroActivateProcess_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            if (_isUpdatingUi || _selectedItem == null) return;
-            _selectedItem.ActivateProcess = TxtMacroActivateProcess.Text;
-            _selectedItem.LastChanged = DateTime.Now;
         }
 
         // --- 5. AUDIO CONTROL (Đợt 1) ---

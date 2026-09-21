@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
-using ModernKey.Core;
+using System.Windows.Media;
 
 namespace ModernKey
 {
@@ -23,23 +24,166 @@ namespace ModernKey
         private const int VK_LWIN = 0x5B;
         private const int VK_RWIN = 0x5C;
 
+        private string _lastChosenKey = string.Empty;
+        private bool _isUpdatingQuickPalette = false;
+
         public KeyCombinationDialog(string initialCombo = null)
         {
             InitializeComponent();
+            InitQuickPalette();
+
             if (!string.IsNullOrEmpty(initialCombo))
             {
                 ResultCombination = initialCombo;
                 TxtCombination.Text = initialCombo;
+                ParseInitialCombination(initialCombo);
             }
         }
 
-        private void Window_KeyDown(object sender, KeyEventArgs e)
+        private void ParseInitialCombination(string combo)
+        {
+            _isUpdatingQuickPalette = true;
+            try
+            {
+                var parts = combo.Split(new[] { '+' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var part in parts)
+                {
+                    string p = part.Trim();
+                    if (string.Equals(p, "Ctrl", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(p, "LeftCtrl", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(p, "RightCtrl", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ChkModCtrl.IsChecked = true;
+                    }
+                    else if (string.Equals(p, "Alt", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(p, "LeftAlt", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(p, "RightAlt", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ChkModAlt.IsChecked = true;
+                    }
+                    else if (string.Equals(p, "Shift", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(p, "LeftShift", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(p, "RightShift", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ChkModShift.IsChecked = true;
+                    }
+                    else if (string.Equals(p, "Win", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(p, "LeftWin", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(p, "RightWin", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ChkModWin.IsChecked = true;
+                    }
+                    else
+                    {
+                        _lastChosenKey = p;
+                    }
+                }
+            }
+            finally
+            {
+                _isUpdatingQuickPalette = false;
+            }
+        }
+
+        private void InitQuickPalette()
+        {
+            // 1. F1..F12
+            for (int i = 1; i <= 12; i++)
+            {
+                string key = "F" + i;
+                PnlFKeys.Children.Add(CreatePaletteButton(key, 40, 24));
+            }
+
+            // 2. 0..9 (Top row numbers)
+            string[] digits = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "`" };
+            foreach (var d in digits)
+            {
+                PnlDigitKeys.Children.Add(CreatePaletteButton(d, 36, 24));
+            }
+
+            // 3. Numpad Nm 0..Nm 9
+            string[] numpadKeys = { "Nm 0", "Nm 1", "Nm 2", "Nm 3", "Nm 4", "Nm 5", "Nm 6", "Nm 7", "Nm 8", "Nm 9", "Nm +", "Nm -", "Nm *", "Nm /", "Nm Enter", "Nm ." };
+            foreach (var n in numpadKeys)
+            {
+                PnlNumPadKeys.Children.Add(CreatePaletteButton(n, 58, 24));
+            }
+
+            // 4. Special & Navigation Keys
+            string[] specialKeys = { "Ins", "Del", "Home", "End", "PgUp", "PgDn", "Space", "Enter", "Tab", "Esc", "Left", "Up", "Right", "Down", "Caps", "Pause", "PrtSc" };
+            foreach (var s in specialKeys)
+            {
+                PnlSpecialKeys.Children.Add(CreatePaletteButton(s, 50, 24));
+            }
+        }
+
+        private Button CreatePaletteButton(string text, double width, double height)
+        {
+            var btn = new Button
+            {
+                Content = text,
+                Tag = text,
+                Width = width,
+                Height = height,
+                Margin = new Thickness(2, 2, 2, 2),
+                FontFamily = new FontFamily("Consolas"),
+                FontSize = 11,
+                Background = new SolidColorBrush(Color.FromRgb(20, 26, 36)),
+                Foreground = new SolidColorBrush(Color.FromRgb(0, 240, 255)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(45, 60, 80)),
+                Padding = new Thickness(0)
+            };
+            btn.Click += PaletteButton_Click;
+            return btn;
+        }
+
+        private void PaletteButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is string keyName)
+            {
+                _lastChosenKey = keyName;
+                RebuildCombinationFromPalette();
+            }
+        }
+
+        private void ModifierQuickCheck_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isUpdatingQuickPalette) return;
+            RebuildCombinationFromPalette();
+        }
+
+        private void RebuildCombinationFromPalette()
+        {
+            var parts = new List<string>();
+            if (ChkModWin.IsChecked == true) parts.Add("Win");
+            if (ChkModCtrl.IsChecked == true) parts.Add("Ctrl");
+            if (ChkModAlt.IsChecked == true) parts.Add("Alt");
+            if (ChkModShift.IsChecked == true) parts.Add("Shift");
+
+            if (!string.IsNullOrEmpty(_lastChosenKey))
+            {
+                parts.Add(_lastChosenKey);
+            }
+
+            if (parts.Count > 0)
+            {
+                string combo = string.Join("+", parts);
+                ResultCombination = combo;
+                TxtCombination.Text = combo;
+            }
+            else
+            {
+                ResultCombination = string.Empty;
+                TxtCombination.Text = "[ Đang chờ phím... ]";
+            }
+        }
+
+        private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             e.Handled = true;
             UpdateCombinationFromInput(e.Key, e.SystemKey);
         }
 
-        private void Window_KeyUp(object sender, KeyEventArgs e)
+        private void Window_PreviewKeyUp(object sender, KeyEventArgs e)
         {
             e.Handled = true;
         }
@@ -60,6 +204,19 @@ namespace ModernKey
             bool lWin = (GetAsyncKeyState(VK_LWIN) & 0x8000) != 0;
             bool rWin = (GetAsyncKeyState(VK_RWIN) & 0x8000) != 0;
 
+            bool hasCtrl = lCtrl || rCtrl;
+            bool hasAlt = lAlt || rAlt;
+            bool hasShift = lShift || rShift;
+            bool hasWin = lWin || rWin;
+
+            // Đồng bộ sang UI Quick Modifiers
+            _isUpdatingQuickPalette = true;
+            ChkModCtrl.IsChecked = hasCtrl;
+            ChkModAlt.IsChecked = hasAlt;
+            ChkModShift.IsChecked = hasShift;
+            ChkModWin.IsChecked = hasWin;
+            _isUpdatingQuickPalette = false;
+
             var parts = new List<string>();
 
             if (isLeftRight)
@@ -75,13 +232,13 @@ namespace ModernKey
             }
             else
             {
-                if (lWin || rWin) parts.Add("Win");
-                if (lCtrl || rCtrl) parts.Add("Ctrl");
-                if (lAlt || rAlt) parts.Add("Alt");
-                if (lShift || rShift) parts.Add("Shift");
+                if (hasWin) parts.Add("Win");
+                if (hasCtrl) parts.Add("Ctrl");
+                if (hasAlt) parts.Add("Alt");
+                if (hasShift) parts.Add("Shift");
             }
 
-            // Bỏ qua nếu chính phím nhấn là phím modifier
+            // Bỏ qua nếu chính phím nhấn là phím modifier đơn thuần
             if (key == Key.LeftCtrl || key == Key.RightCtrl ||
                 key == Key.LeftAlt || key == Key.RightAlt ||
                 key == Key.LeftShift || key == Key.RightShift ||
@@ -97,6 +254,7 @@ namespace ModernKey
             string mainKeyStr = FormatKeyName(key);
             if (!string.IsNullOrEmpty(mainKeyStr))
             {
+                _lastChosenKey = mainKeyStr;
                 parts.Add(mainKeyStr);
             }
 
@@ -110,13 +268,13 @@ namespace ModernKey
 
         private string FormatKeyName(Key key)
         {
-            // Numpad
+            // Numpad 0..9
             if (key >= Key.NumPad0 && key <= Key.NumPad9)
             {
                 return "Nm " + (key - Key.NumPad0);
             }
 
-            // Digit 0..9
+            // Top row digits 0..9
             if (key >= Key.D0 && key <= Key.D9)
             {
                 return (key - Key.D0).ToString();
@@ -151,24 +309,39 @@ namespace ModernKey
                 case Key.CapsLock: return "Caps";
                 case Key.Escape: return "Esc";
                 case Key.Pause: return "Pause";
+                case Key.PrintScreen: return "PrtSc";
                 case Key.OemComma: return ",";
                 case Key.OemPeriod: return ".";
                 case Key.OemQuestion: return "/";
                 case Key.OemMinus: return "-";
                 case Key.OemPlus: return "+";
+                case Key.OemTilde: return "~";
                 case Key.Enter: return "Enter";
                 case Key.Back: return "Backspace";
+                case Key.Add: return "Nm +";
+                case Key.Subtract: return "Nm -";
+                case Key.Multiply: return "Nm *";
+                case Key.Divide: return "Nm /";
+                case Key.Decimal: return "Nm .";
                 default: return key.ToString();
             }
         }
 
         private void ChkDistinguishLeftRight_Checked(object sender, RoutedEventArgs e)
         {
-            // Trigger refresh nếu cần
+            RebuildCombinationFromPalette();
         }
 
         private void BtnClear_Click(object sender, RoutedEventArgs e)
         {
+            _lastChosenKey = string.Empty;
+            _isUpdatingQuickPalette = true;
+            ChkModCtrl.IsChecked = false;
+            ChkModAlt.IsChecked = false;
+            ChkModShift.IsChecked = false;
+            ChkModWin.IsChecked = false;
+            _isUpdatingQuickPalette = false;
+
             ResultCombination = string.Empty;
             TxtCombination.Text = "[ Chưa gán phím ]";
         }
@@ -183,7 +356,7 @@ namespace ModernKey
         {
             if (string.IsNullOrEmpty(ResultCombination) || ResultCombination.EndsWith("+..."))
             {
-                System.Windows.MessageBox.Show("Vui lòng nhấn một tổ hợp phím hợp lệ trước khi bấm OK.", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("Vui lòng nhấn hoặc chọn một tổ hợp phím hợp lệ trước khi bấm OK.", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
             DialogResult = true;
