@@ -88,6 +88,7 @@ namespace ModernKey
         private string _activeGroupFilter = null;
         private bool _isSortDescending = true;
         private string _lastActiveItemId = null;
+        private double _textZoom = 1.0;
         private volatile bool _isBatchUpdating = false;
         private readonly DateTime _sessionStartTime = DateTime.Now;
 
@@ -99,13 +100,18 @@ namespace ModernKey
             _settings = settings;
             InitializeComponent();
 
-            InitCollectionView();
-
             if (_settings != null)
             {
                 _isSequentialPaste = _settings.ClipboardSequentialPaste;
                 _isCompactMode = _settings.ClipboardViewModeCompact;
+                _isSortDescending = _settings.ClipboardSortDescending;
+                _activeFilter = !string.IsNullOrEmpty(_settings.ClipboardActiveFilter) ? _settings.ClipboardActiveFilter : "ALL";
+                _lastActiveItemId = _settings.ClipboardLastSelectedItemId;
+                _textZoom = _settings.ClipboardTextZoom > 0.5 ? _settings.ClipboardTextZoom : 1.0;
             }
+
+            InitCollectionView();
+            ApplyTextZoom(_textZoom);
 
             if (_historyManager != null)
             {
@@ -236,6 +242,8 @@ namespace ModernKey
             UpdateSequentialPasteUI();
             UpdateCompactModeUI();
             ApplyCompactModeToItems();
+            HighlightActiveTab(_activeFilter);
+            ApplyTextZoom(_textZoom);
             if (LstClipboard != null && (LstClipboard.ItemsSource == null || LstClipboard.ItemsSource != _itemsView || _itemsView == null))
             {
                 InitCollectionView();
@@ -357,8 +365,14 @@ namespace ModernKey
             }
             Activate();
             Focus();
-            TxtSearch?.Focus();
-            TxtSearch?.SelectAll();
+            // Focus vào clipboard danh sách thay vì ô search
+            LstClipboard?.Focus();
+            if (LstClipboard?.SelectedItem != null)
+            {
+                LstClipboard.ScrollIntoView(LstClipboard.SelectedItem);
+                var container = LstClipboard.ItemContainerGenerator.ContainerFromItem(LstClipboard.SelectedItem) as ListBoxItem;
+                container?.Focus();
+            }
         }
 
         private void EnsureAppropriateSelection()
@@ -377,12 +391,12 @@ namespace ModernKey
             }
             else if (LstClipboard.Items.Count > 0)
             {
-                // BẤT KỂ ĐƯỢC SORT THEO CHIỀU NÀO, LUÔN LUÔN FOCUS THEO ITEM MỚI NHẤT
-                var newest = LstClipboard.Items.Cast<ClipboardItem>().OrderByDescending(x => x.Timestamp).FirstOrDefault();
-                LstClipboard.SelectedItem = newest;
-                if (newest != null)
+                // Chọn item đầu tiên hiển thị theo chiều sắp xếp hiện tại (không ép reset về newest)
+                var firstItem = LstClipboard.Items[0] as ClipboardItem;
+                LstClipboard.SelectedItem = firstItem;
+                if (firstItem != null)
                 {
-                    LstClipboard.ScrollIntoView(newest);
+                    LstClipboard.ScrollIntoView(firstItem);
                 }
             }
             else
@@ -677,6 +691,11 @@ namespace ModernKey
         private void BtnToggleSortOrder_Click(object sender, RoutedEventArgs e)
         {
             _isSortDescending = !_isSortDescending;
+            if (_settings != null)
+            {
+                _settings.ClipboardSortDescending = _isSortDescending;
+                Config.SettingsManager.SaveSettings(_settings);
+            }
             ApplySortOrder();
         }
 
@@ -1069,6 +1088,10 @@ namespace ModernKey
             }
 
             _lastActiveItemId = selected.Last().Id;
+            if (_settings != null)
+            {
+                _settings.ClipboardLastSelectedItemId = _lastActiveItemId;
+            }
 
             if (selected.Count == 1)
             {
@@ -2060,6 +2083,11 @@ namespace ModernKey
             if (sender is Button btn && btn.Tag is string tag)
             {
                 _activeFilter = tag;
+                if (_settings != null)
+                {
+                    _settings.ClipboardActiveFilter = _activeFilter;
+                    Config.SettingsManager.SaveSettings(_settings);
+                }
                 HighlightActiveTab(tag);
                 _itemsView?.Refresh();
                 UpdateSlotNumbers();
@@ -2080,6 +2108,103 @@ namespace ModernKey
             }
         }
 
+        public void ApplyTextZoom(double zoom)
+        {
+            _textZoom = Math.Max(0.7, Math.Min(2.0, Math.Round(zoom, 2)));
+            if (ClipboardListScale != null)
+            {
+                ClipboardListScale.ScaleX = _textZoom;
+                ClipboardListScale.ScaleY = _textZoom;
+            }
+            if (ClipboardPreviewScale != null)
+            {
+                ClipboardPreviewScale.ScaleX = _textZoom;
+                ClipboardPreviewScale.ScaleY = _textZoom;
+            }
+            if (TxtStatus != null)
+            {
+                TxtStatus.Text = $"Cỡ chữ / Thu phóng: {(int)(_textZoom * 100)}% (Ctrl + - / = / 0)";
+            }
+            if (_settings != null)
+            {
+                _settings.ClipboardTextZoom = _textZoom;
+                Config.SettingsManager.SaveSettings(_settings);
+            }
+        }
+
+        public void OpenImageInDefaultViewer(ClipboardItem item)
+        {
+            if (item == null) return;
+            try
+            {
+                string filePath = item.ImagePath;
+                if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+                {
+                    Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true });
+                    if (TxtStatus != null) TxtStatus.Text = $"✓ Đã mở ảnh bằng ứng dụng mặc định: {Path.GetFileName(filePath)}";
+                    return;
+                }
+
+                if (item.ImageSource is BitmapSource bs)
+                {
+                    string tempDir = Path.Combine(Path.GetTempPath(), "ModernKey");
+                    if (!Directory.Exists(tempDir)) Directory.CreateDirectory(tempDir);
+                    string tempFile = Path.Combine(tempDir, $"preview_{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString("N").Substring(0, 6)}.png");
+
+                    var encoder = new PngBitmapEncoder();
+                    encoder.Frames.Add(BitmapFrame.Create(bs));
+                    using (var fs = new FileStream(tempFile, FileMode.Create, FileAccess.Write))
+                    {
+                        encoder.Save(fs);
+                    }
+                    Process.Start(new ProcessStartInfo(tempFile) { UseShellExecute = true });
+                    if (TxtStatus != null) TxtStatus.Text = $"✓ Đã mở ảnh bằng ứng dụng mặc định!";
+                }
+            }
+            catch (Exception ex)
+            {
+                if (TxtStatus != null) TxtStatus.Text = $"Lỗi mở ảnh: {ex.Message}";
+            }
+        }
+
+        public void ExecutePreviewItem(ClipboardItem item)
+        {
+            if (item == null) return;
+
+            if (item.ContentType == ClipboardContentType.Image)
+            {
+                OpenImageInDefaultViewer(item);
+            }
+            else
+            {
+                OpenQuickLook(item);
+            }
+        }
+
+        private void ImgPreview_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (LstClipboard?.SelectedItem is ClipboardItem item && item.ContentType == ClipboardContentType.Image)
+            {
+                OpenImageInDefaultViewer(item);
+            }
+        }
+
+        private void ImgQuickLookBody_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (LstClipboard?.SelectedItem is ClipboardItem item && item.ContentType == ClipboardContentType.Image)
+            {
+                OpenImageInDefaultViewer(item);
+            }
+        }
+
+        private void BtnQuickLookOpenExternal_Click(object sender, RoutedEventArgs e)
+        {
+            if (LstClipboard?.SelectedItem is ClipboardItem item && item.ContentType == ClipboardContentType.Image)
+            {
+                OpenImageInDefaultViewer(item);
+            }
+        }
+
         public void ToggleQuickLook()
         {
             if (PnlQuickLook != null && PnlQuickLook.Visibility == Visibility.Visible)
@@ -2090,7 +2215,7 @@ namespace ModernKey
             {
                 if (LstClipboard?.SelectedItem is ClipboardItem item)
                 {
-                    OpenQuickLook(item);
+                    ExecutePreviewItem(item);
                 }
             }
         }
@@ -2114,9 +2239,11 @@ namespace ModernKey
                     ImgQuickLookBody.Visibility = Visibility.Visible;
                     ImgQuickLookBody.Source = item.ImageSource;
                 }
+                if (BtnQuickLookOpenExternal != null) BtnQuickLookOpenExternal.Visibility = Visibility.Visible;
             }
             else
             {
+                if (BtnQuickLookOpenExternal != null) BtnQuickLookOpenExternal.Visibility = Visibility.Collapsed;
                 if (ImgQuickLookBody != null) ImgQuickLookBody.Visibility = Visibility.Collapsed;
                 if (TxtQuickLookBody != null)
                 {
@@ -2168,7 +2295,7 @@ namespace ModernKey
             if (sender is FrameworkElement fe && fe.DataContext is ClipboardItem item)
             {
                 LstClipboard.SelectedItem = item;
-                OpenQuickLook(item);
+                ExecutePreviewItem(item);
             }
         }
 
@@ -2293,9 +2420,9 @@ namespace ModernKey
 
         private void CtxMenuPreview_Click(object sender, RoutedEventArgs e)
         {
-            if (TxtPreview != null && TxtPreview.Visibility == Visibility.Visible)
+            if (LstClipboard?.SelectedItem is ClipboardItem item)
             {
-                TxtPreview.Focus();
+                ExecutePreviewItem(item);
             }
         }
 
@@ -3061,6 +3188,12 @@ namespace ModernKey
                     e.Handled = true;
                     return;
                 }
+                if (e.Key == Key.F && LstClipboard?.SelectedItem is ClipboardItem quickImg && quickImg.ContentType == ClipboardContentType.Image)
+                {
+                    OpenImageInDefaultViewer(quickImg);
+                    e.Handled = true;
+                    return;
+                }
                 if (e.Key == Key.Enter)
                 {
                     CloseQuickLook();
@@ -3099,8 +3232,11 @@ namespace ModernKey
             }
             else if (e.Key == Key.Space && (TxtSearch == null || !TxtSearch.IsFocused) && (TxtPreview == null || !TxtPreview.IsFocused))
             {
-                // Phím Space: Bật/Tắt khung Quick Look Inspector phóng to
-                ToggleQuickLook();
+                // Phím Space: Xem trước (Ảnh mở bằng app mặc định, văn bản mở Quick Look)
+                if (LstClipboard?.SelectedItem is ClipboardItem item)
+                {
+                    ExecutePreviewItem(item);
+                }
                 e.Handled = true;
             }
             else if (e.Key == Key.Q && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
@@ -3217,6 +3353,24 @@ namespace ModernKey
             {
                 TxtSearch.Focus();
                 TxtSearch.SelectAll();
+                e.Handled = true;
+            }
+            // Thu nhỏ cỡ chữ clipboard (Ctrl + -)
+            else if ((Keyboard.Modifiers & ModifierKeys.Control) != 0 && (e.Key == Key.OemMinus || e.Key == Key.Subtract))
+            {
+                ApplyTextZoom(_textZoom - 0.1);
+                e.Handled = true;
+            }
+            // Phóng to cỡ chữ clipboard (Ctrl + = / Ctrl + +)
+            else if ((Keyboard.Modifiers & ModifierKeys.Control) != 0 && (e.Key == Key.OemPlus || e.Key == Key.Add))
+            {
+                ApplyTextZoom(_textZoom + 0.1);
+                e.Handled = true;
+            }
+            // Reset cỡ chữ clipboard về 100% (Ctrl + 0)
+            else if ((Keyboard.Modifiers & ModifierKeys.Control) != 0 && (e.Key == Key.D0 || e.Key == Key.NumPad0))
+            {
+                ApplyTextZoom(1.0);
                 e.Handled = true;
             }
             else if (e.Key == Key.D0 && !TxtSearch.IsFocused && Keyboard.Modifiers == ModifierKeys.None)

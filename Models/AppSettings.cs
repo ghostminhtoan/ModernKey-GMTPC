@@ -107,6 +107,12 @@ namespace ModernKey.Models
         public bool ClipboardSequentialPaste { get; set; } = false;
         public bool ClipboardViewModeCompact { get; set; } = false;
 
+        // Ghi nhớ trạng thái lọc/sắp xếp, mục đã chọn và kích thước zoom clipboard
+        public bool ClipboardSortDescending { get; set; } = true;
+        public string ClipboardActiveFilter { get; set; } = "ALL";
+        public string ClipboardLastSelectedItemId { get; set; } = string.Empty;
+        public double ClipboardTextZoom { get; set; } = 1.0;
+
         // Tạm dừng thông minh cho lập trình viên (Smart Passthrough & Esc Undo)
         public bool SmartCodePassthrough { get; set; } = true;
         public bool EscKeyUndo { get; set; } = true;

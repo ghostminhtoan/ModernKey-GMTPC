@@ -487,6 +487,9 @@
                              VirtualizingPanel.CacheLengthUnit="Page"
                              Foreground="{StaticResource CyberTextPrimary}" SelectionChanged="LstClipboard_SelectionChanged"
                              MouseDoubleClick="LstClipboard_MouseDoubleClick" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.LayoutTransform>
+                            <ScaleTransform x:Name="ClipboardListScale" ScaleX="1.0" ScaleY="1.0" />
+                        </ListBox.LayoutTransform>
                         <ListBox.ContextMenu>
                             <ContextMenu Style="{StaticResource CyberContextMenu}" Opened="ContextMenu_Opened">
                                 <MenuItem Header="Dán (Paste)" InputGestureText="Enter / Ins" Click="CtxMenuPaste_Click" Style="{StaticResource CyberMenuItem}" />
@@ -533,7 +536,7 @@
 
                                 <Separator Style="{StaticResource CyberMenuSeparator}" />
                                 <MenuItem Header="Chỉnh sửa (Edit)" InputGestureText="Alt+Enter" Click="CtxMenuEdit_Click" Style="{StaticResource CyberMenuItem}" />
-                                <MenuItem Header="Xem trước (Preview)" Click="CtxMenuPreview_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem Header="Xem trước (Preview)" InputGestureText="Space" Click="CtxMenuPreview_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="Lưu thành tệp... (Save As...)" InputGestureText="Ctrl+S" Click="CtxMenuSaveAs_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="Xóa (Delete)" InputGestureText="Del" Click="CtxMenuDelete_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="Xóa tất cả (Delete All)" Click="CtxMenuDeleteAll_Click" Style="{StaticResource CyberMenuItem}" />
@@ -730,10 +733,16 @@
                             <TextBox x:Name="TxtPreview" Background="Transparent" BorderThickness="0"
                                      Foreground="{StaticResource CyberTextPrimary}" FontFamily="Consolas" FontSize="12"
                                      IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
-                                     Padding="8" SelectionBrush="{StaticResource CyberNeonPink}" />
+                                     Padding="8" SelectionBrush="{StaticResource CyberNeonPink}">
+                                <TextBox.LayoutTransform>
+                                    <ScaleTransform x:Name="ClipboardPreviewScale" ScaleX="1.0" ScaleY="1.0" />
+                                </TextBox.LayoutTransform>
+                            </TextBox>
 
-                            <!-- Image Preview -->
-                            <Image x:Name="ImgPreview" Stretch="Uniform" Margin="8" Visibility="Collapsed" />
+                            <!-- Image Preview: Nhấp chuột để mở xem full ảnh bằng app xem ảnh mặc định -->
+                            <Image x:Name="ImgPreview" Stretch="Uniform" Margin="8" Visibility="Collapsed"
+                                   Cursor="Hand" ToolTip="Nhấp chuột để mở toàn màn hình bằng ứng dụng xem ảnh mặc định"
+                                   MouseLeftButtonUp="ImgPreview_MouseLeftButtonUp" />
 
                             <!-- Bảng điều khiển nút trích xuất chữ Web AI trên ảnh -->
                             <Border x:Name="PnlWebAiImageActions" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="10"
@@ -881,7 +890,9 @@
                             <TextBox x:Name="TxtQuickLookBody" Background="Transparent" BorderThickness="0"
                                      Foreground="{StaticResource CyberTextPrimary}" FontFamily="Consolas" FontSize="13"
                                      IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" />
-                            <Image x:Name="ImgQuickLookBody" Stretch="Uniform" Visibility="Collapsed" />
+                            <Image x:Name="ImgQuickLookBody" Stretch="Uniform" Visibility="Collapsed"
+                                   Cursor="Hand" ToolTip="Nhấp chuột để mở toàn màn hình bằng ứng dụng xem ảnh mặc định"
+                                   MouseLeftButtonUp="ImgQuickLookBody_MouseLeftButtonUp" />
                         </Grid>
                     </Border>
 
@@ -894,6 +905,9 @@
                         <TextBlock Text="💡 Phím tắt: Enter = Dán | Ctrl+C = Sao chép | Space/Esc = Đóng Quick Look"
                                    FontSize="11" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" VerticalAlignment="Center" />
                         <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <Button x:Name="BtnQuickLookOpenExternal" Content="[F] XEM FULL ẢNH" Click="BtnQuickLookOpenExternal_Click"
+                                    Background="#15212C" BorderBrush="{StaticResource CyberNeonYellow}" Foreground="{StaticResource CyberNeonYellow}" FontWeight="Bold" Padding="10,5" Margin="0,0,6,0"
+                                    Visibility="Collapsed" ToolTip="Mở toàn bộ ảnh bằng ứng dụng xem ảnh mặc định của máy tính" />
                             <Button Content="[ENTER] DÁN" Click="BtnQuickLookPaste_Click"
                                     Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" FontWeight="Bold" Padding="12,5" Margin="0,0,6,0" />
                             <Button Content="[CTRL+C] SAO CHÉP" Click="BtnQuickLookCopy_Click"
