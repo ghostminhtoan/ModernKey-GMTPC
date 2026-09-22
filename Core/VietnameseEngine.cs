@@ -549,7 +549,7 @@ namespace ModernKey.Core
                 catch { }
 
                 // Kiểm tra chính tả theo cơ chế OpenKey C++ và tự động khôi phục nếu từ sai chính tả
-                if (_settings.CheckSpelling && _settings.RestoreIfWrongSpelling && _charBuffer.Count > 0)
+                if (_settings.CheckSpelling && _settings.RestoreIfWrongSpelling && _charBuffer.Count > 0 && !_isRawWordOnScreen)
                 {
                     string displayWord = GetDisplayWord(_charBuffer);
                     string rawWord = new string(_charBuffer.ToArray());
@@ -558,7 +558,7 @@ namespace ModernKey.Core
                         OpenKeySpelling.HasToneMarkOnVowel(displayWord) &&
                         !OpenKeySpelling.IsValidWord(displayWord, forceCheckVowel: true, _settings))
                     {
-                        backspaceCount = displayWord.Length;
+                        backspaceCount = Math.Max(displayWord.Length, rawWord.Length);
                         newString = rawWord;
                         trailingVkCode = isSpace ? 0x20 : (isReturn ? 0x0D : 0);
                         Reset();
@@ -699,7 +699,7 @@ namespace ModernKey.Core
                     }
                 }
 
-                if (_settings.CheckSpelling && _settings.RestoreIfWrongSpelling && _charBuffer.Count > 0)
+                if (_settings.CheckSpelling && _settings.RestoreIfWrongSpelling && _charBuffer.Count > 0 && !_isRawWordOnScreen)
                 {
                     string displayWord = GetDisplayWord(_charBuffer);
                     string rawWord = new string(_charBuffer.ToArray());
@@ -707,7 +707,7 @@ namespace ModernKey.Core
                         OpenKeySpelling.HasToneMarkOnVowel(displayWord) &&
                         !OpenKeySpelling.IsValidWord(displayWord, forceCheckVowel: true, _settings))
                     {
-                        backspaceCount = displayWord.Length;
+                        backspaceCount = Math.Max(displayWord.Length, rawWord.Length);
                         newString = rawWord + (ch != '\0' ? ch.ToString() : "");
                         trailingVkCode = 0;
                         Reset();
@@ -1131,6 +1131,7 @@ namespace ModernKey.Core
             newString = null;
 
             // 1. Lấy từ đang hiển thị trên màn hình TRƯỚC KHI gõ phím ch
+            bool wasRawBefore = _isRawWordOnScreen;
             string prevDisplayWord = GetDisplayWord(_charBuffer);
             _isRawWordOnScreen = false;
 
@@ -1177,16 +1178,21 @@ namespace ModernKey.Core
             // Phím ch KHÔNG làm biến đổi dấu hay mũ nào! Để Windows in ký tự tự nhiên!
             if (string.Equals(actualDisplayWord, expectedNormal, StringComparison.Ordinal))
             {
+                if (wasRawBefore)
+                {
+                    _isRawWordOnScreen = true;
+                }
                 return false; // KHÔNG GỬI BACKSPACE, KHÔNG NUỐT PHÍM! (ch đã nằm trong _charBuffer)
             }
 
             // 4.5. KIỂM TRA CHÍNH TẢ CHUẨN OPENKEY C++ (tempDisableKey):
             // Nếu bật CheckSpelling: nếu từ trước đó (prevDisplayWord) đã vi phạm cấu trúc âm tiết
-            // (ví dụ "họcc", "dơnl") thì không nhận diện phím dấu tiếp theo (trừ phím 'd'/'D' chuẩn C++).
+            // (ví dụ "họcc", "dơnl", "tele") thì không nhận diện phím dấu tiếp theo (trừ phím 'd'/'D' chuẩn C++).
             if (_settings.CheckSpelling && prevDisplayWord.Length > 0 && ch != 'd' && ch != 'D')
             {
                 if (!OpenKeySpelling.IsValidWord(prevDisplayWord, forceCheckVowel: false, _settings))
                 {
+                    _isRawWordOnScreen = true;
                     return false;
                 }
             }
@@ -2712,7 +2718,8 @@ namespace ModernKey.Core
                     // FIX TRIỆT ĐỂ: Dấu thanh (s, f, r, x, j) CHỈ có hiệu lực khi đã có NGUYÊN ÂM và ký tự trước có thể nhận dấu!
                     // Nếu ký tự cuối là phụ âm không hợp lệ trong tiếng Việt (như 'd' trong download, card, word, need):
                     // không nhận diện s/f/r/x/j là dấu thanh mà giữ nguyên ký tự thường!
-                    bool canTakeTone = true;
+                    bool isMultiSyllabic = CountVowelClusters(sb) > 1;
+                    bool canTakeTone = !isMultiSyllabic;
                     bool isAfterConsonant = sb.Length > 0 && !IsVowel(sb[sb.Length - 1]);
                     if (!freeMark && isAfterConsonant)
                     {
@@ -2902,8 +2909,8 @@ namespace ModernKey.Core
                             sb[sb.Length - 1] = char.IsUpper(sb[sb.Length - 1]) ? 'Ê' : 'ê';
                         }
                     }
-                    // aa -> â
-                    if (lower == 'a' && sb.Length > 0 && char.ToLower(sb[sb.Length - 1]) == 'a')
+                    // aa -> â (chỉ khi không phải từ đa âm tiết ngoại lai)
+                    if (!isMultiSyllabic && lower == 'a' && sb.Length > 0 && char.ToLower(sb[sb.Length - 1]) == 'a')
                     {
                         bool isUpper = char.IsUpper(sb[sb.Length - 1]) || char.IsUpper(c) || IsCapsLockActive();
                         sb.Remove(sb.Length - 1, 1);
@@ -2912,7 +2919,7 @@ namespace ModernKey.Core
                         continue;
                     }
                     // ee -> ê
-                    if (lower == 'e' && sb.Length > 0 && char.ToLower(sb[sb.Length - 1]) == 'e')
+                    if (!isMultiSyllabic && lower == 'e' && sb.Length > 0 && char.ToLower(sb[sb.Length - 1]) == 'e')
                     {
                         bool isUpper = char.IsUpper(sb[sb.Length - 1]) || char.IsUpper(c) || IsCapsLockActive();
                         sb.Remove(sb.Length - 1, 1);
@@ -2921,7 +2928,7 @@ namespace ModernKey.Core
                         continue;
                     }
                     // oo -> ô
-                    if (lower == 'o' && sb.Length > 0 && char.ToLower(sb[sb.Length - 1]) == 'o')
+                    if (!isMultiSyllabic && lower == 'o' && sb.Length > 0 && char.ToLower(sb[sb.Length - 1]) == 'o')
                     {
                         bool isUpper = char.IsUpper(sb[sb.Length - 1]) || char.IsUpper(c) || IsCapsLockActive();
                         sb.Remove(sb.Length - 1, 1);
@@ -2932,7 +2939,7 @@ namespace ModernKey.Core
                     // w -> ư / aw -> ă / ow -> ơ / uo+w -> ươ
                     if (lower == 'w')
                     {
-                        if (method == InputMethod.SimpleTelex && sb.Length == 0)
+                        if (isMultiSyllabic)
                         {
                             sb.Append(c);
                             continue;
@@ -2942,12 +2949,66 @@ namespace ModernKey.Core
                         if (sb.Length > 0)
                         {
                             char prev = sb[sb.Length - 1];
-                            char prevLower = char.ToLower(prev);
+                            char prevClean = RemoveToneFromChar(prev, out int _);
+                            char prevLower = char.ToLower(prevClean);
                             bool isUpper = char.IsUpper(prev) || char.IsUpper(c) || isCaps;
+
+                            // 1. Toggle hoàn tác khi gõ lặp 'w' sau khi vừa tạo dấu móc (ă, ơ, ư)
+                            // Chỉ toggle 'ư' -> 'w' khi nguyên âm 'u' đứng trước (uw -> ư, gõ tiếp w -> uw) hoặc khi w đứng đơn lẻ đầu từ (w -> ư, gõ tiếp w -> w).
+                            // TUYỆT ĐỐI không can thiệp khi có phụ âm đầu (như đư, sư) để phục vụ gõ tự do (như ddwwowjcc -> được, ddwwfwng -> đừng).
+                            if (prevLower == 'ư')
+                            {
+                                bool hadUBefore = sb.Length >= 2 && char.ToLower(RemoveToneFromChar(sb[sb.Length - 2], out _)) == 'u';
+                                if (hadUBefore || sb.Length == 1)
+                                {
+                                    sb.Remove(sb.Length - 1, 1);
+                                    if (hadUBefore)
+                                    {
+                                        sb.Append(char.IsUpper(prev) ? 'U' : 'u');
+                                        sb.Append(isUpper ? 'W' : 'w');
+                                    }
+                                    else
+                                    {
+                                        sb.Append(isUpper ? 'W' : 'w');
+                                    }
+                                    modified = true;
+                                    continue;
+                                }
+                            }
+                            if (prevLower == 'ă')
+                            {
+                                sb.Remove(sb.Length - 1, 1);
+                                sb.Append(char.IsUpper(prev) ? 'A' : 'a');
+                                sb.Append(isUpper ? 'W' : 'w');
+                                modified = true;
+                                continue;
+                            }
+                            if (prevLower == 'ơ')
+                            {
+                                bool hadUBefore = sb.Length >= 2 && char.ToLower(RemoveToneFromChar(sb[sb.Length - 2], out _)) == 'u';
+                                sb.Remove(sb.Length - 1, 1);
+                                if (hadUBefore)
+                                {
+                                    if (sb.Length > 0 && char.ToLower(RemoveToneFromChar(sb[sb.Length - 1], out _)) == 'ư')
+                                    {
+                                        sb[sb.Length - 1] = char.IsUpper(sb[sb.Length - 1]) ? 'U' : 'u';
+                                    }
+                                    sb.Append(char.IsUpper(prev) ? 'O' : 'o');
+                                    sb.Append(isUpper ? 'W' : 'w');
+                                }
+                                else
+                                {
+                                    sb.Append(char.IsUpper(prev) ? 'O' : 'o');
+                                    sb.Append(isUpper ? 'W' : 'w');
+                                }
+                                modified = true;
+                                continue;
+                            }
+
+                            // 2. Móc cho 'a' (aw -> ă, uaw -> ưa)
                             if (prevLower == 'a')
                             {
-                                // Nếu trước 'a' là 'u' (ví dụ "ua" + w -> "ưa")
-                                if (sb.Length >= 2 && char.ToLower(sb[sb.Length - 2]) == 'u')
+                                if (sb.Length >= 2 && char.ToLower(RemoveToneFromChar(sb[sb.Length - 2], out _)) == 'u')
                                 {
                                     bool uUpper = char.IsUpper(sb[sb.Length - 2]) || isCaps;
                                     sb[sb.Length - 2] = uUpper ? 'Ư' : 'ư';
@@ -2960,10 +3021,11 @@ namespace ModernKey.Core
                                 modified = true;
                                 continue;
                             }
+
+                            // 3. Móc cho 'o' (ow -> ơ, uow -> ươ)
                             if (prevLower == 'o')
                             {
-                                // Nếu trước 'o' là 'u' (ví dụ "uo" + w -> "ươ")
-                                if (sb.Length >= 2 && char.ToLower(sb[sb.Length - 2]) == 'u')
+                                if (sb.Length >= 2 && char.ToLower(RemoveToneFromChar(sb[sb.Length - 2], out _)) == 'u')
                                 {
                                     bool uUpper = char.IsUpper(sb[sb.Length - 2]) || isCaps;
                                     bool allUpper = isCaps || (sb.Length > 2 && IsAllLettersUpper(sb));
@@ -2978,6 +3040,8 @@ namespace ModernKey.Core
                                 modified = true;
                                 continue;
                             }
+
+                            // 4. Móc cho 'u' (uw -> ư)
                             if (prevLower == 'u')
                             {
                                 sb.Remove(sb.Length - 1, 1);
@@ -2986,13 +3050,43 @@ namespace ModernKey.Core
                                 continue;
                             }
 
-                            // Free Mark Hook: nếu phía trước là phụ âm cuối (như trong "duoc", "nuoc", "muot")
+                            // 5. Free Mark Hook cho uo (như "duoc", "nuoc", "muot")
                             if (freeMark && TryApplyVowelHookFreeMark(sb))
                             {
                                 modified = true;
                                 continue;
                             }
+
+                            // 6. Nếu ký tự trước là 'w': đã là w rồi, gõ tiếp w thì chỉ append thêm w (neww, newww, ww, www)
+                            if (char.ToLower(prev) == 'w')
+                            {
+                                sb.Append(c);
+                                continue;
+                            }
+
+                            // 7. Nếu từ đã có nguyên âm trước đó nhưng KHÔNG PHẢI a, o, u:
+                            // Ví dụ: e (new, chew, flew, grew), ê, i (view, kiwi), y:
+                            // Trong tiếng Việt KHÔNG CÓ vần eư, êư, iư, yư! w PHẢI giữ nguyên là 'w'!
+                            char lastVowel = GetLastVowel(sb);
+                            if (lastVowel != '\0')
+                            {
+                                char cleanVowel = char.ToLowerInvariant(RemoveToneFromChar(lastVowel, out _));
+                                if (cleanVowel == 'e' || cleanVowel == 'ê' || cleanVowel == 'i' || cleanVowel == 'y')
+                                {
+                                    sb.Append(c);
+                                    continue;
+                                }
+                            }
                         }
+
+                        // 8. SimpleTelex: w KHÔNG BAO GIỜ tự động biến thành 'ư' khi đứng đơn lẻ (đầu từ hoặc sau phụ âm đầu)!
+                        if (method == InputMethod.SimpleTelex)
+                        {
+                            sb.Append(c);
+                            continue;
+                        }
+
+                        // 9. Telex thường: w ở đầu từ hoặc sau phụ âm đầu (chưa có nguyên âm): biến thành 'ư'
                         sb.Append((char.IsUpper(c) || isCaps) ? 'Ư' : 'ư');
                         modified = true;
                         continue;
@@ -3235,6 +3329,29 @@ namespace ModernKey.Core
             return word;
         }
 
+        private static int CountVowelClusters(StringBuilder sb)
+        {
+            if (sb == null || sb.Length == 0) return 0;
+            int count = 0;
+            bool inVowel = false;
+            for (int i = 0; i < sb.Length; i++)
+            {
+                if (IsVowel(sb[i]))
+                {
+                    if (!inVowel)
+                    {
+                        count++;
+                        inVowel = true;
+                    }
+                }
+                else
+                {
+                    inVowel = false;
+                }
+            }
+            return count;
+        }
+
         private static bool HasAnyVowel(StringBuilder sb)
         {
             if (sb == null || sb.Length == 0) return false;
@@ -3243,6 +3360,16 @@ namespace ModernKey.Core
                 if (IsVowel(sb[i])) return true;
             }
             return false;
+        }
+
+        private static char GetLastVowel(StringBuilder sb)
+        {
+            if (sb == null || sb.Length == 0) return '\0';
+            for (int i = sb.Length - 1; i >= 0; i--)
+            {
+                if (IsVowel(sb[i])) return sb[i];
+            }
+            return '\0';
         }
 
         private static bool HasAnyVowel(string str)

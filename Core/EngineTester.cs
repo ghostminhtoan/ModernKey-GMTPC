@@ -73,7 +73,22 @@ namespace ModernKey.Core
                 ("ddd", "dd"),
                 ("dddr", "ddr"),
                 ("DDDr", "DDr"),
-                ("ddr", "đr")
+                ("ddr", "đr"),
+                ("new", "new"),
+                ("news", "news"),
+                ("neww", "neww"),
+                ("newww", "newww"),
+                ("chew", "chew"),
+                ("flew", "flew"),
+                ("view", "view"),
+                ("views", "views"),
+                ("telex", "telex"),
+                ("simpletelex", "simpletelex"),
+                ("complex", "complex"),
+                ("inbox", "inbox"),
+                ("firefox", "firefox"),
+                ("ww", "w"),
+                ("www", "ww")
             };
 
             sb.AppendLine("[TEST TELEX - TUNG TU]");
@@ -1238,12 +1253,25 @@ namespace ModernKey.Core
                     var simpleCases = new (string input, string expected)[]
                     {
                         ("w", "w"),
+                        ("ww", "ww"),
+                        ("www", "www"),
                         ("wa", "wa"),
                         ("win", "win"),
+                        ("web", "web"),
+                        ("wifi", "wifi"),
                         ("aw", "ă"),
                         ("uw", "ư"),
                         ("ow", "ơ"),
                         ("uow", "ươ"),
+                        ("new", "new"),
+                        ("news", "news"),
+                        ("neww", "neww"),
+                        ("newww", "newww"),
+                        ("telex", "telex"),
+                        ("simpletelex", "simpletelex"),
+                        ("complex", "complex"),
+                        ("inbox", "inbox"),
+                        ("firefox", "firefox"),
                         ("duocwj", "dược"),
                         ("dduocwj", "được")
                     };
@@ -1474,7 +1502,16 @@ namespace ModernKey.Core
                         ("dơn ", "down "),
                         ("shơ ", "show "),
                         ("tơn ", "town "),
-                        ("cáe\n", "case\n")
+                        ("cáe\n", "case\n"),
+                        ("telex ", "telex "),
+                        ("simpletelex ", "simpletelex "),
+                        ("new ", "new "),
+                        ("news ", "news "),
+                        ("neww ", "neww "),
+                        ("newww ", "newww "),
+                        ("complex ", "complex "),
+                        ("inbox ", "inbox "),
+                        ("firefox ", "firefox ")
                     };
 
                     foreach (var st in spellingTests)

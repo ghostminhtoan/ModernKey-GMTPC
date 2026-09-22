@@ -29,6 +29,12 @@ namespace ModernKey.Core
             "drag", "pick", "fill", "crop", "edit", "copy", "cut", "paste", "undo", "redo",
             "pack", "span", "flex", "grid", "wrap", "auto", "dark", "glow",
             "neon", "cyan", "pink", "gold", "blue", "gray", "thin", "wide", "tall",
+            "telex", "simpletelex", "tele", "new", "news", "knew", "chew", "flew", "grew",
+            "drew", "screw", "stew", "crew", "views", "review", "reviews", "interview", "interviews",
+            "complex", "duplex", "multiplex", "simplex", "index", "vertex", "matrix", "cortex",
+            "latex", "regex", "apex", "ajax", "inbox", "dropbox", "firefox", "netflix", "linux", "unix",
+            "pixel", "pixels", "proxy", "max", "fax", "tax", "relax", "remix", "prefix", "suffix",
+            "fix", "six", "box", "fox",
 
             // Từ vựng tiếng Anh thông dụng hay bị dính dấu oan
             "about", "after", "again", "almost", "along", "also", "always", "among", "animal",
