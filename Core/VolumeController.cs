@@ -10,148 +10,174 @@ namespace ModernKey.Core
     public static class VolumeController
     {
         private static readonly Guid IID_IAudioEndpointVolume = typeof(CoreAudioApi.IAudioEndpointVolume).GUID;
+        private static readonly object _syncLock = new object();
+        private static CoreAudioApi.IAudioEndpointVolume _cachedEndpoint;
 
-        private static CoreAudioApi.IAudioEndpointVolume GetMasterVolume()
+        private static CoreAudioApi.IAudioEndpointVolume GetOrCreateEndpoint()
         {
-            CoreAudioApi.IMMDeviceEnumerator enumerator = null;
-            CoreAudioApi.IMMDevice device = null;
-            try
+            if (_cachedEndpoint != null)
             {
-                enumerator = (CoreAudioApi.IMMDeviceEnumerator)new CoreAudioApi.MMDeviceEnumeratorComObject();
-                if (enumerator.GetDefaultAudioEndpoint(CoreAudioApi.eRender, CoreAudioApi.eMultimedia, out device) == 0 && device != null)
+                return _cachedEndpoint;
+            }
+
+            lock (_syncLock)
+            {
+                if (_cachedEndpoint != null) return _cachedEndpoint;
+
+                CoreAudioApi.IMMDeviceEnumerator enumerator = null;
+                CoreAudioApi.IMMDevice device = null;
+                try
                 {
-                    var guid = IID_IAudioEndpointVolume;
-                    if (device.Activate(ref guid, CoreAudioApi.CLSCTX_ALL, IntPtr.Zero, out var obj) == 0 && obj is CoreAudioApi.IAudioEndpointVolume endpoint)
+                    enumerator = (CoreAudioApi.IMMDeviceEnumerator)new CoreAudioApi.MMDeviceEnumeratorComObject();
+                    if (enumerator.GetDefaultAudioEndpoint(CoreAudioApi.eRender, CoreAudioApi.eMultimedia, out device) == 0 && device != null)
                     {
-                        return endpoint;
+                        var guid = IID_IAudioEndpointVolume;
+                        if (device.Activate(ref guid, CoreAudioApi.CLSCTX_ALL, IntPtr.Zero, out var obj) == 0 && obj is CoreAudioApi.IAudioEndpointVolume endpoint)
+                        {
+                            _cachedEndpoint = endpoint;
+                            return _cachedEndpoint;
+                        }
                     }
                 }
-            }
-            catch
-            {
-                // Bỏ qua lỗi truy cập COM audio endpoint
-            }
-            finally
-            {
-                if (device != null)
+                catch
                 {
-                    try { Marshal.ReleaseComObject(device); } catch { }
+                    // Bỏ qua lỗi truy cập COM audio endpoint
                 }
-                if (enumerator != null)
+                finally
                 {
-                    try { Marshal.ReleaseComObject(enumerator); } catch { }
+                    if (device != null)
+                    {
+                        try { Marshal.ReleaseComObject(device); } catch { }
+                    }
+                    if (enumerator != null)
+                    {
+                        try { Marshal.ReleaseComObject(enumerator); } catch { }
+                    }
                 }
             }
             return null;
         }
 
-        public static float GetVolume()
+        public static void InvalidateEndpoint()
         {
-            CoreAudioApi.IAudioEndpointVolume endpoint = null;
-            try
+            lock (_syncLock)
             {
-                endpoint = GetMasterVolume();
-                if (endpoint != null)
+                if (_cachedEndpoint != null)
                 {
-                    endpoint.GetMasterVolumeLevelScalar(out float level);
-                    return level;
+                    try { Marshal.ReleaseComObject(_cachedEndpoint); } catch { }
+                    _cachedEndpoint = null;
                 }
             }
-            catch { }
-            finally
+        }
+
+        public static float GetVolume()
+        {
+            for (int attempt = 0; attempt < 2; attempt++)
             {
-                if (endpoint != null)
+                try
                 {
-                    try { Marshal.ReleaseComObject(endpoint); } catch { }
+                    var endpoint = GetOrCreateEndpoint();
+                    if (endpoint != null)
+                    {
+                        endpoint.GetMasterVolumeLevelScalar(out float level);
+                        return level;
+                    }
                 }
+                catch (COMException)
+                {
+                    InvalidateEndpoint();
+                }
+                catch { break; }
             }
             return 0.5f;
         }
 
         public static bool IsMuted()
         {
-            CoreAudioApi.IAudioEndpointVolume endpoint = null;
-            try
+            for (int attempt = 0; attempt < 2; attempt++)
             {
-                endpoint = GetMasterVolume();
-                if (endpoint != null)
+                try
                 {
-                    endpoint.GetMute(out bool isMuted);
-                    return isMuted;
+                    var endpoint = GetOrCreateEndpoint();
+                    if (endpoint != null)
+                    {
+                        endpoint.GetMute(out bool isMuted);
+                        return isMuted;
+                    }
                 }
-            }
-            catch { }
-            finally
-            {
-                if (endpoint != null)
+                catch (COMException)
                 {
-                    try { Marshal.ReleaseComObject(endpoint); } catch { }
+                    InvalidateEndpoint();
                 }
+                catch { break; }
             }
             return false;
         }
 
         public static (float volume, bool isMuted) AdjustVolume(float deltaPercent)
         {
-            CoreAudioApi.IAudioEndpointVolume endpoint = null;
-            try
+            for (int attempt = 0; attempt < 2; attempt++)
             {
-                endpoint = GetMasterVolume();
-                if (endpoint != null)
+                try
                 {
-                    Guid context = Guid.Empty;
-                    endpoint.GetMasterVolumeLevelScalar(out float current);
-                    endpoint.GetMute(out bool isMuted);
-
-                    // Tự động hủy tắt tiếng nếu người dùng tăng âm lượng
-                    if (isMuted && deltaPercent > 0)
+                    var endpoint = GetOrCreateEndpoint();
+                    if (endpoint != null)
                     {
-                        endpoint.SetMute(false, ref context);
-                        isMuted = false;
-                    }
+                        Guid context = Guid.Empty;
+                        endpoint.GetMasterVolumeLevelScalar(out float current);
+                        endpoint.GetMute(out bool isMuted);
 
-                    float newVol = (float)Math.Round(Math.Max(0.0f, Math.Min(1.0f, current + (deltaPercent / 100.0f))), 4);
-                    endpoint.SetMasterVolumeLevelScalar(newVol, ref context);
-                    return (newVol, isMuted);
+                        // Tự động hủy tắt tiếng nếu người dùng tăng âm lượng
+                        if (isMuted && deltaPercent > 0)
+                        {
+                            endpoint.SetMute(false, ref context);
+                            isMuted = false;
+                        }
+
+                        float newVol = (float)Math.Round(Math.Max(0.0f, Math.Min(1.0f, current + (deltaPercent / 100.0f))), 4);
+                        endpoint.SetMasterVolumeLevelScalar(newVol, ref context);
+                        return (newVol, isMuted);
+                    }
                 }
-            }
-            catch { }
-            finally
-            {
-                if (endpoint != null)
+                catch (COMException)
                 {
-                    try { Marshal.ReleaseComObject(endpoint); } catch { }
+                    InvalidateEndpoint();
                 }
+                catch { break; }
             }
             return (0.5f, false);
         }
 
         public static (float volume, bool isMuted) ToggleMute()
         {
-            CoreAudioApi.IAudioEndpointVolume endpoint = null;
-            try
+            for (int attempt = 0; attempt < 2; attempt++)
             {
-                endpoint = GetMasterVolume();
-                if (endpoint != null)
+                try
                 {
-                    Guid context = Guid.Empty;
-                    endpoint.GetMasterVolumeLevelScalar(out float current);
-                    endpoint.GetMute(out bool isMuted);
+                    var endpoint = GetOrCreateEndpoint();
+                    if (endpoint != null)
+                    {
+                        Guid context = Guid.Empty;
+                        endpoint.GetMasterVolumeLevelScalar(out float current);
+                        endpoint.GetMute(out bool isMuted);
 
-                    bool newMute = !isMuted;
-                    endpoint.SetMute(newMute, ref context);
-                    return (current, newMute);
+                        bool newMute = !isMuted;
+                        endpoint.SetMute(newMute, ref context);
+                        return (current, newMute);
+                    }
                 }
-            }
-            catch { }
-            finally
-            {
-                if (endpoint != null)
+                catch (COMException)
                 {
-                    try { Marshal.ReleaseComObject(endpoint); } catch { }
+                    InvalidateEndpoint();
                 }
+                catch { break; }
             }
             return (0.5f, false);
+        }
+
+        public static void Cleanup()
+        {
+            InvalidateEndpoint();
         }
     }
 

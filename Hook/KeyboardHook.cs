@@ -660,19 +660,19 @@ namespace ModernKey.Hook
                     // 0.1. Chặn phím Media Volume phần cứng để hiện OSD đáy màn hình (chuẩn Comfort Keys Pro), không kích hoạt System Flyout Windows
                     if (vkCode == 0xAF) // VK_VOLUME_UP
                     {
-                        ComfortShortcutManager.Instance.AdjustVolume(2);
+                        ThreadPool.QueueUserWorkItem(_ => ComfortShortcutManager.Instance.AdjustVolume(2));
                         _engine?.Reset();
                         return (IntPtr)1;
                     }
                     else if (vkCode == 0xAE) // VK_VOLUME_DOWN
                     {
-                        ComfortShortcutManager.Instance.AdjustVolume(-2);
+                        ThreadPool.QueueUserWorkItem(_ => ComfortShortcutManager.Instance.AdjustVolume(-2));
                         _engine?.Reset();
                         return (IntPtr)1;
                     }
                     else if (vkCode == 0xAD) // VK_VOLUME_MUTE
                     {
-                        ComfortShortcutManager.Instance.ToggleMute();
+                        ThreadPool.QueueUserWorkItem(_ => ComfortShortcutManager.Instance.ToggleMute());
                         _engine?.Reset();
                         return (IntPtr)1;
                     }

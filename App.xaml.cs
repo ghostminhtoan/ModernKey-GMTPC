@@ -803,6 +803,7 @@ namespace ModernKey
             {
                 SettingsManager.StopSyncWatcher();
                 SoundManager.Cleanup();
+                VolumeController.Cleanup();
                 try { _caretIndicatorWindow?.Close(); } catch { }
                 try { _keyboardHook?.Dispose(); } catch { }
                 try { _clipboardListener?.Dispose(); } catch { }

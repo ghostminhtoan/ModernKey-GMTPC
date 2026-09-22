@@ -558,19 +558,19 @@ namespace ModernKey.Core
 
             if (item.AudioAction == "Volume up")
             {
-                AdjustVolume(stepSize);
+                ThreadPool.QueueUserWorkItem(_ => AdjustVolume(stepSize));
             }
             else if (item.AudioAction == "Volume down")
             {
-                AdjustVolume(-stepSize);
+                ThreadPool.QueueUserWorkItem(_ => AdjustVolume(-stepSize));
             }
             else if (item.AudioAction == "Volume on/off")
             {
-                ToggleMute();
+                ThreadPool.QueueUserWorkItem(_ => ToggleMute());
             }
             else if (item.AudioAction == "Eject/Close CD door")
             {
-                mciSendString("set cdaudio door open", null, 0, IntPtr.Zero);
+                ThreadPool.QueueUserWorkItem(_ => mciSendString("set cdaudio door open", null, 0, IntPtr.Zero));
             }
         }
 

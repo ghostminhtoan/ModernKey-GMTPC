@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Threading;
 
 namespace ModernKey
 {
@@ -23,7 +24,28 @@ namespace ModernKey
         private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
 
         private readonly List<Border> _barElements = new List<Border>(25);
+        private readonly DispatcherTimer _hideTimer;
         private Storyboard _fadeStoryboard;
+
+        // Frozen Brushes tối ưu hiệu năng bộ nhớ và render
+        private static readonly SolidColorBrush _brushWhite;
+        private static readonly SolidColorBrush _brushMuteRed;
+        private static readonly SolidColorBrush _brushMutedBar;
+        private static readonly SolidColorBrush _brushInactiveBar;
+
+        static VolumeOsdWindow()
+        {
+            _brushWhite = Brushes.White;
+
+            _brushMuteRed = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FF4D4D"));
+            _brushMuteRed.Freeze();
+
+            _brushMutedBar = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#66FFFFFF"));
+            _brushMutedBar.Freeze();
+
+            _brushInactiveBar = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#DDDDDD"));
+            _brushInactiveBar.Freeze();
+        }
 
         public static VolumeOsdWindow Instance { get; private set; }
 
@@ -33,6 +55,14 @@ namespace ModernKey
             Instance = this;
             Loaded += VolumeOsdWindow_Loaded;
             InitializeVolumeBars();
+
+            _hideTimer = new DispatcherTimer(DispatcherPriority.Normal)
+            {
+                Interval = TimeSpan.FromSeconds(1.2)
+            };
+            _hideTimer.Tick += HideTimer_Tick;
+
+            InitFadeStoryboard();
         }
 
         private void VolumeOsdWindow_Loaded(object sender, RoutedEventArgs e)
@@ -54,7 +84,7 @@ namespace ModernKey
                     Width = 4.5,
                     Height = 4.5,
                     CornerRadius = new CornerRadius(1),
-                    Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#DDDDDD")),
+                    Background = _brushInactiveBar,
                     VerticalAlignment = VerticalAlignment.Center,
                     Margin = (i == 24) ? new Thickness(0) : new Thickness(0, 0, 16.5, 0)
                 };
@@ -64,66 +94,76 @@ namespace ModernKey
             }
         }
 
+        private void InitFadeStoryboard()
+        {
+            var anim = new DoubleAnimation
+            {
+                From = 0.96,
+                To = 0.0,
+                Duration = TimeSpan.FromSeconds(0.25)
+            };
+
+            _fadeStoryboard = new Storyboard();
+            _fadeStoryboard.Children.Add(anim);
+            Storyboard.SetTarget(anim, RootBorder);
+            Storyboard.SetTargetProperty(anim, new PropertyPath(UIElement.OpacityProperty));
+            _fadeStoryboard.Completed += (s, ev) => Hide();
+        }
+
+        private void HideTimer_Tick(object sender, EventArgs e)
+        {
+            _hideTimer.Stop();
+            _fadeStoryboard.Begin();
+        }
+
         public void ShowVolume(float volume, bool isMuted)
         {
-            Dispatcher.Invoke(() =>
+            // Nếu không ở UI Thread, gửi tác vụ bất đồng bộ mức ưu tiên Send để giải phóng hook thread ngay lập tức
+            if (!Dispatcher.CheckAccess())
             {
-                int activeCount = (int)Math.Round(Math.Max(0.0f, Math.Min(1.0f, volume)) * 25.0f);
+                Dispatcher.BeginInvoke(DispatcherPriority.Send, new Action(() => ShowVolume(volume, isMuted)));
+                return;
+            }
 
-                if (isMuted)
+            int activeCount = (int)Math.Round(Math.Max(0.0f, Math.Min(1.0f, volume)) * 25.0f);
+
+            if (isMuted)
+            {
+                MuteSlash.Visibility = Visibility.Visible;
+                VolumeTriangle.Stroke = _brushMuteRed;
+            }
+            else
+            {
+                MuteSlash.Visibility = Visibility.Collapsed;
+                VolumeTriangle.Stroke = _brushWhite;
+            }
+
+            for (int i = 0; i < 25; i++)
+            {
+                var bar = _barElements[i];
+                if (i < activeCount)
                 {
-                    MuteSlash.Visibility = Visibility.Visible;
-                    VolumeTriangle.Stroke = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FF4D4D"));
+                    bar.Height = 26;
+                    bar.Background = isMuted ? _brushMutedBar : _brushWhite;
                 }
                 else
                 {
-                    MuteSlash.Visibility = Visibility.Collapsed;
-                    VolumeTriangle.Stroke = Brushes.White;
+                    bar.Height = 4.5;
+                    bar.Background = _brushInactiveBar;
                 }
+            }
 
-                for (int i = 0; i < 25; i++)
-                {
-                    var bar = _barElements[i];
-                    if (i < activeCount)
-                    {
-                        bar.Height = 26;
-                        bar.Background = isMuted ? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#66FFFFFF")) : Brushes.White;
-                    }
-                    else
-                    {
-                        bar.Height = 4.5;
-                        bar.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#DDDDDD"));
-                    }
-                }
+            var workArea = SystemParameters.WorkArea;
+            Left = workArea.Left + (workArea.Width - Width) / 2;
+            Top = workArea.Bottom - Height - 14;
 
-                var workArea = SystemParameters.WorkArea;
-                Left = workArea.Left + (workArea.Width - Width) / 2;
-                Top = workArea.Bottom - Height - 14;
+            _fadeStoryboard.Stop();
+            RootBorder.Opacity = 0.96;
+            Show();
+            Topmost = true;
 
-                Show();
-                RootBorder.Opacity = 0.96;
-                Topmost = true;
-
-                if (_fadeStoryboard != null)
-                {
-                    _fadeStoryboard.Stop();
-                }
-
-                var anim = new DoubleAnimation
-                {
-                    From = 0.96,
-                    To = 0.0,
-                    BeginTime = TimeSpan.FromSeconds(1.2),
-                    Duration = TimeSpan.FromSeconds(0.35)
-                };
-
-                _fadeStoryboard = new Storyboard();
-                _fadeStoryboard.Children.Add(anim);
-                Storyboard.SetTarget(anim, RootBorder);
-                Storyboard.SetTargetProperty(anim, new PropertyPath(UIElement.OpacityProperty));
-                _fadeStoryboard.Completed += (s, ev) => Hide();
-                _fadeStoryboard.Begin();
-            });
+            _hideTimer.Stop();
+            _hideTimer.Start();
         }
     }
 }
