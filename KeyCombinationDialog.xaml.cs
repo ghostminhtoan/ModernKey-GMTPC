@@ -109,7 +109,7 @@ namespace ModernKey
             }
 
             // 4. Special & Navigation Keys
-            string[] specialKeys = { "Ins", "Del", "Home", "End", "PgUp", "PgDn", "Space", "Enter", "Tab", "Esc", "Left", "Up", "Right", "Down", "Caps", "Pause", "PrtSc" };
+            string[] specialKeys = { "Ins", "Del", "Home", "End", "PgUp", "PgDn", "Space", "Enter", "Tab", "Esc", "Left", "Up", "Right", "Down", "Caps", "Pause", "PrtSc", "Apps", "LeftWin", "RightWin" };
             foreach (var s in specialKeys)
             {
                 PnlSpecialKeys.Children.Add(CreatePaletteButton(s, 50, 24));
@@ -310,6 +310,7 @@ namespace ModernKey
                 case Key.Escape: return "Esc";
                 case Key.Pause: return "Pause";
                 case Key.PrintScreen: return "PrtSc";
+                case Key.Apps: return "Apps";
                 case Key.OemComma: return ",";
                 case Key.OemPeriod: return ".";
                 case Key.OemQuestion: return "/";

@@ -30,7 +30,7 @@ namespace ModernKey.Core
         private static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
 
         [DllImport("user32.dll")]
-        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, IntPtr dwExtraInfo);
 
         [DllImport("winmm.dll", EntryPoint = "mciSendStringA", CharSet = CharSet.Ansi)]
         private static extern int mciSendString(string lpstrCommand, StringBuilder lpstrReturnString, int uReturnLength, IntPtr hwndCallback);
@@ -73,6 +73,7 @@ namespace ModernKey.Core
                         {
                             Shortcuts.Add(item);
                         }
+                        EnsureBlockAndReplacePresets();
                         return;
                     }
                 }
@@ -85,6 +86,77 @@ namespace ModernKey.Core
             // Tạo các mục mẫu chuẩn xác mô phỏng trọn vẹn Đợt 1 đến Đợt 5 từ Comfort Keys Pro
             LoadDefaultPresets();
             Save();
+        }
+
+        private void EnsureBlockAndReplacePresets()
+        {
+            bool hasBlock = Shortcuts.Any(s => s.ActionType == ShortcutActionType.BlockKey);
+            bool hasReplace = Shortcuts.Any(s => s.ActionType == ShortcutActionType.ReplaceKey);
+
+            if (!hasBlock)
+            {
+                Shortcuts.Add(new ComfortShortcutItem
+                {
+                    Category = "Block key or shortcut",
+                    KeyCombination = "LeftWin",
+                    ActionType = ShortcutActionType.BlockKey,
+                    ActiveScope = "In all screen modes",
+                    Label = "Chặn phím Start Menu (LeftWin)",
+                    LastChanged = DateTime.Now
+                });
+            }
+
+            if (!hasReplace)
+            {
+                Shortcuts.Add(new ComfortShortcutItem
+                {
+                    Category = "Replace key or shortcut",
+                    KeyCombination = "Pause",
+                    ActionType = ShortcutActionType.ReplaceKey,
+                    ReplaceWithKey = "13 - Pause",
+                    ActiveScope = "In all screen modes",
+                    Label = "Thay thế phím Pause",
+                    LastChanged = DateTime.Now
+                });
+
+                Shortcuts.Add(new ComfortShortcutItem
+                {
+                    Category = "Replace key or shortcut",
+                    KeyCombination = "Apps",
+                    ActionType = ShortcutActionType.ReplaceKey,
+                    ReplaceWithKey = "5C - RightWin",
+                    ActiveScope = "In all screen modes",
+                    Label = "Thay phím Apps thành RightWin",
+                    LastChanged = DateTime.Now
+                });
+
+                Shortcuts.Add(new ComfortShortcutItem
+                {
+                    Category = "Replace key or shortcut",
+                    KeyCombination = "RightCtrl+Break",
+                    ActionType = ShortcutActionType.ReplaceKey,
+                    ReplaceWithKey = "13 - Pause",
+                    ActiveScope = "In all screen modes",
+                    Label = "RightCtrl+Break -> Pause",
+                    LastChanged = DateTime.Now
+                });
+
+                Shortcuts.Add(new ComfortShortcutItem
+                {
+                    Category = "Replace key or shortcut",
+                    KeyCombination = "RightCtrl+RightShift+Break",
+                    ActionType = ShortcutActionType.ReplaceKey,
+                    ReplaceWithKey = "13 - Pause",
+                    ActiveScope = "In all screen modes",
+                    Label = "RightCtrl+RightShift+Break -> Pause",
+                    LastChanged = DateTime.Now
+                });
+            }
+
+            if (!hasBlock || !hasReplace)
+            {
+                Save();
+            }
         }
 
         public void Save()
@@ -258,6 +330,179 @@ namespace ModernKey.Core
                 Label = "Đóng cửa sổ hiện tại",
                 LastChanged = DateTime.Now
             });
+
+            // 7. Block key or shortcut (Theo Comfort Keys Pro)
+            Shortcuts.Add(new ComfortShortcutItem
+            {
+                Category = "Block key or shortcut",
+                KeyCombination = "LeftWin",
+                ActionType = ShortcutActionType.BlockKey,
+                ActiveScope = "In all screen modes",
+                Label = "Chặn phím Start Menu (LeftWin)",
+                LastChanged = DateTime.Now
+            });
+
+            // 8. Replace key or shortcut (Theo Comfort Keys Pro)
+            Shortcuts.Add(new ComfortShortcutItem
+            {
+                Category = "Replace key or shortcut",
+                KeyCombination = "Pause",
+                ActionType = ShortcutActionType.ReplaceKey,
+                ReplaceWithKey = "13 - Pause",
+                ActiveScope = "In all screen modes",
+                Label = "Thay thế phím Pause",
+                LastChanged = DateTime.Now
+            });
+
+            Shortcuts.Add(new ComfortShortcutItem
+            {
+                Category = "Replace key or shortcut",
+                KeyCombination = "Apps",
+                ActionType = ShortcutActionType.ReplaceKey,
+                ReplaceWithKey = "5C - RightWin",
+                ActiveScope = "In all screen modes",
+                Label = "Thay phím Apps thành RightWin",
+                LastChanged = DateTime.Now
+            });
+
+            Shortcuts.Add(new ComfortShortcutItem
+            {
+                Category = "Replace key or shortcut",
+                KeyCombination = "RightCtrl+Break",
+                ActionType = ShortcutActionType.ReplaceKey,
+                ReplaceWithKey = "13 - Pause",
+                ActiveScope = "In all screen modes",
+                Label = "RightCtrl+Break -> Pause",
+                LastChanged = DateTime.Now
+            });
+
+            Shortcuts.Add(new ComfortShortcutItem
+            {
+                Category = "Replace key or shortcut",
+                KeyCombination = "RightCtrl+RightShift+Break",
+                ActionType = ShortcutActionType.ReplaceKey,
+                ReplaceWithKey = "13 - Pause",
+                ActiveScope = "In all screen modes",
+                Label = "RightCtrl+RightShift+Break -> Pause",
+                LastChanged = DateTime.Now
+            });
+        }
+
+        private readonly object _lockObj = new object();
+        private readonly HashSet<uint> _currentlyBlockedKeys = new HashSet<uint>();
+        private readonly Dictionary<uint, uint> _activeReplacements = new Dictionary<uint, uint>();
+
+        public bool TryHandleBlockOrReplaceKeyDown(uint vk, bool ctrl, bool alt, bool shift, bool win)
+        {
+            string combo = BuildCombinationString(vk, ctrl, alt, shift, win);
+            if (string.IsNullOrEmpty(combo)) return false;
+
+            var match = FindShortcut(combo);
+            if (match == null) return false;
+
+            if (match.ActionType == ShortcutActionType.BlockKey)
+            {
+                lock (_lockObj)
+                {
+                    _currentlyBlockedKeys.Add(vk);
+                }
+                return true;
+            }
+
+            if (match.ActionType == ShortcutActionType.ReplaceKey)
+            {
+                uint targetVk = match.GetReplaceTargetVk();
+                if (targetVk > 0)
+                {
+                    lock (_lockObj)
+                    {
+                        _activeReplacements[vk] = targetVk;
+                    }
+                    keybd_event((byte)targetVk, 0, 0, KeySender.INJECTED_SIGNATURE);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public bool TryHandleBlockOrReplaceKeyUp(uint vk)
+        {
+            bool handled = false;
+            uint targetVk = 0;
+
+            lock (_lockObj)
+            {
+                if (_activeReplacements.TryGetValue(vk, out targetVk))
+                {
+                    _activeReplacements.Remove(vk);
+                    handled = true;
+                }
+                else if (_currentlyBlockedKeys.Contains(vk))
+                {
+                    _currentlyBlockedKeys.Remove(vk);
+                    return true;
+                }
+            }
+
+            if (handled && targetVk > 0)
+            {
+                keybd_event((byte)targetVk, 0, KEYEVENTF_KEYUP, KeySender.INJECTED_SIGNATURE);
+                return true;
+            }
+
+            string keyName = GetKeyFriendlyName(vk);
+            if (!string.IsNullOrEmpty(keyName))
+            {
+                var blockMatch = Shortcuts.FirstOrDefault(s => s.ActionType == ShortcutActionType.BlockKey &&
+                                                              string.Equals(s.KeyCombination, keyName, StringComparison.OrdinalIgnoreCase));
+                if (blockMatch != null) return true;
+            }
+
+            return false;
+        }
+
+        public ComfortShortcutItem FindShortcut(string combo)
+        {
+            if (string.IsNullOrEmpty(combo)) return null;
+
+            var match = Shortcuts.FirstOrDefault(s => string.Equals(s.KeyCombination, combo, StringComparison.OrdinalIgnoreCase));
+            if (match != null) return match;
+
+            // Thử các biến thể tương thích (Num <-> Nm, Menu <-> Apps, Pause <-> Break)
+            string altCombo = combo.Replace("Num ", "Nm ").Replace("Numpad ", "Nm ");
+            match = Shortcuts.FirstOrDefault(s => string.Equals(s.KeyCombination, altCombo, StringComparison.OrdinalIgnoreCase));
+            if (match != null) return match;
+
+            if (combo.Contains("Break"))
+            {
+                string pauseCombo = combo.Replace("Break", "Pause");
+                match = Shortcuts.FirstOrDefault(s => string.Equals(s.KeyCombination, pauseCombo, StringComparison.OrdinalIgnoreCase));
+                if (match != null) return match;
+            }
+
+            if (combo.Contains("Pause"))
+            {
+                string breakCombo = combo.Replace("Pause", "Break");
+                match = Shortcuts.FirstOrDefault(s => string.Equals(s.KeyCombination, breakCombo, StringComparison.OrdinalIgnoreCase));
+                if (match != null) return match;
+            }
+
+            if (combo.Contains("Apps"))
+            {
+                string menuCombo = combo.Replace("Apps", "Menu");
+                match = Shortcuts.FirstOrDefault(s => string.Equals(s.KeyCombination, menuCombo, StringComparison.OrdinalIgnoreCase));
+                if (match != null) return match;
+            }
+
+            if (combo.Contains("Menu"))
+            {
+                string appsCombo = combo.Replace("Menu", "Apps");
+                match = Shortcuts.FirstOrDefault(s => string.Equals(s.KeyCombination, appsCombo, StringComparison.OrdinalIgnoreCase));
+                if (match != null) return match;
+            }
+
+            return null;
         }
 
         public bool TryExecuteMatchingShortcut(uint vk, bool ctrl, bool alt, bool shift, bool win)
@@ -265,15 +510,14 @@ namespace ModernKey.Core
             string combo = BuildCombinationString(vk, ctrl, alt, shift, win);
             if (string.IsNullOrEmpty(combo)) return false;
 
-            var match = Shortcuts.FirstOrDefault(s => string.Equals(s.KeyCombination, combo, StringComparison.OrdinalIgnoreCase));
-            if (match == null)
-            {
-                // Thử khớp dạng viết tắt numpad (vd: Ctrl+Nm 1 vs Ctrl+Num 1)
-                string altCombo = combo.Replace("Num ", "Nm ").Replace("Numpad ", "Nm ");
-                match = Shortcuts.FirstOrDefault(s => string.Equals(s.KeyCombination, altCombo, StringComparison.OrdinalIgnoreCase));
-            }
-
+            var match = FindShortcut(combo);
             if (match == null) return false;
+
+            // Nếu là BlockKey hoặc ReplaceKey thì đã được xử lý ở TryHandleBlockOrReplaceKeyDown
+            if (match.ActionType == ShortcutActionType.BlockKey || match.ActionType == ShortcutActionType.ReplaceKey)
+            {
+                return true;
+            }
 
             // Kích hoạt action trong background task để không block keyboard hook
             Task.Run(() => ExecuteShortcutAction(match));
@@ -500,35 +744,35 @@ namespace ModernKey.Core
                 {
                     if (part == "<KEY_TAB>")
                     {
-                        keybd_event(0x09, 0, 0, UIntPtr.Zero);
-                        keybd_event(0x09, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                        keybd_event(0x09, 0, 0, IntPtr.Zero);
+                        keybd_event(0x09, 0, KEYEVENTF_KEYUP, IntPtr.Zero);
                     }
                     else if (part == "<KEY_ENTER>")
                     {
-                        keybd_event(0x0D, 0, 0, UIntPtr.Zero);
-                        keybd_event(0x0D, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                        keybd_event(0x0D, 0, 0, IntPtr.Zero);
+                        keybd_event(0x0D, 0, KEYEVENTF_KEYUP, IntPtr.Zero);
                     }
                     else if (part == "<KEY_CTRL_ENTER>")
                     {
-                        keybd_event(0x11, 0, 0, UIntPtr.Zero);
-                        keybd_event(0x0D, 0, 0, UIntPtr.Zero);
-                        keybd_event(0x0D, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-                        keybd_event(0x11, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                        keybd_event(0x11, 0, 0, IntPtr.Zero);
+                        keybd_event(0x0D, 0, 0, IntPtr.Zero);
+                        keybd_event(0x0D, 0, KEYEVENTF_KEYUP, IntPtr.Zero);
+                        keybd_event(0x11, 0, KEYEVENTF_KEYUP, IntPtr.Zero);
                     }
                     else if (part == "<KEY_BACKSPACE>")
                     {
-                        keybd_event(0x08, 0, 0, UIntPtr.Zero);
-                        keybd_event(0x08, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                        keybd_event(0x08, 0, 0, IntPtr.Zero);
+                        keybd_event(0x08, 0, KEYEVENTF_KEYUP, IntPtr.Zero);
                     }
                     else if (part == "<KEY_DEL>")
                     {
-                        keybd_event(0x2E, 0, 0, UIntPtr.Zero);
-                        keybd_event(0x2E, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                        keybd_event(0x2E, 0, 0, IntPtr.Zero);
+                        keybd_event(0x2E, 0, KEYEVENTF_KEYUP, IntPtr.Zero);
                     }
                     else if (part == "<KEY_SPACE>")
                     {
-                        keybd_event(0x20, 0, 0, UIntPtr.Zero);
-                        keybd_event(0x20, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                        keybd_event(0x20, 0, 0, IntPtr.Zero);
+                        keybd_event(0x20, 0, KEYEVENTF_KEYUP, IntPtr.Zero);
                     }
                     else if (!string.IsNullOrEmpty(part))
                     {
@@ -577,19 +821,25 @@ namespace ModernKey.Core
         private void ExecuteWindowControl(ComfortShortcutItem item)
         {
             // Close window: Alt + F4
-            keybd_event(0x12, 0, 0, UIntPtr.Zero); // Alt Down
-            keybd_event(0x73, 0, 0, UIntPtr.Zero); // F4 Down
-            keybd_event(0x73, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-            keybd_event(0x12, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+            keybd_event(0x12, 0, 0, IntPtr.Zero); // Alt Down
+            keybd_event(0x73, 0, 0, IntPtr.Zero); // F4 Down
+            keybd_event(0x73, 0, KEYEVENTF_KEYUP, IntPtr.Zero);
+            keybd_event(0x12, 0, KEYEVENTF_KEYUP, IntPtr.Zero);
         }
 
         private string BuildCombinationString(uint vk, bool ctrl, bool alt, bool shift, bool win)
         {
             var parts = new List<string>();
-            if (win) parts.Add("Win");
-            if (ctrl) parts.Add("Ctrl");
-            if (alt) parts.Add("Alt");
-            if (shift) parts.Add("Shift");
+
+            bool isVkWin = (vk == 0x5B || vk == 0x5C);
+            bool isVkCtrl = (vk == 0x11 || vk == 0xA2 || vk == 0xA3);
+            bool isVkAlt = (vk == 0x12 || vk == 0xA4 || vk == 0xA5);
+            bool isVkShift = (vk == 0x10 || vk == 0xA0 || vk == 0xA1);
+
+            if (win && !isVkWin) parts.Add("Win");
+            if (ctrl && !isVkCtrl) parts.Add("Ctrl");
+            if (alt && !isVkAlt) parts.Add("Alt");
+            if (shift && !isVkShift) parts.Add("Shift");
 
             string keyName = GetKeyFriendlyName(vk);
             if (string.IsNullOrEmpty(keyName)) return string.Empty;
@@ -631,6 +881,15 @@ namespace ModernKey.Core
                 case 0x2C: return "PrtSc";
                 case 0x90: return "NumL";
                 case 0x91: return "ScrLk";
+                case 0x5B: return "LeftWin";
+                case 0x5C: return "RightWin";
+                case 0x5D: return "Apps";
+                case 0xA0: return "LeftShift";
+                case 0xA1: return "RightShift";
+                case 0xA2: return "LeftCtrl";
+                case 0xA3: return "RightCtrl";
+                case 0xA4: return "LeftAlt";
+                case 0xA5: return "RightAlt";
                 case 0xBC: return ",";
                 case 0xBE: return ".";
                 case 0xBF: return "/";
@@ -692,7 +951,8 @@ namespace ModernKey.Core
                 sb.AppendLine($"    \"PasteText\": \"{Escape(item.PasteText)}\",");
                 sb.AppendLine($"    \"ShowTextOnKeyboard\": {item.ShowTextOnKeyboard.ToString().ToLower()},");
                 sb.AppendLine($"    \"AudioAction\": \"{Escape(item.AudioAction)}\",");
-                sb.AppendLine($"    \"AudioStepSize\": {item.AudioStepSize}");
+                sb.AppendLine($"    \"AudioStepSize\": {item.AudioStepSize},");
+                sb.AppendLine($"    \"ReplaceWithKey\": \"{Escape(item.ReplaceWithKey)}\"");
                 sb.Append("  }");
                 if (i < list.Count - 1) sb.Append(",");
                 sb.AppendLine();
@@ -787,6 +1047,7 @@ namespace ModernKey.Core
                     case "AudioStepSize":
                         if (int.TryParse(val, out var ass)) item.AudioStepSize = ass;
                         break;
+                    case "ReplaceWithKey": item.ReplaceWithKey = val; break;
                 }
             }
 

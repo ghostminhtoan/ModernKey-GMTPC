@@ -683,6 +683,19 @@ namespace ModernKey.Hook
                         SoundManager.PlayKeyClick();
                     }
 
+                    // 18. Phím bị Block hoặc Replace theo Comfort Keys Pro (Bắt trước modifier để chặn/thay thế cả phím đơn như LeftWin, Apps, Pause...)
+                    bool isComfortCtrl = (_modifierFlag & MASK_CTRL) != 0 || _ctrlDown;
+                    bool isComfortAlt = (_modifierFlag & MASK_ALT) != 0 || _altDown;
+                    bool isComfortShift = (_modifierFlag & MASK_SHIFT) != 0 || _shiftDown;
+                    bool isComfortWin = (_modifierFlag & MASK_WIN) != 0 || _winDown;
+
+                    if (ComfortShortcutManager.Instance.TryHandleBlockOrReplaceKeyDown(vkCode, isComfortCtrl, isComfortAlt, isComfortShift, isComfortWin))
+                    {
+                        KeySender.SuppressAltMenuActivation();
+                        _engine?.Reset();
+                        return (IntPtr)1;
+                    }
+
                     bool isModifierKey = (vkCode == 0x11 || vkCode == 0xA2 || vkCode == 0xA3 || // Ctrl
                                           vkCode == 0x10 || vkCode == 0xA0 || vkCode == 0xA1 || // Shift
                                           vkCode == 0x12 || vkCode == 0xA4 || vkCode == 0xA5 || // Alt
@@ -739,10 +752,10 @@ namespace ModernKey.Hook
                     }
 
                     // 6.0. Phím tắt toàn cục Comfort Keys Pro (Đợt 1 đến Đợt 5: Run program, Open URL, Paste text, Macro, Audio, Monitor, Window control)
-                    bool isComfortCtrl = (_modifierFlag & MASK_CTRL) != 0 || _ctrlDown;
-                    bool isComfortAlt = (_modifierFlag & MASK_ALT) != 0 || _altDown;
-                    bool isComfortShift = (_modifierFlag & MASK_SHIFT) != 0 || _shiftDown;
-                    bool isComfortWin = (_modifierFlag & MASK_WIN) != 0 || _winDown || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0;
+                    isComfortCtrl = (_modifierFlag & MASK_CTRL) != 0 || _ctrlDown;
+                    isComfortAlt = (_modifierFlag & MASK_ALT) != 0 || _altDown;
+                    isComfortShift = (_modifierFlag & MASK_SHIFT) != 0 || _shiftDown;
+                    isComfortWin = (_modifierFlag & MASK_WIN) != 0 || _winDown || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0;
 
                     if (isComfortCtrl || isComfortAlt || isComfortWin || isComfortShift || (vkCode >= 0x70 && vkCode <= 0x7B))
                     {
@@ -1085,6 +1098,12 @@ namespace ModernKey.Hook
                     if (vkCode == 0xAF || vkCode == 0xAE || vkCode == 0xAD)
                     {
                         return (IntPtr)1; // Nuốt sự kiện nhả phím media volume
+                    }
+
+                    // Nhả phím bị Block hoặc phím đích được Replace
+                    if (ComfortShortcutManager.Instance.TryHandleBlockOrReplaceKeyUp(vkCode))
+                    {
+                        return (IntPtr)1;
                     }
 
                     bool isModifierKey = (vkCode == 0x11 || vkCode == 0xA2 || vkCode == 0xA3 || // Ctrl

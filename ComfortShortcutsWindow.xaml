@@ -404,6 +404,52 @@
                                 </Grid>
                             </Grid>
 
+                            <!-- ACTION TYPE: BLOCK KEY OR SHORTCUT (Chuẩn Comfort Keys Pro) -->
+                            <Grid x:Name="PanelBlockKey" Visibility="Collapsed">
+                                <StackPanel Margin="0,5,0,0">
+                                    <TextBlock Text="Action type : Block key or shortcut" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,12" FontSize="13" />
+
+                                    <Border Background="#1A0D15" BorderBrush="{StaticResource CyberNeonPink}" BorderThickness="1" CornerRadius="3" Padding="14,12" Margin="0,0,0,15">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                                <TextBlock Text="🚫" FontSize="18" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="Phím hoặc tổ hợp phím này sẽ bị CHẶN HOÀN TOÀN" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonPink}" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                            <TextBlock Text="Khi nhấn phím này trên bàn phím, tín hiệu sẽ bị nuốt ngay tại tầng Keyboard Hook cấp thấp của Windows. Hệ điều hành và các ứng dụng khác sẽ không nhận được phím."
+                                                       FontFamily="Consolas, Segoe UI" Foreground="{StaticResource CyberTextPrimary}" TextWrapping="Wrap" LineHeight="18" Margin="0,0,0,6" />
+                                            <TextBlock Text="• Phù hợp để vô hiệu hóa phím Start Menu (LeftWin), phím CapsLock, phím Insert, hoặc phím chức năng khi chơi game."
+                                                       FontFamily="Consolas, Segoe UI" Foreground="{StaticResource CyberTextSecondary}" FontSize="11" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- ACTION TYPE: REPLACE KEY OR SHORTCUT (Chuẩn Comfort Keys Pro) -->
+                            <Grid x:Name="PanelReplaceKey" Visibility="Collapsed">
+                                <StackPanel Margin="0,5,0,0">
+                                    <TextBlock Text="Action type : Replace key or shortcut" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,12" FontSize="13" />
+
+                                    <TextBlock Text="Replace with key:" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonYellow}" Margin="0,0,0,6" />
+
+                                    <ComboBox x:Name="CmbReplaceWithKey" Height="28" MaxDropDownHeight="320" FontFamily="Consolas" FontSize="12"
+                                              Background="{StaticResource CyberInput}" Foreground="{StaticResource CyberTextPrimary}" BorderBrush="{StaticResource CyberBorderDim}"
+                                              SelectionChanged="CmbReplaceWithKey_SelectionChanged" Margin="0,0,0,15" />
+
+                                    <Border Background="#0D1B2A" BorderBrush="{StaticResource CyberNeonCyan}" BorderThickness="1" CornerRadius="3" Padding="14,12">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                                <TextBlock Text="🔄" FontSize="18" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="Tự động thay thế phím gốc bằng phím được chọn" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                            <TextBlock Text="Khi nhấn phím hoặc tổ hợp phím gốc, ModernKey sẽ nuốt phím đó và phát ra tín hiệu phím thay thế (Replace with key) tới hệ thống theo thời gian thực (Key Down / Key Up tương ứng)."
+                                                       FontFamily="Consolas, Segoe UI" Foreground="{StaticResource CyberTextPrimary}" TextWrapping="Wrap" LineHeight="18" Margin="0,0,0,6" />
+                                            <TextBlock Text="• Ví dụ: Thay phím Menu (Apps) thành Win phải (5C - RightWin), hoặc thay phím Pause thành phím khác."
+                                                       FontFamily="Consolas, Segoe UI" Foreground="{StaticResource CyberTextSecondary}" FontSize="11" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+
                             <!-- ACTION TYPE 6: WINDOW / MONITOR / SYSTEM ACTIONS -->
                             <Grid x:Name="PanelOtherActions" Visibility="Collapsed">
                                 <StackPanel>

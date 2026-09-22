@@ -48,6 +48,9 @@ namespace ModernKey.Models
         private string _audioAction = "Volume up";
         private int _audioStepSize = 10;
 
+        // Replace key options
+        private string _replaceWithKey = "5C - RightWin";
+
         public string Id
         {
             get => _id;
@@ -150,6 +153,24 @@ namespace ModernKey.Models
             set { _audioStepSize = value; OnPropertyChanged(); }
         }
 
+        public string ReplaceWithKey
+        {
+            get => _replaceWithKey;
+            set { _replaceWithKey = value; OnPropertyChanged(); }
+        }
+
+        public uint GetReplaceTargetVk()
+        {
+            if (string.IsNullOrEmpty(_replaceWithKey)) return 0;
+            int dashIdx = _replaceWithKey.IndexOf('-');
+            string hexStr = dashIdx > 0 ? _replaceWithKey.Substring(0, dashIdx).Trim() : _replaceWithKey.Trim();
+            if (uint.TryParse(hexStr, System.Globalization.NumberStyles.HexNumber, null, out uint vk))
+            {
+                return vk;
+            }
+            return 0;
+        }
+
         public event PropertyChangedEventHandler PropertyChanged;
         protected void OnPropertyChanged([CallerMemberName] string name = null)
         {
@@ -176,7 +197,8 @@ namespace ModernKey.Models
                 PasteText = this.PasteText,
                 ShowTextOnKeyboard = this.ShowTextOnKeyboard,
                 AudioAction = this.AudioAction,
-                AudioStepSize = this.AudioStepSize
+                AudioStepSize = this.AudioStepSize,
+                ReplaceWithKey = this.ReplaceWithKey
             };
 
             return item;

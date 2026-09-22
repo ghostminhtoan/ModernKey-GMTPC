@@ -23,9 +23,41 @@ namespace ModernKey
         {
             InitializeComponent();
             InitActionTypeCombo();
+            PopulateReplaceWithKeyCombo();
             PopulateRunAppCombo();
             BuildVirtualKeyboard();
             PopulateTreeView();
+        }
+
+        private static readonly string[] StandardReplaceKeys = new string[]
+        {
+            "08 - Backspace", "09 - Tab", "0C - Clear", "0D - Enter", "13 - Pause", "14 - Caps",
+            "1B - Esc", "20 - Space", "21 - PgUp", "22 - PgDn", "23 - End", "24 - Home",
+            "25 - Left", "26 - Up", "27 - Right", "28 - Down", "2C - PrtSc", "2D - Ins", "2E - Del",
+            "30 - 0", "31 - 1", "32 - 2", "33 - 3", "34 - 4", "35 - 5", "36 - 6", "37 - 7", "38 - 8", "39 - 9",
+            "41 - A", "42 - B", "43 - C", "44 - D", "45 - E", "46 - F", "47 - G", "48 - H", "49 - I", "4A - J",
+            "4B - K", "4C - L", "4D - M", "4E - N", "4F - O", "50 - P", "51 - Q", "52 - R", "53 - S", "54 - T",
+            "55 - U", "56 - V", "57 - W", "58 - X", "59 - Y", "5A - Z",
+            "5B - Win", "5C - RightWin", "5D - Apps",
+            "60 - Num 0", "61 - Num 1", "62 - Num 2", "63 - Num 3", "64 - Num 4",
+            "65 - Num 5", "66 - Num 6", "67 - Num 7", "68 - Num 8", "69 - Num 9",
+            "6A - Num *", "6B - Num +", "6D - Num -", "6E - Num .", "6F - Num /",
+            "70 - F1", "71 - F2", "72 - F3", "73 - F4", "74 - F5", "75 - F6",
+            "76 - F7", "77 - F8", "78 - F9", "79 - F10", "7A - F11", "7B - F12",
+            "90 - NumLock", "91 - ScrollLock",
+            "A0 - LeftShift", "A1 - RightShift", "A2 - LeftCtrl", "A3 - RightCtrl", "A4 - LeftAlt", "A5 - RightAlt",
+            "AD - Mute", "AE - Vol -", "AF - Vol +", "B0 - Next Track", "B1 - Prev Track", "B2 - Stop", "B3 - Play/Pause",
+            "BA - ;", "BB - =", "BC - ,", "BD - -", "BE - .", "BF - /", "C0 - ~",
+            "DB - [", "DC - \\", "DD - ]", "DE - '"
+        };
+
+        private void PopulateReplaceWithKeyCombo()
+        {
+            CmbReplaceWithKey.Items.Clear();
+            foreach (var rk in StandardReplaceKeys)
+            {
+                CmbReplaceWithKey.Items.Add(new ComboBoxItem { Content = rk, Tag = rk });
+            }
         }
 
         private void InitActionTypeCombo()
@@ -35,6 +67,8 @@ namespace ModernKey
             CmbActionType.Items.Add(new ComboBoxItem { Content = "Open URL", Tag = ShortcutActionType.OpenUrl });
             CmbActionType.Items.Add(new ComboBoxItem { Content = "Paste text", Tag = ShortcutActionType.PasteText });
             CmbActionType.Items.Add(new ComboBoxItem { Content = "Audio control", Tag = ShortcutActionType.AudioControl });
+            CmbActionType.Items.Add(new ComboBoxItem { Content = "Block key or shortcut", Tag = ShortcutActionType.BlockKey });
+            CmbActionType.Items.Add(new ComboBoxItem { Content = "Replace key or shortcut", Tag = ShortcutActionType.ReplaceKey });
             CmbActionType.Items.Add(new ComboBoxItem { Content = "Window control", Tag = ShortcutActionType.WindowControl });
             CmbActionType.Items.Add(new ComboBoxItem { Content = "Monitor control", Tag = ShortcutActionType.MonitorControl });
             CmbActionType.Items.Add(new ComboBoxItem { Content = "System action", Tag = ShortcutActionType.SystemAction });
@@ -316,6 +350,10 @@ namespace ModernKey
                 if ((keyName == "LeftAlt" || keyName == "RightAlt") && string.Equals(token, "Alt", StringComparison.OrdinalIgnoreCase)) return true;
                 if ((keyName == "LeftShift" || keyName == "RightShift") && string.Equals(token, "Shift", StringComparison.OrdinalIgnoreCase)) return true;
                 if ((keyName == "LeftWin" || keyName == "RightWin") && string.Equals(token, "Win", StringComparison.OrdinalIgnoreCase)) return true;
+
+                // Khớp phím Apps/Menu và Pause/Break
+                if ((keyName == "Menu" || keyName == "Apps") && (string.Equals(token, "Apps", StringComparison.OrdinalIgnoreCase) || string.Equals(token, "Menu", StringComparison.OrdinalIgnoreCase))) return true;
+                if (keyName == "Pause" && (string.Equals(token, "Pause", StringComparison.OrdinalIgnoreCase) || string.Equals(token, "Break", StringComparison.OrdinalIgnoreCase))) return true;
             }
 
             return false;
@@ -505,6 +543,8 @@ namespace ModernKey
                 case ShortcutActionType.OpenUrl: icon = "🌍"; break;
                 case ShortcutActionType.PasteText: icon = "📝"; break;
                 case ShortcutActionType.AudioControl: icon = "🔊"; break;
+                case ShortcutActionType.BlockKey: icon = "🚫"; break;
+                case ShortcutActionType.ReplaceKey: icon = "🔄"; break;
                 case ShortcutActionType.WindowControl: icon = "🗔"; break;
                 case ShortcutActionType.MonitorControl: icon = "🖥"; break;
             }
@@ -598,6 +638,22 @@ namespace ModernKey
             SldAudioStepSize.Value = Math.Max(2, item.AudioStepSize);
             TxtAudioStepVal.Text = (int)SldAudioStepSize.Value + "%";
 
+            // 5. Replace key
+            bool foundReplaceKey = false;
+            foreach (ComboBoxItem cbi in CmbReplaceWithKey.Items)
+            {
+                if (string.Equals(cbi.Tag?.ToString(), item.ReplaceWithKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    CmbReplaceWithKey.SelectedItem = cbi;
+                    foundReplaceKey = true;
+                    break;
+                }
+            }
+            if (!foundReplaceKey && CmbReplaceWithKey.Items.Count > 0)
+            {
+                CmbReplaceWithKey.SelectedIndex = 0;
+            }
+
             SwitchActionPanel(item.ActionType);
             HighlightVirtualKeyboard();
 
@@ -610,6 +666,8 @@ namespace ModernKey
             PanelOpenUrl.Visibility = Visibility.Collapsed;
             PanelPasteText.Visibility = Visibility.Collapsed;
             PanelAudioControl.Visibility = Visibility.Collapsed;
+            PanelBlockKey.Visibility = Visibility.Collapsed;
+            PanelReplaceKey.Visibility = Visibility.Collapsed;
             PanelOtherActions.Visibility = Visibility.Collapsed;
 
             switch (type)
@@ -626,10 +684,26 @@ namespace ModernKey
                 case ShortcutActionType.AudioControl:
                     PanelAudioControl.Visibility = Visibility.Visible;
                     break;
+                case ShortcutActionType.BlockKey:
+                    PanelBlockKey.Visibility = Visibility.Visible;
+                    break;
+                case ShortcutActionType.ReplaceKey:
+                    PanelReplaceKey.Visibility = Visibility.Visible;
+                    break;
                 default:
                     PanelOtherActions.Visibility = Visibility.Visible;
                     TxtOtherActionTitle.Text = "Action type : " + type.ToString();
                     break;
+            }
+        }
+
+        private void CmbReplaceWithKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isUpdatingUi || _selectedItem == null) return;
+            if (CmbReplaceWithKey.SelectedItem is ComboBoxItem cbi && cbi.Tag is string keyStr)
+            {
+                _selectedItem.ReplaceWithKey = keyStr;
+                _selectedItem.LastChanged = DateTime.Now;
             }
         }
 
@@ -654,6 +728,30 @@ namespace ModernKey
             {
                 _selectedItem.ActionType = sat;
                 _selectedItem.LastChanged = DateTime.Now;
+
+                // Tự động đồng bộ Category tương ứng theo Comfort Keys Pro
+                switch (sat)
+                {
+                    case ShortcutActionType.BlockKey:
+                        _selectedItem.Category = "Block key or shortcut";
+                        break;
+                    case ShortcutActionType.ReplaceKey:
+                        _selectedItem.Category = "Replace key or shortcut";
+                        break;
+                    case ShortcutActionType.RunProgram:
+                        _selectedItem.Category = "Run program";
+                        break;
+                    case ShortcutActionType.OpenUrl:
+                        _selectedItem.Category = "Open URL";
+                        break;
+                    case ShortcutActionType.PasteText:
+                        _selectedItem.Category = "Paste text";
+                        break;
+                    case ShortcutActionType.AudioControl:
+                        _selectedItem.Category = "Audio control";
+                        break;
+                }
+
                 SwitchActionPanel(sat);
                 PopulateTreeView();
             }
@@ -896,12 +994,44 @@ namespace ModernKey
             dlg.Owner = this;
             if (dlg.ShowDialog() == true && !string.IsNullOrEmpty(dlg.ResultCombination))
             {
+                string targetCat = "Run program";
+                ShortcutActionType targetType = ShortcutActionType.RunProgram;
+
+                if (TvShortcuts.SelectedItem is TreeViewItem tvi)
+                {
+                    if (tvi.Tag is string catName) targetCat = catName;
+                    else if (tvi.Tag is ComfortShortcutItem parentItem) targetCat = parentItem.Category;
+                }
+
+                switch (targetCat)
+                {
+                    case "Block key or shortcut":
+                        targetType = ShortcutActionType.BlockKey;
+                        break;
+                    case "Replace key or shortcut":
+                        targetType = ShortcutActionType.ReplaceKey;
+                        break;
+                    case "Open URL":
+                        targetType = ShortcutActionType.OpenUrl;
+                        break;
+                    case "Paste text":
+                        targetType = ShortcutActionType.PasteText;
+                        break;
+                    case "Audio control":
+                        targetType = ShortcutActionType.AudioControl;
+                        break;
+                    default:
+                        targetType = ShortcutActionType.RunProgram;
+                        break;
+                }
+
                 var newItem = new ComfortShortcutItem
                 {
                     KeyCombination = dlg.ResultCombination,
-                    Category = "Run program",
-                    ActionType = ShortcutActionType.RunProgram,
-                    Label = "New Action (" + dlg.ResultCombination + ")",
+                    Category = targetCat,
+                    ActionType = targetType,
+                    ReplaceWithKey = "5C - RightWin",
+                    Label = "Action (" + dlg.ResultCombination + ")",
                     LastChanged = DateTime.Now
                 };
                 _manager.Shortcuts.Add(newItem);
