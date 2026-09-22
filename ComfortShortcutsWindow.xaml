@@ -7,6 +7,13 @@
         Background="{StaticResource CyberBlack}" Foreground="{StaticResource CyberTextPrimary}"
         Icon="Resources/AppIcon.ico">
 
+    <Window.Resources>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#0078D7" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#0078D7" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#FFFFFF" />
+    </Window.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <!-- Row 0: Menu Bar -->
@@ -103,16 +110,36 @@
                     <TreeView x:Name="TvShortcuts" Grid.Row="1" Background="Transparent" BorderThickness="0"
                               Foreground="{StaticResource CyberTextPrimary}" FontFamily="Consolas"
                               SelectedItemChanged="TvShortcuts_SelectedItemChanged">
+                        <TreeView.Resources>
+                            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#0078D7" />
+                            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFFFFF" />
+                            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#0078D7" />
+                            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#FFFFFF" />
+                        </TreeView.Resources>
                         <TreeView.ItemContainerStyle>
                             <Style TargetType="{x:Type TreeViewItem}">
                                 <Setter Property="IsExpanded" Value="True" />
                                 <Setter Property="Foreground" Value="{StaticResource CyberTextPrimary}" />
                                 <Setter Property="Padding" Value="4,3" />
+                                <Style.Resources>
+                                    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#0078D7" />
+                                    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFFFFF" />
+                                    <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#0078D7" />
+                                    <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#FFFFFF" />
+                                </Style.Resources>
                                 <Style.Triggers>
                                     <Trigger Property="IsSelected" Value="True">
-                                        <Setter Property="Background" Value="#1A2D3B" />
-                                        <Setter Property="Foreground" Value="{StaticResource CyberNeonYellow}" />
+                                        <Setter Property="Background" Value="#0078D7" />
+                                        <Setter Property="Foreground" Value="#FFFFFF" />
                                     </Trigger>
+                                    <MultiTrigger>
+                                        <MultiTrigger.Conditions>
+                                            <Condition Property="IsSelected" Value="True" />
+                                            <Condition Property="IsSelectionActive" Value="False" />
+                                        </MultiTrigger.Conditions>
+                                        <Setter Property="Background" Value="#0078D7" />
+                                        <Setter Property="Foreground" Value="#FFFFFF" />
+                                    </MultiTrigger>
                                 </Style.Triggers>
                             </Style>
                         </TreeView.ItemContainerStyle>
