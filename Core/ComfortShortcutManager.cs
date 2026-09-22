@@ -38,8 +38,32 @@ namespace ModernKey.Core
         [DllImport("winmm.dll", SetLastError = true)]
         private static extern bool PlaySound(string pszSound, IntPtr hmod, uint fdwSound);
 
+        [DllImport("user32.dll")]
+        private static extern uint MapVirtualKey(uint uCode, uint uMapType);
+
         private const int SW_RESTORE = 9;
+        private const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
         private const uint KEYEVENTF_KEYUP = 0x0002;
+
+        private static bool IsExtendedKey(uint vk)
+        {
+            return vk == 0x5B || vk == 0x5C || vk == 0x5D || // LeftWin, RightWin, Apps
+                   vk == 0x2C || // PrtSc / Print
+                   vk == 0x21 || vk == 0x22 || vk == 0x23 || vk == 0x24 || // PgUp, PgDn, End, Home
+                   vk == 0x25 || vk == 0x26 || vk == 0x27 || vk == 0x28 || // Left, Up, Right, Down
+                   vk == 0x2D || vk == 0x2E || // Ins, Del
+                   vk == 0x6F || // Num /
+                   vk == 0x90;   // NumLock
+        }
+
+        public static void SendSingleKeyEvent(uint vk, bool isKeyUp)
+        {
+            uint flags = 0;
+            if (IsExtendedKey(vk)) flags |= KEYEVENTF_EXTENDEDKEY;
+            if (isKeyUp) flags |= KEYEVENTF_KEYUP;
+            byte scan = (byte)MapVirtualKey(vk, 0);
+            keybd_event((byte)vk, scan, flags, KeySender.INJECTED_SIGNATURE);
+        }
 
         public ComfortShortcutManager()
         {
@@ -438,13 +462,13 @@ namespace ModernKey.Core
                     }
 
                     // Bơm các modifier tương ứng trước nếu có chọn (+)
-                    if (act.Ctrl) keybd_event(0x11, 0, 0, KeySender.INJECTED_SIGNATURE);
-                    if (act.Alt) keybd_event(0x12, 0, 0, KeySender.INJECTED_SIGNATURE);
-                    if (act.Shift) keybd_event(0x10, 0, 0, KeySender.INJECTED_SIGNATURE);
-                    if (act.Win) keybd_event(0x5B, 0, 0, KeySender.INJECTED_SIGNATURE);
+                    if (act.Ctrl) SendSingleKeyEvent(0x11, false);
+                    if (act.Alt) SendSingleKeyEvent(0x12, false);
+                    if (act.Shift) SendSingleKeyEvent(0x10, false);
+                    if (act.Win) SendSingleKeyEvent(0x5B, false);
 
-                    // Bơm phím thay thế đích Down
-                    keybd_event((byte)targetVk, 0, 0, KeySender.INJECTED_SIGNATURE);
+                    // Bơm phím thay thế đích Down với đầy đủ scan code và Extended flag
+                    SendSingleKeyEvent(targetVk, false);
                     return true;
                 }
             }
@@ -472,13 +496,13 @@ namespace ModernKey.Core
             if (act != null && act.TargetVk > 0)
             {
                 // Nhả phím thay thế Up
-                keybd_event((byte)act.TargetVk, 0, KEYEVENTF_KEYUP, KeySender.INJECTED_SIGNATURE);
+                SendSingleKeyEvent(act.TargetVk, true);
 
                 // Nhả các modifier theo thứ tự đảo ngược
-                if (act.Win) keybd_event(0x5B, 0, KEYEVENTF_KEYUP, KeySender.INJECTED_SIGNATURE);
-                if (act.Shift) keybd_event(0x10, 0, KEYEVENTF_KEYUP, KeySender.INJECTED_SIGNATURE);
-                if (act.Alt) keybd_event(0x12, 0, KEYEVENTF_KEYUP, KeySender.INJECTED_SIGNATURE);
-                if (act.Ctrl) keybd_event(0x11, 0, KEYEVENTF_KEYUP, KeySender.INJECTED_SIGNATURE);
+                if (act.Win) SendSingleKeyEvent(0x5B, true);
+                if (act.Shift) SendSingleKeyEvent(0x10, true);
+                if (act.Alt) SendSingleKeyEvent(0x12, true);
+                if (act.Ctrl) SendSingleKeyEvent(0x11, true);
 
                 return true;
             }
@@ -531,6 +555,34 @@ namespace ModernKey.Core
             {
                 string appsCombo = combo.Replace("Menu", "Apps");
                 match = Shortcuts.FirstOrDefault(s => string.Equals(s.KeyCombination, appsCombo, StringComparison.OrdinalIgnoreCase));
+                if (match != null) return match;
+            }
+
+            if (combo.Contains("PrintScreen") || combo.Contains("Print"))
+            {
+                string prtCombo = combo.Replace("PrintScreen", "PrtSc").Replace("Print", "PrtSc");
+                match = Shortcuts.FirstOrDefault(s => string.Equals(s.KeyCombination, prtCombo, StringComparison.OrdinalIgnoreCase));
+                if (match != null) return match;
+            }
+
+            if (combo.Contains("PrtSc"))
+            {
+                string printCombo = combo.Replace("PrtSc", "Print");
+                match = Shortcuts.FirstOrDefault(s => string.Equals(s.KeyCombination, printCombo, StringComparison.OrdinalIgnoreCase));
+                if (match != null) return match;
+            }
+
+            // Hỗ trợ bàn phím Thinkpad / laptop: Phím PrtSc (Print) nằm ở vị trí phím Apps (giữa RightAlt và RightCtrl)
+            if (combo.Equals("PrtSc", StringComparison.OrdinalIgnoreCase) || combo.Equals("Print", StringComparison.OrdinalIgnoreCase))
+            {
+                match = Shortcuts.FirstOrDefault(s => string.Equals(s.KeyCombination, "Apps", StringComparison.OrdinalIgnoreCase) ||
+                                                      string.Equals(s.KeyCombination, "Menu", StringComparison.OrdinalIgnoreCase));
+                if (match != null) return match;
+            }
+            else if (combo.Equals("Apps", StringComparison.OrdinalIgnoreCase) || combo.Equals("Menu", StringComparison.OrdinalIgnoreCase))
+            {
+                match = Shortcuts.FirstOrDefault(s => string.Equals(s.KeyCombination, "PrtSc", StringComparison.OrdinalIgnoreCase) ||
+                                                      string.Equals(s.KeyCombination, "Print", StringComparison.OrdinalIgnoreCase));
                 if (match != null) return match;
             }
 

@@ -359,6 +359,18 @@ namespace ModernKey
                 // Khớp phím Apps/Menu và Pause/Break
                 if ((keyName == "Menu" || keyName == "Apps") && (string.Equals(token, "Apps", StringComparison.OrdinalIgnoreCase) || string.Equals(token, "Menu", StringComparison.OrdinalIgnoreCase))) return true;
                 if (keyName == "Pause" && (string.Equals(token, "Pause", StringComparison.OrdinalIgnoreCase) || string.Equals(token, "Break", StringComparison.OrdinalIgnoreCase))) return true;
+
+                // Khớp phím PrtSc / Print / PrintScreen
+                if ((keyName == "PrtSc" || keyName == "Print" || keyName == "PrintScreen") &&
+                    (string.Equals(token, "PrtSc", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(token, "Print", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(token, "PrintScreen", StringComparison.OrdinalIgnoreCase))) return true;
+
+                // Khớp liên kết phím Apps và PrtSc/Print (trên bàn phím laptop ThinkPad / Dell)
+                if ((keyName == "Apps" || keyName == "Menu") &&
+                    (string.Equals(token, "PrtSc", StringComparison.OrdinalIgnoreCase) || string.Equals(token, "Print", StringComparison.OrdinalIgnoreCase))) return true;
+                if ((keyName == "PrtSc" || keyName == "Print") &&
+                    (string.Equals(token, "Apps", StringComparison.OrdinalIgnoreCase) || string.Equals(token, "Menu", StringComparison.OrdinalIgnoreCase))) return true;
             }
 
             return false;

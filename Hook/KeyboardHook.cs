@@ -691,7 +691,6 @@ namespace ModernKey.Hook
 
                     if (ComfortShortcutManager.Instance.TryHandleBlockOrReplaceKeyDown(vkCode, isComfortCtrl, isComfortAlt, isComfortShift, isComfortWin))
                     {
-                        KeySender.SuppressAltMenuActivation();
                         _engine?.Reset();
                         return (IntPtr)1;
                     }
