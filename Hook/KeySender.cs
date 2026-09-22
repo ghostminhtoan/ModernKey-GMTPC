@@ -748,19 +748,11 @@ namespace ModernKey.Hook
             bool isScintilla = !string.IsNullOrEmpty(className) &&
                                className.IndexOf("Scintilla", StringComparison.OrdinalIgnoreCase) >= 0;
 
-            // 6. Gửi lệnh dán:
-            // Đối với Scintilla (Notepad++, Notepad2, Code Editor): Gửi đồng thời SCI_PASTE / WM_PASTE và Shift+Insert (với KEYEVENTF_EXTENDEDKEY chuẩn OpenKey C++)
+            // 6. Gửi lệnh dán duy nhất một lần:
+            // Đối với Scintilla (Notepad++, Code Editor): Gửi duy nhất lệnh SCI_PASTE để dán chính xác 1 lần, tránh lặp
             if (isScintilla)
             {
                 PostMessage(hFocus, SCI_PASTE, IntPtr.Zero, IntPtr.Zero);
-                PostMessage(hFocus, WM_PASTE, IntPtr.Zero, IntPtr.Zero);
-
-                INPUT[] shiftInsert = new INPUT[4];
-                shiftInsert[0] = CreateKeyInput(VK_LSHIFT, 0, 0x2A);
-                shiftInsert[1] = CreateKeyInput(VK_INSERT, KEYEVENTF_EXTENDEDKEY, 0x52);
-                shiftInsert[2] = CreateKeyInput(VK_INSERT, KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY, 0x52);
-                shiftInsert[3] = CreateKeyInput(VK_LSHIFT, KEYEVENTF_KEYUP, 0x2A);
-                SendInput(4, shiftInsert, Marshal.SizeOf(typeof(INPUT)));
             }
             else
             {

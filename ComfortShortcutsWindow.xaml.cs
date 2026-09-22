@@ -365,12 +365,6 @@ namespace ModernKey
                     (string.Equals(token, "PrtSc", StringComparison.OrdinalIgnoreCase) ||
                      string.Equals(token, "Print", StringComparison.OrdinalIgnoreCase) ||
                      string.Equals(token, "PrintScreen", StringComparison.OrdinalIgnoreCase))) return true;
-
-                // Khớp liên kết phím Apps và PrtSc/Print (trên bàn phím laptop ThinkPad / Dell)
-                if ((keyName == "Apps" || keyName == "Menu") &&
-                    (string.Equals(token, "PrtSc", StringComparison.OrdinalIgnoreCase) || string.Equals(token, "Print", StringComparison.OrdinalIgnoreCase))) return true;
-                if ((keyName == "PrtSc" || keyName == "Print") &&
-                    (string.Equals(token, "Apps", StringComparison.OrdinalIgnoreCase) || string.Equals(token, "Menu", StringComparison.OrdinalIgnoreCase))) return true;
             }
 
             return false;

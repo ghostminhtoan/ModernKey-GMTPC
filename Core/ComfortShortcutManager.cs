@@ -95,13 +95,22 @@ namespace ModernKey.Core
                     {
                         foreach (var item in list)
                         {
-                            // Tự động nâng cấp Ctrl+Nm 1 nếu còn là Q-Dir cũ
-                            if (item.KeyCombination == "Ctrl+Nm 1" && !string.IsNullOrEmpty(item.ProgramPaths) && item.ProgramPaths.Contains("Q-Dir"))
+                            // Tự động nâng cấp Ctrl+Nm 1 nếu còn là Q-Dir cũ và tắt SwitchToAlreadyLaunched
+                            if (item.KeyCombination == "Ctrl+Nm 1")
                             {
                                 item.Label = "Mở File Explorer";
                                 item.ProgramPaths = "explorer.exe";
                                 item.StartInFolder = @"C:\";
+                                item.SwitchToAlreadyLaunched = false;
                             }
+
+                            // Xóa các key mặc định cho Block key (LeftWin) theo yêu cầu người dùng
+                            if (item.ActionType == ShortcutActionType.BlockKey &&
+                                (item.Label == "Chặn phím Start Menu (LeftWin)" || item.KeyCombination == "LeftWin"))
+                            {
+                                continue;
+                            }
+
                             Shortcuts.Add(item);
                         }
                         EnsureBlockAndReplacePresets();
@@ -121,21 +130,7 @@ namespace ModernKey.Core
 
         private void EnsureBlockAndReplacePresets()
         {
-            bool hasBlock = Shortcuts.Any(s => s.ActionType == ShortcutActionType.BlockKey);
             bool hasReplace = Shortcuts.Any(s => s.ActionType == ShortcutActionType.ReplaceKey);
-
-            if (!hasBlock)
-            {
-                Shortcuts.Add(new ComfortShortcutItem
-                {
-                    Category = "Block key or shortcut",
-                    KeyCombination = "LeftWin",
-                    ActionType = ShortcutActionType.BlockKey,
-                    ActiveScope = "In all screen modes",
-                    Label = "Chặn phím Start Menu (LeftWin)",
-                    LastChanged = DateTime.Now
-                });
-            }
 
             if (!hasReplace)
             {
@@ -184,7 +179,7 @@ namespace ModernKey.Core
                 });
             }
 
-            if (!hasBlock || !hasReplace)
+            if (!hasReplace)
             {
                 Save();
             }
@@ -242,7 +237,7 @@ namespace ModernKey.Core
                 Label = "Mở File Explorer",
                 ProgramPaths = "explorer.exe",
                 StartInFolder = @"C:\",
-                SwitchToAlreadyLaunched = true,
+                SwitchToAlreadyLaunched = false,
                 LastChanged = DateTime.Now
             });
 
@@ -369,18 +364,7 @@ namespace ModernKey.Core
                 LastChanged = DateTime.Now
             });
 
-            // 7. Block key or shortcut (Theo Comfort Keys Pro)
-            Shortcuts.Add(new ComfortShortcutItem
-            {
-                Category = "Block key or shortcut",
-                KeyCombination = "LeftWin",
-                ActionType = ShortcutActionType.BlockKey,
-                ActiveScope = "In all screen modes",
-                Label = "Chặn phím Start Menu (LeftWin)",
-                LastChanged = DateTime.Now
-            });
-
-            // 8. Replace key or shortcut (Theo Comfort Keys Pro)
+            // 7. Replace key or shortcut (Theo Comfort Keys Pro)
             Shortcuts.Add(new ComfortShortcutItem
             {
                 Category = "Replace key or shortcut",
@@ -583,20 +567,6 @@ namespace ModernKey.Core
             {
                 string printCombo = combo.Replace("PrtSc", "Print");
                 match = Shortcuts.FirstOrDefault(s => string.Equals(s.KeyCombination, printCombo, StringComparison.OrdinalIgnoreCase));
-                if (match != null) return match;
-            }
-
-            // Hỗ trợ bàn phím Thinkpad / laptop: Phím PrtSc (Print) nằm ở vị trí phím Apps (giữa RightAlt và RightCtrl)
-            if (combo.Equals("PrtSc", StringComparison.OrdinalIgnoreCase) || combo.Equals("Print", StringComparison.OrdinalIgnoreCase))
-            {
-                match = Shortcuts.FirstOrDefault(s => string.Equals(s.KeyCombination, "Apps", StringComparison.OrdinalIgnoreCase) ||
-                                                      string.Equals(s.KeyCombination, "Menu", StringComparison.OrdinalIgnoreCase));
-                if (match != null) return match;
-            }
-            else if (combo.Equals("Apps", StringComparison.OrdinalIgnoreCase) || combo.Equals("Menu", StringComparison.OrdinalIgnoreCase))
-            {
-                match = Shortcuts.FirstOrDefault(s => string.Equals(s.KeyCombination, "PrtSc", StringComparison.OrdinalIgnoreCase) ||
-                                                      string.Equals(s.KeyCombination, "Print", StringComparison.OrdinalIgnoreCase));
                 if (match != null) return match;
             }
 
@@ -818,9 +788,18 @@ namespace ModernKey.Core
             return text;
         }
 
+        private static int _lastPasteTick = 0;
+
         private void ExecutePasteText(ComfortShortcutItem item)
         {
-            if (string.IsNullOrEmpty(item.PasteText)) return;
+            if (item == null || string.IsNullOrEmpty(item.PasteText)) return;
+
+            int currentTick = Environment.TickCount;
+            if (Math.Abs(currentTick - _lastPasteTick) < 400)
+            {
+                return; // Chống lặp dán khi phím tắt bị giữ (key repeat)
+            }
+            _lastPasteTick = currentTick;
 
             string expanded = ExpandDynamicPasteTags(item.PasteText);
 

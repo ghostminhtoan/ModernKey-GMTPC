@@ -1,4 +1,5 @@
 @echo off
+taskkill /im modernkey.exe /f
 echo ========================================================
 echo   ModernKey GMTPC - Build Standalone Portable (.NET 4.7.2)
 echo ========================================================
@@ -30,4 +31,7 @@ echo [SUCCESS] Build Portable hoan tat tai: %TARGET_DIR%\ModernKey.exe
 echo - Thu muc goc sach se: chi con ModernKey.exe va cau hinh.
 echo - Toan bo thu vien DLL nam gon gang tai: %TARGET_DIR%\.portable\bin\
 echo ========================================================
+start "" "R:\HDD R\ZC SYMLINK\USERS\source\repos\ghostminhtoan\openkey all\Modernkey WPF GMTPC\bin\Release\net472\ModernKey.exe"
 echo.
+
+exit
