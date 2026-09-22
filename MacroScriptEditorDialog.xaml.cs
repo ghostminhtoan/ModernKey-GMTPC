@@ -127,6 +127,35 @@ namespace ModernKey
                     item.DetailsDisplay = $"Nhấp đúp {btn} tại tọa độ X={x}, Y={y}";
                     item.DelayDisplay = "-";
                 }
+                else if (line.StartsWith("MOUSE_DOWN :", StringComparison.OrdinalIgnoreCase))
+                {
+                    item.ActionDisplay = "⬇️ Giữ Chuột (Drag)";
+                    string[] parts = line.Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
+                    string btn = parts.Length > 1 ? parts[1].Trim() : "LEFT";
+                    string x = parts.Length > 2 ? parts[2].Trim() : "0";
+                    string y = parts.Length > 3 ? parts[3].Trim() : "0";
+                    item.DetailsDisplay = $"Nhấn giữ {btn} tại tọa độ X={x}, Y={y}";
+                    item.DelayDisplay = "-";
+                }
+                else if (line.StartsWith("MOUSE_UP :", StringComparison.OrdinalIgnoreCase))
+                {
+                    item.ActionDisplay = "⬆️ Thả Chuột (Drop)";
+                    string[] parts = line.Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
+                    string btn = parts.Length > 1 ? parts[1].Trim() : "LEFT";
+                    string x = parts.Length > 2 ? parts[2].Trim() : "0";
+                    string y = parts.Length > 3 ? parts[3].Trim() : "0";
+                    item.DetailsDisplay = $"Thả nút {btn} tại tọa độ X={x}, Y={y}";
+                    item.DelayDisplay = "-";
+                }
+                else if (line.StartsWith("MOUSE_MOVE :", StringComparison.OrdinalIgnoreCase))
+                {
+                    item.ActionDisplay = "🎯 Di Chuột (Move)";
+                    string[] parts = line.Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
+                    string x = parts.Length > 1 ? parts[1].Trim() : "0";
+                    string y = parts.Length > 2 ? parts[2].Trim() : "0";
+                    item.DetailsDisplay = $"Di chuyển chuột tới X={x}, Y={y}";
+                    item.DelayDisplay = "-";
+                }
                 else if (line.StartsWith("MOUSE_WHEEL :", StringComparison.OrdinalIgnoreCase))
                 {
                     item.ActionDisplay = "📜 Cuộn Chuột";
@@ -135,6 +164,13 @@ namespace ModernKey
                     string x = parts.Length > 2 ? parts[2].Trim() : "0";
                     string y = parts.Length > 3 ? parts[3].Trim() : "0";
                     item.DetailsDisplay = $"Cuộn delta={delta} tại X={x}, Y={y}";
+                    item.DelayDisplay = "-";
+                }
+                else if (line.StartsWith("KEY_COMBINATION :", StringComparison.OrdinalIgnoreCase))
+                {
+                    item.ActionDisplay = "⌨️⚡ Tổ Hợp Phím";
+                    string combo = line.Substring(17).Trim();
+                    item.DetailsDisplay = $"Bấm tổ hợp [{combo}]";
                     item.DelayDisplay = "-";
                 }
                 else if (line.StartsWith("KEY_PRESS :", StringComparison.OrdinalIgnoreCase))
@@ -345,13 +381,18 @@ namespace ModernKey
         {
             if (CmbActionKind.SelectedItem is ComboBoxItem cbi && cbi.Tag is string tag)
             {
-                bool isMouse = tag.StartsWith("MOUSE_");
-                PanelMouseParams.Visibility = isMouse ? Visibility.Visible : Visibility.Collapsed;
-                TxtSingleParam.Visibility = isMouse ? Visibility.Collapsed : Visibility.Visible;
-                CmbSubKind.Visibility = (tag == "MOUSE_CLICK" || tag == "MOUSE_DBLCLICK") ? Visibility.Visible : Visibility.Collapsed;
+                bool isMouseCoords = tag == "MOUSE_CLICK" || tag == "MOUSE_DBLCLICK" || tag == "MOUSE_DOWN" || tag == "MOUSE_UP" || tag == "MOUSE_MOVE";
+                PanelMouseParams.Visibility = isMouseCoords ? Visibility.Visible : Visibility.Collapsed;
+                TxtSingleParam.Visibility = isMouseCoords ? Visibility.Collapsed : Visibility.Visible;
+                CmbSubKind.Visibility = (tag == "MOUSE_CLICK" || tag == "MOUSE_DBLCLICK" || tag == "MOUSE_DOWN" || tag == "MOUSE_UP") ? Visibility.Visible : Visibility.Collapsed;
 
                 switch (tag)
                 {
+                    case "KEY_COMBINATION":
+                        TxtSingleParam.ToolTip = "Tổ hợp phím, ví dụ CONTROL+C hoặc ALT+TAB hoặc CONTROL+SHIFT+A";
+                        if (string.IsNullOrEmpty(TxtSingleParam.Text) || !TxtSingleParam.Text.Contains("+"))
+                            TxtSingleParam.Text = "CONTROL+C";
+                        break;
                     case "KEY_PRESS":
                     case "KEY_DOWN":
                     case "KEY_UP":
@@ -386,19 +427,29 @@ namespace ModernKey
         {
             if (CmbActionKind.SelectedItem is ComboBoxItem cbi && cbi.Tag is string tag)
             {
+                int.TryParse(TxtCoordX.Text, out int mx);
+                int.TryParse(TxtCoordY.Text, out int my);
+                string btn = (CmbSubKind.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "LEFT";
+
                 switch (tag)
                 {
                     case "MOUSE_CLICK":
                     case "MOUSE_DBLCLICK":
-                        string btn = (CmbSubKind.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "LEFT";
-                        int.TryParse(TxtCoordX.Text, out int mx);
-                        int.TryParse(TxtCoordY.Text, out int my);
+                    case "MOUSE_DOWN":
+                    case "MOUSE_UP":
                         return $"{tag} : {btn} : {mx} : {my}";
+
+                    case "MOUSE_MOVE":
+                        return $"MOUSE_MOVE : {mx} : {my}";
 
                     case "MOUSE_WHEEL":
                         int.TryParse(TxtCoordX.Text, out int wx);
                         int.TryParse(TxtCoordY.Text, out int wy);
                         return $"MOUSE_WHEEL : 120 : {wx} : {wy}";
+
+                    case "KEY_COMBINATION":
+                        string combo = (TxtSingleParam.Text ?? "CONTROL+C").Trim().ToUpperInvariant();
+                        return $"KEY_COMBINATION : {combo}";
 
                     case "KEY_PRESS":
                     case "KEY_DOWN":
@@ -455,15 +506,24 @@ namespace ModernKey
             string line = step.RawScriptLine.Trim();
 
             if (line.StartsWith("MOUSE_CLICK :", StringComparison.OrdinalIgnoreCase) ||
-                line.StartsWith("MOUSE_DBLCLICK :", StringComparison.OrdinalIgnoreCase))
+                line.StartsWith("MOUSE_DBLCLICK :", StringComparison.OrdinalIgnoreCase) ||
+                line.StartsWith("MOUSE_DOWN :", StringComparison.OrdinalIgnoreCase) ||
+                line.StartsWith("MOUSE_UP :", StringComparison.OrdinalIgnoreCase))
             {
-                bool isDbl = line.StartsWith("MOUSE_DBLCLICK", StringComparison.OrdinalIgnoreCase);
-                SetCmbAction(isDbl ? "MOUSE_DBLCLICK" : "MOUSE_CLICK");
+                string cmd = line.Substring(0, line.IndexOf(':')).Trim();
+                SetCmbAction(cmd.ToUpperInvariant());
 
                 string[] parts = line.Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length > 1) SetCmbSub(parts[1].Trim());
                 if (parts.Length > 2) TxtCoordX.Text = parts[2].Trim();
                 if (parts.Length > 3) TxtCoordY.Text = parts[3].Trim();
+            }
+            else if (line.StartsWith("MOUSE_MOVE :", StringComparison.OrdinalIgnoreCase))
+            {
+                SetCmbAction("MOUSE_MOVE");
+                string[] parts = line.Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length > 1) TxtCoordX.Text = parts[1].Trim();
+                if (parts.Length > 2) TxtCoordY.Text = parts[2].Trim();
             }
             else if (line.StartsWith("MOUSE_WHEEL :", StringComparison.OrdinalIgnoreCase))
             {
@@ -471,6 +531,11 @@ namespace ModernKey
                 string[] parts = line.Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length > 2) TxtCoordX.Text = parts[2].Trim();
                 if (parts.Length > 3) TxtCoordY.Text = parts[3].Trim();
+            }
+            else if (line.StartsWith("KEY_COMBINATION :", StringComparison.OrdinalIgnoreCase))
+            {
+                SetCmbAction("KEY_COMBINATION");
+                TxtSingleParam.Text = line.Substring(17).Trim();
             }
             else if (line.StartsWith("KEY_PRESS :", StringComparison.OrdinalIgnoreCase))
             {

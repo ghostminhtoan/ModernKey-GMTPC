@@ -158,8 +158,12 @@
                         <ComboBox x:Name="CmbActionKind" Grid.Column="0" Height="26" FontFamily="Consolas" SelectionChanged="CmbActionKind_SelectionChanged">
                             <ComboBoxItem Content="🖱️ Click Chuột" Tag="MOUSE_CLICK" IsSelected="True" />
                             <ComboBoxItem Content="🖱️ Double Click" Tag="MOUSE_DBLCLICK" />
+                            <ComboBoxItem Content="⬇️ Giữ Chuột (Drag)" Tag="MOUSE_DOWN" />
+                            <ComboBoxItem Content="⬆️ Thả Chuột (Drop)" Tag="MOUSE_UP" />
+                            <ComboBoxItem Content="🎯 Di Chuột (Move)" Tag="MOUSE_MOVE" />
                             <ComboBoxItem Content="📜 Cuộn Chuột" Tag="MOUSE_WHEEL" />
                             <ComboBoxItem Content="⌨️ Nhấn Phím" Tag="KEY_PRESS" />
+                            <ComboBoxItem Content="⌨️⚡ Tổ Hợp Phím" Tag="KEY_COMBINATION" />
                             <ComboBoxItem Content="🔤 Gõ Văn Bản" Tag="TEXT" />
                             <ComboBoxItem Content="⏱️ Nghỉ (Delay)" Tag="DELAY" />
                         </ComboBox>

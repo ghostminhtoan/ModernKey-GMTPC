@@ -1449,15 +1449,85 @@ namespace ModernKey.Core
                                 }
                                 break;
 
+                            case "MOUSE_DOWN":
+                                if (parts.Length >= 4 && int.TryParse(parts[2], out int mdnX) && int.TryParse(parts[3], out int mdnY))
+                                {
+                                    SetCursorPos(mdnX, mdnY);
+                                    Thread.Sleep(10);
+                                    string btn = parts[1].ToUpperInvariant();
+                                    if (btn == "RIGHT") mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, KeySender.INJECTED_SIGNATURE);
+                                    else if (btn == "MIDDLE") mouse_event(MOUSEEVENTF_MIDDLEDOWN, 0, 0, 0, KeySender.INJECTED_SIGNATURE);
+                                    else mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, KeySender.INJECTED_SIGNATURE);
+                                }
+                                break;
+
+                            case "MOUSE_UP":
+                                if (parts.Length >= 4 && int.TryParse(parts[2], out int mupX) && int.TryParse(parts[3], out int mupY))
+                                {
+                                    SetCursorPos(mupX, mupY);
+                                    Thread.Sleep(10);
+                                    string btn = parts[1].ToUpperInvariant();
+                                    if (btn == "RIGHT") mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, KeySender.INJECTED_SIGNATURE);
+                                    else if (btn == "MIDDLE") mouse_event(MOUSEEVENTF_MIDDLEUP, 0, 0, 0, KeySender.INJECTED_SIGNATURE);
+                                    else mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, KeySender.INJECTED_SIGNATURE);
+                                }
+                                break;
+
+                            case "KEY_COMBINATION":
                             case "KEY_PRESS":
                                 if (parts.Length >= 2)
                                 {
-                                    uint vk = GetVkFromFriendlyName(parts[1]);
-                                    if (vk > 0)
+                                    string keyParam = parts[1];
+                                    if (keyParam.Contains("+"))
                                     {
-                                        SendSingleKeyEvent(vk, false);
+                                        string[] subKeys = keyParam.Split(new[] { '+' }, StringSplitOptions.RemoveEmptyEntries);
+                                        var modVks = new List<uint>();
+                                        uint mainVk = 0;
+
+                                        foreach (var sk in subKeys)
+                                        {
+                                            uint vk = GetVkFromFriendlyName(sk);
+                                            if (vk == 0) continue;
+
+                                            if (vk == 0x11 || vk == 0x10 || vk == 0x12 || vk == 0x5B ||
+                                                vk == 0xA0 || vk == 0xA1 || vk == 0xA2 || vk == 0xA3 || vk == 0xA4 || vk == 0xA5)
+                                            {
+                                                modVks.Add(vk);
+                                            }
+                                            else
+                                            {
+                                                mainVk = vk;
+                                            }
+                                        }
+
+                                        // 1. Nhấn giữ các modifier
+                                        foreach (var m in modVks) SendSingleKeyEvent(m, false);
                                         Thread.Sleep(15);
-                                        SendSingleKeyEvent(vk, true);
+
+                                        // 2. Nhấn và nhả phím chính
+                                        if (mainVk > 0)
+                                        {
+                                            SendSingleKeyEvent(mainVk, false);
+                                            Thread.Sleep(20);
+                                            SendSingleKeyEvent(mainVk, true);
+                                        }
+
+                                        // 3. Nhả các modifier
+                                        Thread.Sleep(15);
+                                        for (int i = modVks.Count - 1; i >= 0; i--)
+                                        {
+                                            SendSingleKeyEvent(modVks[i], true);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        uint vk = GetVkFromFriendlyName(keyParam);
+                                        if (vk > 0)
+                                        {
+                                            SendSingleKeyEvent(vk, false);
+                                            Thread.Sleep(15);
+                                            SendSingleKeyEvent(vk, true);
+                                        }
                                     }
                                 }
                                 break;
@@ -1531,93 +1601,65 @@ namespace ModernKey.Core
         {
             try
             {
-                // 1. Giải phóng triệt để toàn bộ phím Modifier đang bị đè bởi hotkey (Shift, Ctrl, Alt, Win)
-                KeySender.ReleaseAllModifiers();
-                Thread.Sleep(30);
-
-                // 2. Gán chuỗi marker độc nhất vào clipboard để phát hiện chính xác khi nào lệnh Copy hoàn tất
-                string marker = "__MK_CASE_CHECK_" + Guid.NewGuid().ToString("N");
-                KeySender.NativeSetClipboardText(marker);
-
-                // 3. Gửi lệnh Copy (Ctrl+C) kèm INJECTED_SIGNATURE
-                KeySender.ReleaseAllModifiers();
-                keybd_event(0x11 /* VK_CONTROL */, 0, 0, (IntPtr)KeySender.INJECTED_SIGNATURE);
-                keybd_event(0x43 /* 'C' */, 0, 0, (IntPtr)KeySender.INJECTED_SIGNATURE);
-                Thread.Sleep(25);
-                keybd_event(0x43, 0, KEYEVENTF_KEYUP, (IntPtr)KeySender.INJECTED_SIGNATURE);
-                keybd_event(0x11, 0, KEYEVENTF_KEYUP, (IntPtr)KeySender.INJECTED_SIGNATURE);
-
-                // 4. Polling Native Clipboard để đọc đoạn văn bản người dùng đang bôi đen
-                string selectedText = null;
-                for (int retry = 0; retry < 25; retry++)
-                {
-                    Thread.Sleep(20);
-                    string clip = KeySender.NativeGetClipboardText();
-                    if (!string.IsNullOrEmpty(clip) && clip != marker)
-                    {
-                        selectedText = clip;
-                        break;
-                    }
-                }
-
-                // Nếu không có văn bản nào được chọn hoặc clipboard không thay đổi
-                if (string.IsNullOrEmpty(selectedText) || selectedText == marker)
-                {
-                    return;
-                }
-
-                // 5. Chuyển đổi Case linh hoạt (không phụ thuộc khoảng trắng hay viết hoa chữ cái đầu)
                 string mode = (item.ChangeCaseMode ?? "UPPERCASE").Trim().ToLowerInvariant();
-                string transformed = selectedText;
 
-                if (mode.Contains("upper"))
+                KeySender.CutTransformAndPaste(cutText =>
                 {
-                    transformed = selectedText.ToUpper();
-                }
-                else if (mode.Contains("lower"))
-                {
-                    transformed = selectedText.ToLower();
-                }
-                else if (mode.Contains("title"))
-                {
-                    transformed = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(selectedText.ToLower());
-                }
-                else if (mode.Contains("sentence"))
-                {
-                    var parts = Regex.Split(selectedText, @"(?<=[.!?\r\n]+\s*)");
-                    var sb = new StringBuilder();
-                    foreach (var p in parts)
+                    if (string.IsNullOrEmpty(cutText)) return cutText;
+
+                    if (mode.Contains("upper"))
                     {
-                        if (p.Length > 0)
+                        return cutText.ToUpper();
+                    }
+                    else if (mode.Contains("lower"))
+                    {
+                        return cutText.ToLower();
+                    }
+                    else if (mode.Contains("title"))
+                    {
+                        try
                         {
-                            string trimmed = p.TrimStart();
-                            int leadSpaces = p.Length - trimmed.Length;
-                            string prefix = p.Substring(0, leadSpaces);
-                            if (trimmed.Length > 0)
-                            {
-                                sb.Append(prefix + char.ToUpper(trimmed[0]) + (trimmed.Length > 1 ? trimmed.Substring(1).ToLower() : ""));
-                            }
-                            else sb.Append(p);
+                            return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(cutText.ToLower());
+                        }
+                        catch
+                        {
+                            return cutText;
                         }
                     }
-                    transformed = sb.ToString();
-                }
-                else if (mode.Contains("toggle") || mode.Contains("invert"))
-                {
-                    var sb = new StringBuilder(selectedText.Length);
-                    foreach (char c in selectedText)
+                    else if (mode.Contains("sentence"))
                     {
-                        if (char.IsUpper(c)) sb.Append(char.ToLower(c));
-                        else if (char.IsLower(c)) sb.Append(char.ToUpper(c));
-                        else sb.Append(c);
+                        var parts = Regex.Split(cutText, @"(?<=[.!?\r\n]+\s*)");
+                        var sb = new StringBuilder();
+                        foreach (var p in parts)
+                        {
+                            if (p.Length > 0)
+                            {
+                                string trimmed = p.TrimStart();
+                                int leadSpaces = p.Length - trimmed.Length;
+                                string prefix = p.Substring(0, leadSpaces);
+                                if (trimmed.Length > 0)
+                                {
+                                    sb.Append(prefix + char.ToUpper(trimmed[0]) + (trimmed.Length > 1 ? trimmed.Substring(1).ToLower() : ""));
+                                }
+                                else sb.Append(p);
+                            }
+                        }
+                        return sb.ToString();
                     }
-                    transformed = sb.ToString();
-                }
+                    else if (mode.Contains("toggle") || mode.Contains("invert"))
+                    {
+                        var sb = new StringBuilder(cutText.Length);
+                        foreach (char c in cutText)
+                        {
+                            if (char.IsUpper(c)) sb.Append(char.ToLower(c));
+                            else if (char.IsLower(c)) sb.Append(char.ToUpper(c));
+                            else sb.Append(c);
+                        }
+                        return sb.ToString();
+                    }
 
-                // 6. Nhả modifier lần nữa và dán đè văn bản mới vào vị trí bôi đen
-                KeySender.ReleaseAllModifiers();
-                Thread.Sleep(25);
-                KeySender.SendViaClipboardPaste(transformed);
+                    return cutText;
+                });
             }
             catch { }
         }

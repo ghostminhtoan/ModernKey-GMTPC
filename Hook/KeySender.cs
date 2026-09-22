@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace ModernKey.Hook
 {
@@ -214,7 +215,7 @@ namespace ModernKey.Hook
             }
         }
 
-        private sealed class ClipboardFormatItem
+        public sealed class ClipboardFormatItem
         {
             public uint Format;
             public byte[] Data;
@@ -229,7 +230,7 @@ namespace ModernKey.Hook
         public static volatile bool SuppressClipboardMonitoring = false;
         public static bool IsInternalClipboardActive => _hasActiveBackup;
 
-        private static List<ClipboardFormatItem> NativeBackupClipboard(out bool hasImage)
+        public static List<ClipboardFormatItem> NativeBackupClipboard(out bool hasImage)
         {
             EnsureExcludeFormats();
             hasImage = false;
@@ -373,7 +374,7 @@ namespace ModernKey.Hook
             return null;
         }
 
-        private static bool NativeRestoreClipboard(List<ClipboardFormatItem> items)
+        public static bool NativeRestoreClipboard(List<ClipboardFormatItem> items)
         {
             for (int retry = 0; retry < 15; retry++)
             {
@@ -853,6 +854,96 @@ namespace ModernKey.Hook
                     }
                 }
             };
+        }
+
+        /// <summary>
+        /// Cắt văn bản đang chọn (Ctrl+X), biến đổi theo hàm transformFunc, dán đè lại (Ctrl+V),
+        /// và phục hồi lại hoàn toàn clipboard ban đầu của người dùng giống gõ tắt.
+        /// </summary>
+        public static bool CutTransformAndPaste(Func<string, string> transformFunc)
+        {
+            if (transformFunc == null) return false;
+
+            // 1. Snapshot toàn bộ clipboard ban đầu của người dùng (cả text, format, image, files...)
+            bool hadImage = false;
+            var backupSnapshot = NativeBackupClipboard(out hadImage);
+
+            try
+            {
+                // 2. Giải phóng phím Modifier và đặt Marker vào clipboard
+                ReleaseAllModifiers();
+                Thread.Sleep(25);
+
+                string marker = "__MK_CUT_CHECK_" + Guid.NewGuid().ToString("N");
+                NativeSetClipboardText(marker);
+
+                // 3. Gửi lệnh Cut (Ctrl+X)
+                ReleaseAllModifiers();
+                INPUT[] ctrlX = new INPUT[4];
+                ctrlX[0] = CreateKeyInput(VK_CONTROL, 0, 0x1D);
+                ctrlX[1] = CreateKeyInput(0x58 /* VK_X */, 0, 0x2D);
+                ctrlX[2] = CreateKeyInput(0x58, KEYEVENTF_KEYUP, 0x2D);
+                ctrlX[3] = CreateKeyInput(VK_CONTROL, KEYEVENTF_KEYUP, 0x1D);
+                SendInput(4, ctrlX, Marshal.SizeOf(typeof(INPUT)));
+
+                // 4. Polling đọc nội dung vừa Cut
+                string cutText = null;
+                for (int retry = 0; retry < 25; retry++)
+                {
+                    Thread.Sleep(20);
+                    string clip = NativeGetClipboardText();
+                    if (!string.IsNullOrEmpty(clip) && clip != marker)
+                    {
+                        cutText = clip;
+                        break;
+                    }
+                }
+
+                // Nếu không có văn bản nào được cut (người dùng không highlight gì)
+                if (string.IsNullOrEmpty(cutText) || cutText == marker)
+                {
+                    NativeRestoreClipboard(backupSnapshot);
+                    return false;
+                }
+
+                // 5. Biến đổi văn bản theo hàm xử lý
+                string transformed = transformFunc(cutText);
+                if (string.IsNullOrEmpty(transformed))
+                {
+                    transformed = cutText;
+                }
+
+                // 6. Gán văn bản mới vào clipboard và dán lại bằng Ctrl+V
+                NativeSetClipboardText(transformed);
+
+                for (int retry = 0; retry < 10; retry++)
+                {
+                    string cur = NativeGetClipboardText();
+                    if (cur == transformed) break;
+                    Thread.Sleep(5);
+                }
+
+                ReleaseAllModifiers();
+                Thread.Sleep(25);
+
+                INPUT[] ctrlV = new INPUT[4];
+                ctrlV[0] = CreateKeyInput(VK_CONTROL, 0, 0x1D);
+                ctrlV[1] = CreateKeyInput(VK_V, 0, 0x2F);
+                ctrlV[2] = CreateKeyInput(VK_V, KEYEVENTF_KEYUP, 0x2F);
+                ctrlV[3] = CreateKeyInput(VK_CONTROL, KEYEVENTF_KEYUP, 0x1D);
+                SendInput(4, ctrlV, Marshal.SizeOf(typeof(INPUT)));
+
+                return true;
+            }
+            finally
+            {
+                // 7. Hẹn giờ phục hồi lại clipboard ban đầu của người dùng chuẩn gõ tắt
+                int restoreDelay = hadImage ? 1200 : 700;
+                Task.Delay(restoreDelay).ContinueWith(_ =>
+                {
+                    NativeRestoreClipboard(backupSnapshot);
+                });
+            }
         }
     }
 }

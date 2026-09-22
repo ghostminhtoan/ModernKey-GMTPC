@@ -10,7 +10,7 @@ namespace ModernKey.Core
 {
     /// <summary>
     /// Bộ ghi Macro bàn phím & chuột thời gian thực chuẩn Jitbit Macro Recorder.
-    /// Tự động bắt tọa độ chuột, phím nhấn, độ trễ và chuyển đổi thành kịch bản tự động hóa.
+    /// Tự động bắt tọa độ chuột, phím nhấn, tổ hợp phím, hold & drag mouse, tuân thủ Primary Mouse Button.
     /// Dừng ghi tức thì bằng phím F11 hoặc Escape.
     /// </summary>
     public class MacroRecorder
@@ -28,6 +28,7 @@ namespace ModernKey.Core
         private const int WM_SYSKEYDOWN = 0x0104;
         private const int WM_SYSKEYUP = 0x0105;
 
+        private const int WM_MOUSEMOVE = 0x0200;
         private const int WM_LBUTTONDOWN = 0x0201;
         private const int WM_LBUTTONUP = 0x0202;
         private const int WM_RBUTTONDOWN = 0x0204;
@@ -38,6 +39,11 @@ namespace ModernKey.Core
 
         private const uint VK_ESCAPE = 0x1B;
         private const uint VK_F11 = 0x7A;
+
+        private const int SM_SWAPBUTTON = 23;
+
+        [DllImport("user32.dll")]
+        private static extern int GetSystemMetrics(int nIndex);
 
         private delegate IntPtr LowLevelProc(int nCode, IntPtr wParam, IntPtr lParam);
 
@@ -91,10 +97,22 @@ namespace ModernKey.Core
         private readonly List<string> _recordedCommands = new List<string>();
         private readonly Stopwatch _stopwatch = new Stopwatch();
 
+        // Mouse Drag & Click tracking
+        private bool _isMouseDown = false;
+        private string _mouseDownButton = "LEFT";
+        private int _mouseDownX = -9999;
+        private int _mouseDownY = -9999;
+        private long _mouseDownTick = 0;
+        private bool _isDragging = false;
+        private long _lastDragRecordTick = 0;
+
         private int _lastClickX = -9999;
         private int _lastClickY = -9999;
         private long _lastClickTick = 0;
         private bool _lastWasLeftClick = false;
+
+        // Key Combo tracking
+        private readonly HashSet<uint> _activeModifiers = new HashSet<uint>();
 
         public bool IsRecording { get; private set; }
 
@@ -104,11 +122,48 @@ namespace ModernKey.Core
 
         public IReadOnlyList<string> RecordedCommands => _recordedCommands;
 
+        public static bool IsMouseButtonSwapped()
+        {
+            return GetSystemMetrics(SM_SWAPBUTTON) != 0;
+        }
+
+        public static string GetLogicalButton(int msg)
+        {
+            bool swapped = IsMouseButtonSwapped();
+            switch (msg)
+            {
+                case WM_LBUTTONDOWN:
+                case WM_LBUTTONUP:
+                    return swapped ? "RIGHT" : "LEFT";
+
+                case WM_RBUTTONDOWN:
+                case WM_RBUTTONUP:
+                    return swapped ? "LEFT" : "RIGHT";
+
+                case WM_MBUTTONDOWN:
+                case WM_MBUTTONUP:
+                    return "MIDDLE";
+
+                default:
+                    return "LEFT";
+            }
+        }
+
         public void StartRecording()
         {
             if (IsRecording) return;
 
             _recordedCommands.Clear();
+            _activeModifiers.Clear();
+
+            _isMouseDown = false;
+            _mouseDownButton = "LEFT";
+            _mouseDownX = -9999;
+            _mouseDownY = -9999;
+            _mouseDownTick = 0;
+            _isDragging = false;
+            _lastDragRecordTick = 0;
+
             _lastClickX = -9999;
             _lastClickY = -9999;
             _lastClickTick = 0;
@@ -150,6 +205,10 @@ namespace ModernKey.Core
                 _mouseHookId = IntPtr.Zero;
             }
 
+            _activeModifiers.Clear();
+            _isMouseDown = false;
+            _isDragging = false;
+
             string fullScript = GetScriptText();
             Application.Current?.Dispatcher?.Invoke(() =>
             {
@@ -165,7 +224,7 @@ namespace ModernKey.Core
         private void AppendCommand(string cmd)
         {
             long elapsed = _stopwatch.ElapsedMilliseconds;
-            if (elapsed >= 45 && _recordedCommands.Count > 0)
+            if (elapsed >= 40 && _recordedCommands.Count > 0)
             {
                 int delayMs = (int)Math.Min(elapsed, 4000);
                 string delayCmd = $"DELAY : {delayMs}";
@@ -196,7 +255,6 @@ namespace ModernKey.Core
                 {
                     if (msg == WM_KEYDOWN)
                     {
-                        // Dừng record ngay lập tức và nuốt phím
                         StopRecording();
                         return (IntPtr)1;
                     }
@@ -206,19 +264,31 @@ namespace ModernKey.Core
                 if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN)
                 {
                     string keyName = GetFriendlyKeyName(kb.vkCode);
+
                     if (IsModifierKey(kb.vkCode))
                     {
+                        _activeModifiers.Add(NormalizeModifierVk(kb.vkCode));
                         AppendCommand($"KEY_DOWN : {keyName}");
                     }
                     else
                     {
-                        AppendCommand($"KEY_PRESS : {keyName}");
+                        // Nếu có Modifier đang được nhấn giữ -> Ghi nhận thành TỔ HỢP PHÍM (Key Combination)
+                        if (_activeModifiers.Count > 0)
+                        {
+                            string combo = BuildComboString(kb.vkCode);
+                            AppendCommand($"KEY_COMBINATION : {combo}");
+                        }
+                        else
+                        {
+                            AppendCommand($"KEY_PRESS : {keyName}");
+                        }
                     }
                 }
                 else if (msg == WM_KEYUP || msg == WM_SYSKEYUP)
                 {
                     if (IsModifierKey(kb.vkCode))
                     {
+                        _activeModifiers.Remove(NormalizeModifierVk(kb.vkCode));
                         string keyName = GetFriendlyKeyName(kb.vkCode);
                         AppendCommand($"KEY_UP : {keyName}");
                     }
@@ -226,6 +296,27 @@ namespace ModernKey.Core
             }
 
             return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
+        }
+
+        private uint NormalizeModifierVk(uint vk)
+        {
+            if (vk == 0xA0 || vk == 0xA1) return 0x10; // Shift
+            if (vk == 0xA2 || vk == 0xA3) return 0x11; // Ctrl
+            if (vk == 0xA4 || vk == 0xA5) return 0x12; // Alt
+            if (vk == 0x5C) return 0x5B;               // Win
+            return vk;
+        }
+
+        private string BuildComboString(uint mainVk)
+        {
+            var parts = new List<string>();
+            if (_activeModifiers.Contains(0x11)) parts.Add("CONTROL");
+            if (_activeModifiers.Contains(0x10)) parts.Add("SHIFT");
+            if (_activeModifiers.Contains(0x12)) parts.Add("ALT");
+            if (_activeModifiers.Contains(0x5B)) parts.Add("WIN");
+
+            parts.Add(GetFriendlyKeyName(mainVk));
+            return string.Join("+", parts);
         }
 
         private IntPtr MouseHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
@@ -248,43 +339,87 @@ namespace ModernKey.Core
                 switch (msg)
                 {
                     case WM_LBUTTONDOWN:
-                        // Kiểm tra xem có thể gộp thành Double Click không (chuẩn Jitbit)
-                        if (_lastWasLeftClick && (now - _lastClickTick <= 400) &&
-                            Math.Abs(x - _lastClickX) <= 4 && Math.Abs(y - _lastClickY) <= 4)
+                    case WM_RBUTTONDOWN:
+                    case WM_MBUTTONDOWN:
+                        _isMouseDown = true;
+                        _mouseDownButton = GetLogicalButton(msg);
+                        _mouseDownX = x;
+                        _mouseDownY = y;
+                        _mouseDownTick = now;
+                        _isDragging = false;
+                        break;
+
+                    case WM_MOUSEMOVE:
+                        if (_isMouseDown)
                         {
-                            // Thay thế lệnh click trước bằng double click
-                            if (_recordedCommands.Count > 0 && _recordedCommands[_recordedCommands.Count - 1].StartsWith("MOUSE_CLICK : LEFT"))
+                            int dx = Math.Abs(x - _mouseDownX);
+                            int dy = Math.Abs(y - _mouseDownY);
+
+                            // Khi khoảng cách di chuyển >= 6px trong lúc giữ chuột -> Bắt đầu Hold & Drag
+                            if (!_isDragging && (dx >= 6 || dy >= 6))
                             {
-                                _recordedCommands[_recordedCommands.Count - 1] = $"MOUSE_DBLCLICK : LEFT : {x} : {y}";
+                                _isDragging = true;
+                                AppendCommand($"MOUSE_DOWN : {_mouseDownButton} : {_mouseDownX} : {_mouseDownY}");
+                                AppendCommand($"MOUSE_MOVE : {x} : {y}");
+                                _lastDragRecordTick = now;
+                            }
+                            else if (_isDragging)
+                            {
+                                // Ghi nhận đường di chuyển kéo chuột
+                                if (now - _lastDragRecordTick >= 75 || dx >= 20 || dy >= 20)
+                                {
+                                    AppendCommand($"MOUSE_MOVE : {x} : {y}");
+                                    _lastDragRecordTick = now;
+                                }
+                            }
+                        }
+                        break;
+
+                    case WM_LBUTTONUP:
+                    case WM_RBUTTONUP:
+                    case WM_MBUTTONUP:
+                        string upBtn = GetLogicalButton(msg);
+                        if (_isMouseDown && upBtn == _mouseDownButton)
+                        {
+                            if (_isDragging)
+                            {
+                                // Kết thúc Hold & Drag: Di chuyển đến tọa độ đích và nhả chuột (Drop)
+                                AppendCommand($"MOUSE_MOVE : {x} : {y}");
+                                AppendCommand($"MOUSE_UP : {_mouseDownButton} : {x} : {y}");
+                                _isDragging = false;
+                                _isMouseDown = false;
+                                _lastWasLeftClick = false;
                             }
                             else
                             {
-                                AppendCommand($"MOUSE_DBLCLICK : LEFT : {x} : {y}");
+                                // Click thông thường tại chỗ (hoặc Double Click)
+                                if (_lastWasLeftClick && _mouseDownButton == "LEFT" && (now - _lastClickTick <= 400) &&
+                                    Math.Abs(x - _lastClickX) <= 6 && Math.Abs(y - _lastClickY) <= 6)
+                                {
+                                    if (_recordedCommands.Count > 0 && _recordedCommands[_recordedCommands.Count - 1].StartsWith("MOUSE_CLICK : LEFT"))
+                                    {
+                                        _recordedCommands[_recordedCommands.Count - 1] = $"MOUSE_DBLCLICK : LEFT : {x} : {y}";
+                                    }
+                                    else
+                                    {
+                                        AppendCommand($"MOUSE_DBLCLICK : LEFT : {x} : {y}");
+                                    }
+                                    _lastWasLeftClick = false;
+                                }
+                                else
+                                {
+                                    AppendCommand($"MOUSE_CLICK : {_mouseDownButton} : {x} : {y}");
+                                    _lastClickX = x;
+                                    _lastClickY = y;
+                                    _lastClickTick = now;
+                                    _lastWasLeftClick = (_mouseDownButton == "LEFT");
+                                }
+                                _isMouseDown = false;
                             }
-                            _lastWasLeftClick = false;
                         }
-                        else
-                        {
-                            AppendCommand($"MOUSE_CLICK : LEFT : {x} : {y}");
-                            _lastClickX = x;
-                            _lastClickY = y;
-                            _lastClickTick = now;
-                            _lastWasLeftClick = true;
-                        }
-                        break;
-
-                    case WM_RBUTTONDOWN:
-                        _lastWasLeftClick = false;
-                        AppendCommand($"MOUSE_CLICK : RIGHT : {x} : {y}");
-                        break;
-
-                    case WM_MBUTTONDOWN:
-                        _lastWasLeftClick = false;
-                        AppendCommand($"MOUSE_CLICK : MIDDLE : {x} : {y}");
                         break;
 
                     case WM_MOUSEWHEEL:
-                        _lastWasLeftClick = false;
                         short delta = (short)(ms.mouseData >> 16);
                         AppendCommand($"MOUSE_WHEEL : {delta} : {x} : {y}");
                         break;
