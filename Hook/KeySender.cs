@@ -420,6 +420,10 @@ namespace ModernKey.Hook
                                 }
                             }
                         }
+                        SetClipboardFlag(_cfExclude1);
+                        SetClipboardFlag(_cfExclude2);
+                        SetClipboardFlag(_cfExclude3);
+                        SetClipboardFlag(_cfExclude4);
                         return true;
                     }
                     finally
@@ -912,17 +916,66 @@ namespace ModernKey.Hook
         }
 
         /// <summary>
+        /// Khôi phục clipboard ban đầu ngay tức thì, đồng bộ và giải phóng timer cũ.
+        /// </summary>
+        public static void RestoreClipboardImmediate()
+        {
+            List<ClipboardFormatItem> toRestore = null;
+            bool hadBackup = false;
+
+            lock (_clipLock)
+            {
+                toRestore = _activeBackupSnapshot;
+                hadBackup = _hasActiveBackup;
+
+                _activeBackupSnapshot = null;
+                _hasActiveBackup = false;
+                _activeBackupHadImage = false;
+
+                if (_restoreTimer != null)
+                {
+                    _restoreTimer.Dispose();
+                    _restoreTimer = null;
+                }
+            }
+
+            if (hadBackup)
+            {
+                NativeRestoreClipboard(toRestore);
+            }
+        }
+
+        /// <summary>
         /// Cắt văn bản đang chọn (Ctrl+X hoặc SCI_CUT), biến đổi theo hàm transformFunc, dán đè lại (Ctrl+V hoặc SCI_PASTE),
         /// và phục hồi lại hoàn toàn clipboard ban đầu của người dùng chuẩn gõ tắt.
-        /// Đặc trị hoàn hảo cho Scintilla (Notepad++) chống trật nhịp và chống mất paste.
+        /// Đặc trị hoàn hảo cho Scintilla (Notepad++) và trình soạn thảo thông thường:
+        /// - Làm rỗng clipboard trước khi Cut để nhận diện chính xác 100% kể cả khi văn bản trùng với clipboard cũ.
+        /// - Dọn sạch văn bản vừa dán ra khỏi clipboard và khôi phục clipboard cũ ngay tức thì sau khi paste, tránh kẹt dữ liệu sang lần 2.
+        /// - Đồng bộ qua _clipLock và hủy timer cũ, đảm bảo các lần change case liên tiếp không bị xung đột.
         /// </summary>
         public static bool CutTransformAndPaste(Func<string, string> transformFunc)
         {
             if (transformFunc == null) return false;
 
-            // 1. Snapshot toàn bộ clipboard ban đầu của người dùng (cả text, format, image, files...)
-            bool hadImage = false;
-            var backupSnapshot = NativeBackupClipboard(out hadImage);
+            // 1. Quản lý snapshot clipboard an toàn với _clipLock:
+            // Nếu có lần Change Case hoặc gõ tắt trước đó đang chờ restore, hủy timer cũ ngay lập tức
+            // và giữ nguyên snapshot gốc ban đầu của người dùng!
+            lock (_clipLock)
+            {
+                if (_restoreTimer != null)
+                {
+                    _restoreTimer.Dispose();
+                    _restoreTimer = null;
+                }
+
+                if (!_hasActiveBackup)
+                {
+                    _activeBackupSnapshot = NativeBackupClipboard(out _activeBackupHadImage);
+                    _hasActiveBackup = true;
+                }
+            }
+
+            SuppressClipboardMonitoring = true;
 
             try
             {
@@ -937,20 +990,29 @@ namespace ModernKey.Hook
                     if (selStart == selEnd)
                     {
                         // Không có văn bản nào được chọn trong Notepad++ -> Huỷ bỏ, tránh cắt nhầm cả dòng
-                        NativeRestoreClipboard(backupSnapshot);
+                        RestoreClipboardImmediate();
                         return false;
                     }
                 }
 
-                // 3. Giải phóng phím Modifier và đặt Marker vào clipboard để theo dõi
+                // 3. Giải phóng phím Modifier
                 ReleaseAllModifiers();
-                Thread.Sleep(15);
+                Thread.Sleep(10);
 
-                string marker = "__MK_CUT_CHECK_" + Guid.NewGuid().ToString("N");
-                NativeSetClipboardText(marker);
+                // Làm rỗng clipboard trước khi Cut để nhận diện chính xác dữ liệu vừa Cut,
+                // loại bỏ hoàn toàn lỗi không đổi case khi văn bản bôi đen trùng với clipboard cũ!
+                for (int r = 0; r < 10; r++)
+                {
+                    if (OpenClipboard(IntPtr.Zero))
+                    {
+                        EmptyClipboard();
+                        CloseClipboard();
+                        break;
+                    }
+                    Thread.Sleep(5);
+                }
 
-                // Chờ clipboard rảnh trước khi phát lệnh Cut để tránh xung đột
-                WaitForClipboardReady(50);
+                WaitForClipboardReady(40);
 
                 // 4. Thực hiện lệnh Cut
                 if (isScintilla)
@@ -971,13 +1033,13 @@ namespace ModernKey.Hook
                     SendInput(4, ctrlX, Marshal.SizeOf(typeof(INPUT)));
                 }
 
-                // 5. Polling đọc nội dung vừa Cut
+                // 5. Polling đọc nội dung vừa Cut (vì trước đó đã EmptyClipboard nên text đọc được chắc chắn là text vừa Cut)
                 string cutText = null;
                 for (int retry = 0; retry < 30; retry++)
                 {
                     Thread.Sleep(isScintilla ? 10 : 20);
                     string clip = NativeGetClipboardText();
-                    if (!string.IsNullOrEmpty(clip) && clip != marker)
+                    if (!string.IsNullOrEmpty(clip))
                     {
                         cutText = clip;
                         break;
@@ -985,9 +1047,9 @@ namespace ModernKey.Hook
                 }
 
                 // Nếu không có văn bản nào được cut (người dùng không highlight gì hoặc ứng dụng không hỗ trợ cut)
-                if (string.IsNullOrEmpty(cutText) || cutText == marker)
+                if (string.IsNullOrEmpty(cutText))
                 {
-                    NativeRestoreClipboard(backupSnapshot);
+                    RestoreClipboardImmediate();
                     return false;
                 }
 
@@ -999,7 +1061,7 @@ namespace ModernKey.Hook
                 }
 
                 // 7. Đảm bảo clipboard rảnh và gán văn bản mới vào clipboard
-                WaitForClipboardReady(50);
+                WaitForClipboardReady(40);
                 NativeSetClipboardText(transformed);
 
                 for (int retry = 0; retry < 15; retry++)
@@ -1014,11 +1076,12 @@ namespace ModernKey.Hook
                 {
                     // Với Scintilla (Notepad++): Dán trực tiếp đồng bộ bằng thông điệp SCI_PASTE
                     SendMessage(hFocus, SCI_PASTE, IntPtr.Zero, IntPtr.Zero);
+                    Thread.Sleep(30); // Đợi Scintilla hoàn tất đọc buffer
                 }
                 else
                 {
                     ReleaseAllModifiers();
-                    Thread.Sleep(25);
+                    Thread.Sleep(20);
 
                     INPUT[] ctrlV = new INPUT[4];
                     ctrlV[0] = CreateKeyInput(VK_CONTROL, 0, 0x1D);
@@ -1026,18 +1089,21 @@ namespace ModernKey.Hook
                     ctrlV[2] = CreateKeyInput(VK_V, KEYEVENTF_KEYUP, 0x2F);
                     ctrlV[3] = CreateKeyInput(VK_CONTROL, KEYEVENTF_KEYUP, 0x1D);
                     SendInput(4, ctrlV, Marshal.SizeOf(typeof(INPUT)));
+                    Thread.Sleep(70); // Đợi ứng dụng thông thường nhận và paste xong
                 }
 
+                // 9. Ngay sau khi dán xong, lập tức dọn sạch text vừa dán ra khỏi clipboard và khôi phục lại clipboard cũ của người dùng!
+                RestoreClipboardImmediate();
                 return true;
+            }
+            catch
+            {
+                RestoreClipboardImmediate();
+                return false;
             }
             finally
             {
-                // 9. Hẹn giờ phục hồi lại clipboard ban đầu của người dùng chuẩn gõ tắt
-                int restoreDelay = hadImage ? 1500 : 800;
-                Task.Delay(restoreDelay).ContinueWith(_ =>
-                {
-                    NativeRestoreClipboard(backupSnapshot);
-                });
+                SuppressClipboardMonitoring = false;
             }
         }
     }
