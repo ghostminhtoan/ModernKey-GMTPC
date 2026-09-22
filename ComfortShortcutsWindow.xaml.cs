@@ -18,6 +18,7 @@ namespace ModernKey
         private ComfortShortcutItem _selectedItem;
         private bool _isUpdatingUi = false;
         private readonly Dictionary<string, Button> _keyButtons = new Dictionary<string, Button>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, string> _originalKeyLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         public ComfortShortcutsWindow()
         {
@@ -202,7 +203,10 @@ namespace ModernKey
             rowBottom.Children.Add(CreateKeyButton("Space", "Space", 187, 26));
             rowBottom.Children.Add(CreateKeyButton("RightAlt", "Alt", 37, 26));
             rowBottom.Children.Add(CreateKeyButton("RightWin", "Win", 37, 26));
-            rowBottom.Children.Add(CreateKeyButton("Menu", "Menu", 37, 26));
+            var btnApps = CreateKeyButton("Apps", "Apps", 37, 26);
+            _keyButtons["Menu"] = btnApps;
+            _originalKeyLabels["Menu"] = "Apps";
+            rowBottom.Children.Add(btnApps);
             rowBottom.Children.Add(CreateKeyButton("RightCtrl", "Ctrl", 37, 26));
             pnlMainBlock.Children.Add(rowBottom);
 
@@ -306,6 +310,7 @@ namespace ModernKey
 
             btn.Click += VirtualKey_Click;
             _keyButtons[tag] = btn;
+            _originalKeyLabels[tag] = displayText;
             return btn;
         }
 
@@ -389,6 +394,17 @@ namespace ModernKey
             }
         }
 
+        private string GetCleanKeyName(string raw)
+        {
+            if (string.IsNullOrEmpty(raw)) return string.Empty;
+            int idx = raw.IndexOf('-');
+            if (idx >= 0 && idx < raw.Length - 1)
+            {
+                return raw.Substring(idx + 1).Trim();
+            }
+            return raw.Trim();
+        }
+
         private void HighlightVirtualKeyboard()
         {
             // Reset tất cả phím về trạng thái mặc định
@@ -399,21 +415,52 @@ namespace ModernKey
                 btn.Background = isMm ? new SolidColorBrush(Color.FromRgb(15, 30, 45)) : new SolidColorBrush(Color.FromRgb(20, 24, 32));
                 btn.BorderBrush = new SolidColorBrush(Color.FromRgb(45, 55, 70));
                 btn.Foreground = isMm ? new SolidColorBrush(Color.FromRgb(0, 240, 255)) : new SolidColorBrush(Color.FromRgb(220, 220, 220));
+                btn.FontWeight = FontWeights.Normal;
+                if (_originalKeyLabels.TryGetValue(kv.Key, out var orig))
+                {
+                    btn.Content = orig;
+                    btn.FontSize = isMm ? 8.5 : (orig.Length > 4 ? 8.5 : 10);
+                }
+                btn.ToolTip = "Phím: " + kv.Key;
             }
 
-            // Đánh dấu các phím có chứa shortcut nói chung bằng viền sáng nhẹ
+            // Đánh dấu các phím có trong danh sách shortcut chung
             foreach (var sc in _manager.Shortcuts)
             {
                 foreach (var kv in _keyButtons)
                 {
                     if (MatchesKeyToken(sc.KeyCombination, kv.Key))
                     {
-                        kv.Value.BorderBrush = new SolidColorBrush(Color.FromRgb(0, 180, 210));
+                        if (sc.ActionType == ShortcutActionType.BlockKey)
+                        {
+                            // Chuẩn Comfort Keys Pro: Phím bị Block có biểu tượng ❌ màu đỏ
+                            kv.Value.Background = new SolidColorBrush(Color.FromRgb(45, 12, 18));
+                            kv.Value.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 51, 102));
+                            kv.Value.Foreground = new SolidColorBrush(Color.FromRgb(255, 80, 110));
+                            kv.Value.FontWeight = FontWeights.Bold;
+                            string origText = _originalKeyLabels.TryGetValue(kv.Key, out var ot) ? ot : kv.Key;
+                            kv.Value.Content = "❌" + (kv.Value.Width > 36 ? " " + origText : "");
+                            kv.Value.FontSize = 9.0;
+                            kv.Value.ToolTip = $"🚫 [BLOCKED] Phím {kv.Key} bị chặn hoàn toàn";
+                        }
+                        else if (sc.ActionType == ShortcutActionType.ReplaceKey)
+                        {
+                            // Chuẩn Comfort Keys Pro: Phím bị Replace có viền màu vàng kim hổ phách
+                            kv.Value.Background = new SolidColorBrush(Color.FromRgb(48, 38, 10));
+                            kv.Value.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 200, 0));
+                            kv.Value.Foreground = new SolidColorBrush(Color.FromRgb(255, 225, 80));
+                            string cleanTarget = GetCleanKeyName(sc.ReplaceWithKey);
+                            kv.Value.ToolTip = $"🔄 [REPLACED] Thay bằng {cleanTarget}";
+                        }
+                        else
+                        {
+                            kv.Value.BorderBrush = new SolidColorBrush(Color.FromRgb(0, 180, 210));
+                        }
                     }
                 }
             }
 
-            // Đánh dấu nổi bật rực rỡ tổ hợp phím của mục đang chọn
+            // Đánh dấu nổi bật mục ĐANG CHỌN (_selectedItem)
             if (_selectedItem != null && !string.IsNullOrEmpty(_selectedItem.KeyCombination))
             {
                 string combo = _selectedItem.KeyCombination;
@@ -422,8 +469,44 @@ namespace ModernKey
                 {
                     if (MatchesKeyToken(combo, kv.Key))
                     {
-                        bool isMod = kv.Key.Contains("Ctrl") || kv.Key.Contains("Alt") || kv.Key.Contains("Shift") || kv.Key.Contains("Win");
-                        HighlightKey(kv.Key, isMod);
+                        if (_selectedItem.ActionType == ShortcutActionType.ReplaceKey)
+                        {
+                            // Chuẩn Comfort Keys Pro 100%: Highlight màu VÀNG ÓNG rực rỡ (#FFC800) với biểu tượng phím đích!
+                            kv.Value.Background = new SolidColorBrush(Color.FromRgb(255, 200, 0));
+                            kv.Value.BorderBrush = new SolidColorBrush(Color.FromRgb(210, 150, 0));
+                            kv.Value.Foreground = new SolidColorBrush(Color.FromRgb(15, 15, 15));
+                            kv.Value.FontWeight = FontWeights.Bold;
+
+                            string targetClean = GetCleanKeyName(_selectedItem.ReplaceWithKey);
+                            if (string.Equals(targetClean, "Win", StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(targetClean, "RightWin", StringComparison.OrdinalIgnoreCase))
+                            {
+                                kv.Value.Content = "❖ Win";
+                            }
+                            else if (!string.IsNullOrEmpty(targetClean))
+                            {
+                                kv.Value.Content = targetClean;
+                            }
+                            kv.Value.FontSize = 9.5;
+                            kv.Value.ToolTip = $"🔄 [ĐANG THAY THẾ] Phím {kv.Key} ➔ {targetClean}";
+                        }
+                        else if (_selectedItem.ActionType == ShortcutActionType.BlockKey)
+                        {
+                            // Chuẩn Comfort Keys Pro: Block đang chọn highlight đỏ đậm rực rỡ
+                            kv.Value.Background = new SolidColorBrush(Color.FromRgb(200, 20, 50));
+                            kv.Value.BorderBrush = new SolidColorBrush(Color.FromRgb(255, 100, 130));
+                            kv.Value.Foreground = new SolidColorBrush(Colors.White);
+                            kv.Value.FontWeight = FontWeights.Bold;
+                            string origText = _originalKeyLabels.TryGetValue(kv.Key, out var ot) ? ot : kv.Key;
+                            kv.Value.Content = "❌" + (kv.Value.Width > 36 ? " " + origText : "");
+                            kv.Value.FontSize = 9.0;
+                            kv.Value.ToolTip = $"🚫 [ĐANG CHẶN] Phím {kv.Key} bị chặn hoàn toàn";
+                        }
+                        else
+                        {
+                            bool isMod = kv.Key.Contains("Ctrl") || kv.Key.Contains("Alt") || kv.Key.Contains("Shift") || kv.Key.Contains("Win");
+                            HighlightKey(kv.Key, isMod);
+                        }
                     }
                 }
             }
@@ -654,6 +737,12 @@ namespace ModernKey
                 CmbReplaceWithKey.SelectedIndex = 0;
             }
 
+            // Đồng bộ 4 Checkbox modifier (+) chuẩn Comfort Keys Pro
+            ChkReplaceShift.IsChecked = item.ReplaceShift;
+            ChkReplaceCtrl.IsChecked = item.ReplaceCtrl;
+            ChkReplaceAlt.IsChecked = item.ReplaceAlt;
+            ChkReplaceWin.IsChecked = item.ReplaceWin;
+
             SwitchActionPanel(item.ActionType);
             HighlightVirtualKeyboard();
 
@@ -704,7 +793,19 @@ namespace ModernKey
             {
                 _selectedItem.ReplaceWithKey = keyStr;
                 _selectedItem.LastChanged = DateTime.Now;
+                HighlightVirtualKeyboard();
             }
+        }
+
+        private void ReplaceModifier_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isUpdatingUi || _selectedItem == null) return;
+            _selectedItem.ReplaceShift = ChkReplaceShift.IsChecked == true;
+            _selectedItem.ReplaceCtrl = ChkReplaceCtrl.IsChecked == true;
+            _selectedItem.ReplaceAlt = ChkReplaceAlt.IsChecked == true;
+            _selectedItem.ReplaceWin = ChkReplaceWin.IsChecked == true;
+            _selectedItem.LastChanged = DateTime.Now;
+            HighlightVirtualKeyboard();
         }
 
         #endregion
@@ -754,6 +855,7 @@ namespace ModernKey
 
                 SwitchActionPanel(sat);
                 PopulateTreeView();
+                HighlightVirtualKeyboard();
             }
         }
 

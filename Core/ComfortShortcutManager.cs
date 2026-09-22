@@ -124,9 +124,9 @@ namespace ModernKey.Core
                     Category = "Replace key or shortcut",
                     KeyCombination = "Apps",
                     ActionType = ShortcutActionType.ReplaceKey,
-                    ReplaceWithKey = "5C - RightWin",
+                    ReplaceWithKey = "5B - Win",
                     ActiveScope = "In all screen modes",
-                    Label = "Thay phím Apps thành RightWin",
+                    Label = "Thay phím Apps thành phím Win",
                     LastChanged = DateTime.Now
                 });
 
@@ -359,9 +359,9 @@ namespace ModernKey.Core
                 Category = "Replace key or shortcut",
                 KeyCombination = "Apps",
                 ActionType = ShortcutActionType.ReplaceKey,
-                ReplaceWithKey = "5C - RightWin",
+                ReplaceWithKey = "5B - Win",
                 ActiveScope = "In all screen modes",
-                Label = "Thay phím Apps thành RightWin",
+                Label = "Thay phím Apps thành phím Win",
                 LastChanged = DateTime.Now
             });
 
@@ -388,9 +388,18 @@ namespace ModernKey.Core
             });
         }
 
+        public class ActiveKeyReplacement
+        {
+            public uint TargetVk { get; set; }
+            public bool Shift { get; set; }
+            public bool Ctrl { get; set; }
+            public bool Alt { get; set; }
+            public bool Win { get; set; }
+        }
+
         private readonly object _lockObj = new object();
         private readonly HashSet<uint> _currentlyBlockedKeys = new HashSet<uint>();
-        private readonly Dictionary<uint, uint> _activeReplacements = new Dictionary<uint, uint>();
+        private readonly Dictionary<uint, ActiveKeyReplacement> _activeReplacements = new Dictionary<uint, ActiveKeyReplacement>();
 
         public bool TryHandleBlockOrReplaceKeyDown(uint vk, bool ctrl, bool alt, bool shift, bool win)
         {
@@ -414,10 +423,27 @@ namespace ModernKey.Core
                 uint targetVk = match.GetReplaceTargetVk();
                 if (targetVk > 0)
                 {
+                    var act = new ActiveKeyReplacement
+                    {
+                        TargetVk = targetVk,
+                        Shift = match.ReplaceShift,
+                        Ctrl = match.ReplaceCtrl,
+                        Alt = match.ReplaceAlt,
+                        Win = match.ReplaceWin
+                    };
+
                     lock (_lockObj)
                     {
-                        _activeReplacements[vk] = targetVk;
+                        _activeReplacements[vk] = act;
                     }
+
+                    // Bơm các modifier tương ứng trước nếu có chọn (+)
+                    if (act.Ctrl) keybd_event(0x11, 0, 0, KeySender.INJECTED_SIGNATURE);
+                    if (act.Alt) keybd_event(0x12, 0, 0, KeySender.INJECTED_SIGNATURE);
+                    if (act.Shift) keybd_event(0x10, 0, 0, KeySender.INJECTED_SIGNATURE);
+                    if (act.Win) keybd_event(0x5B, 0, 0, KeySender.INJECTED_SIGNATURE);
+
+                    // Bơm phím thay thế đích Down
                     keybd_event((byte)targetVk, 0, 0, KeySender.INJECTED_SIGNATURE);
                     return true;
                 }
@@ -428,15 +454,13 @@ namespace ModernKey.Core
 
         public bool TryHandleBlockOrReplaceKeyUp(uint vk)
         {
-            bool handled = false;
-            uint targetVk = 0;
+            ActiveKeyReplacement act = null;
 
             lock (_lockObj)
             {
-                if (_activeReplacements.TryGetValue(vk, out targetVk))
+                if (_activeReplacements.TryGetValue(vk, out act))
                 {
                     _activeReplacements.Remove(vk);
-                    handled = true;
                 }
                 else if (_currentlyBlockedKeys.Contains(vk))
                 {
@@ -445,9 +469,17 @@ namespace ModernKey.Core
                 }
             }
 
-            if (handled && targetVk > 0)
+            if (act != null && act.TargetVk > 0)
             {
-                keybd_event((byte)targetVk, 0, KEYEVENTF_KEYUP, KeySender.INJECTED_SIGNATURE);
+                // Nhả phím thay thế Up
+                keybd_event((byte)act.TargetVk, 0, KEYEVENTF_KEYUP, KeySender.INJECTED_SIGNATURE);
+
+                // Nhả các modifier theo thứ tự đảo ngược
+                if (act.Win) keybd_event(0x5B, 0, KEYEVENTF_KEYUP, KeySender.INJECTED_SIGNATURE);
+                if (act.Shift) keybd_event(0x10, 0, KEYEVENTF_KEYUP, KeySender.INJECTED_SIGNATURE);
+                if (act.Alt) keybd_event(0x12, 0, KEYEVENTF_KEYUP, KeySender.INJECTED_SIGNATURE);
+                if (act.Ctrl) keybd_event(0x11, 0, KEYEVENTF_KEYUP, KeySender.INJECTED_SIGNATURE);
+
                 return true;
             }
 
@@ -952,7 +984,11 @@ namespace ModernKey.Core
                 sb.AppendLine($"    \"ShowTextOnKeyboard\": {item.ShowTextOnKeyboard.ToString().ToLower()},");
                 sb.AppendLine($"    \"AudioAction\": \"{Escape(item.AudioAction)}\",");
                 sb.AppendLine($"    \"AudioStepSize\": {item.AudioStepSize},");
-                sb.AppendLine($"    \"ReplaceWithKey\": \"{Escape(item.ReplaceWithKey)}\"");
+                sb.AppendLine($"    \"ReplaceWithKey\": \"{Escape(item.ReplaceWithKey)}\",");
+                sb.AppendLine($"    \"ReplaceShift\": {item.ReplaceShift.ToString().ToLower()},");
+                sb.AppendLine($"    \"ReplaceCtrl\": {item.ReplaceCtrl.ToString().ToLower()},");
+                sb.AppendLine($"    \"ReplaceAlt\": {item.ReplaceAlt.ToString().ToLower()},");
+                sb.AppendLine($"    \"ReplaceWin\": {item.ReplaceWin.ToString().ToLower()}");
                 sb.Append("  }");
                 if (i < list.Count - 1) sb.Append(",");
                 sb.AppendLine();
@@ -1048,6 +1084,18 @@ namespace ModernKey.Core
                         if (int.TryParse(val, out var ass)) item.AudioStepSize = ass;
                         break;
                     case "ReplaceWithKey": item.ReplaceWithKey = val; break;
+                    case "ReplaceShift":
+                        if (bool.TryParse(val, out var rsh)) item.ReplaceShift = rsh;
+                        break;
+                    case "ReplaceCtrl":
+                        if (bool.TryParse(val, out var rct)) item.ReplaceCtrl = rct;
+                        break;
+                    case "ReplaceAlt":
+                        if (bool.TryParse(val, out var ral)) item.ReplaceAlt = ral;
+                        break;
+                    case "ReplaceWin":
+                        if (bool.TryParse(val, out var rwn)) item.ReplaceWin = rwn;
+                        break;
                 }
             }
 

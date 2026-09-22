@@ -49,7 +49,11 @@ namespace ModernKey.Models
         private int _audioStepSize = 10;
 
         // Replace key options
-        private string _replaceWithKey = "5C - RightWin";
+        private string _replaceWithKey = "5B - Win";
+        private bool _replaceShift = false;
+        private bool _replaceCtrl = false;
+        private bool _replaceAlt = false;
+        private bool _replaceWin = false;
 
         public string Id
         {
@@ -159,6 +163,30 @@ namespace ModernKey.Models
             set { _replaceWithKey = value; OnPropertyChanged(); }
         }
 
+        public bool ReplaceShift
+        {
+            get => _replaceShift;
+            set { _replaceShift = value; OnPropertyChanged(); }
+        }
+
+        public bool ReplaceCtrl
+        {
+            get => _replaceCtrl;
+            set { _replaceCtrl = value; OnPropertyChanged(); }
+        }
+
+        public bool ReplaceAlt
+        {
+            get => _replaceAlt;
+            set { _replaceAlt = value; OnPropertyChanged(); }
+        }
+
+        public bool ReplaceWin
+        {
+            get => _replaceWin;
+            set { _replaceWin = value; OnPropertyChanged(); }
+        }
+
         public uint GetReplaceTargetVk()
         {
             if (string.IsNullOrEmpty(_replaceWithKey)) return 0;
@@ -198,7 +226,11 @@ namespace ModernKey.Models
                 ShowTextOnKeyboard = this.ShowTextOnKeyboard,
                 AudioAction = this.AudioAction,
                 AudioStepSize = this.AudioStepSize,
-                ReplaceWithKey = this.ReplaceWithKey
+                ReplaceWithKey = this.ReplaceWithKey,
+                ReplaceShift = this.ReplaceShift,
+                ReplaceCtrl = this.ReplaceCtrl,
+                ReplaceAlt = this.ReplaceAlt,
+                ReplaceWin = this.ReplaceWin
             };
 
             return item;
