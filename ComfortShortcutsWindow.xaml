@@ -33,6 +33,7 @@
                 <MenuItem Header="Lưu Profile (Save)" Click="BtnSaveProfile_Click" />
                 <MenuItem Header="Xuất danh sách (Export)..." Click="BtnExportProfile_Click" />
                 <Separator Background="{StaticResource CyberBorderDim}" />
+                <MenuItem Header="↩ Khôi phục bản sao lưu trước (Restore Backup)..." Click="BtnRestoreBackup_Click" />
                 <MenuItem Header="🔄 Khôi phục mặc định (Restore Defaults)..." Click="BtnRestoreDefaults_Click" />
                 <Separator Background="{StaticResource CyberBorderDim}" />
                 <MenuItem Header="Đóng cửa sổ" Click="BtnClose_Click" />
@@ -53,13 +54,17 @@
         <Border Grid.Row="1" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}"
                 BorderThickness="0,0,0,1" Padding="8,5">
             <StackPanel Orientation="Horizontal">
+                <TextBlock Text="👤 Profile:" VerticalAlignment="Center" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,6,0" />
+                <ComboBox x:Name="CmbProfiles" Width="110" Height="28" Margin="0,0,8,0" FontFamily="Consolas" SelectionChanged="CmbProfiles_SelectionChanged" ToolTip="Chọn cấu hình phím tắt (Profile Switcher)" />
+
                 <Button Content="📂 Open" Click="BtnOpenProfile_Click" Height="28" Padding="10,2" Margin="0,0,6,0" FontFamily="Consolas" ToolTip="Mở file cấu hình profile" />
                 <Button Content="💾 Save" Click="BtnSaveProfile_Click" Height="28" Padding="10,2" Margin="0,0,6,0" Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" FontFamily="Consolas" FontWeight="Bold" ToolTip="Lưu lại toàn bộ phím tắt" />
+                <Button Content="↩ Backup" Click="BtnRestoreBackup_Click" Height="28" Padding="8,2" Margin="0,0,6,0" FontFamily="Consolas" ToolTip="Khôi phục lại file backup tự động gần nhất" />
                 <Button Content="📤 Export" Click="BtnExportProfile_Click" Height="28" Padding="10,2" Margin="0,0,12,0" FontFamily="Consolas" ToolTip="Xuất danh sách phím tắt ra file" />
 
                 <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="0,2,12,2" />
 
-                <Button Content="⌨ Change Key Combination" Click="BtnChangeCombination_Click" Height="28" Padding="12,2" Margin="0,0,6,0"
+                <Button Content="⌨ Change Key" Click="BtnChangeCombination_Click" Height="28" Padding="10,2" Margin="0,0,6,0"
                         Background="#101E2E" BorderBrush="{StaticResource CyberNeonCyan}" Foreground="{StaticResource CyberNeonCyan}" FontFamily="Consolas" FontWeight="Bold" ToolTip="Đổi phím tắt cho mục đang chọn" />
                 <Button Content="📋 Copy" Click="BtnCopyShortcut_Click" Height="28" Padding="10,2" Margin="0,0,6,0" FontFamily="Consolas" ToolTip="Nhân bản mục phím tắt" />
                 <Button Content="❌ Delete" Click="BtnDeleteShortcut_Click" Height="28" Padding="10,2" Margin="0,0,12,0"
@@ -67,12 +72,12 @@
 
                 <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="0,2,12,2" />
 
-                <Button Content="🔄 Restore Defaults" Click="BtnRestoreDefaults_Click" Height="28" Padding="10,2" Margin="0,0,12,0"
-                        Background="#2B2008" BorderBrush="{StaticResource CyberNeonYellow}" Foreground="{StaticResource CyberNeonYellow}" FontFamily="Consolas" FontWeight="Bold" ToolTip="Khôi phục danh sách phím tắt mặc định (Restore Default Shortcuts)" />
+                <Button Content="🔄 Reset Defaults" Click="BtnRestoreDefaults_Click" Height="28" Padding="10,2" Margin="0,0,12,0"
+                        Background="#2B2008" BorderBrush="{StaticResource CyberNeonYellow}" Foreground="{StaticResource CyberNeonYellow}" FontFamily="Consolas" FontWeight="Bold" ToolTip="Khôi phục danh sách phím tắt mặc định" />
 
                 <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="0,2,12,2" />
 
-                <Button Content="❓ Help" Click="BtnHelpBanner_Click" Width="60" Height="28" FontFamily="Consolas" ToolTip="Trợ giúp" />
+                <Button Content="❓ Help" Click="BtnHelpBanner_Click" Width="55" Height="28" FontFamily="Consolas" ToolTip="Trợ giúp" />
             </StackPanel>
         </Border>
 
@@ -110,7 +115,21 @@
                     </Grid.RowDefinitions>
 
                     <Border Grid.Row="0" Background="{StaticResource CyberDark}" Padding="8,6" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="0,0,0,1">
-                        <TextBlock Text="[DANH MỤC PHÍM TẮT]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" />
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Text="[DANH MỤC PHÍM TẮT]" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,5" />
+                            <Grid Grid.Row="1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="TxtSearch" Grid.Column="0" Height="24" VerticalContentAlignment="Center" FontFamily="Consolas" FontSize="11" Padding="4,0" Background="{StaticResource CyberInput}" Foreground="{StaticResource CyberTextPrimary}" BorderBrush="{StaticResource CyberBorderDim}" TextChanged="TxtSearch_TextChanged" ToolTip="Tìm theo phím tắt, nhãn hoặc lệnh..." />
+                                <Button Grid.Column="1" Content="✕" Click="BtnClearSearch_Click" Width="24" Height="24" Margin="2,0,0,0" FontFamily="Consolas" ToolTip="Xóa tìm kiếm" />
+                            </Grid>
+                        </Grid>
                     </Border>
 
                     <!-- TreeView hiển thị phân cấp danh mục -->
@@ -213,49 +232,103 @@
                         </Grid.ColumnDefinitions>
 
                         <!-- Cột trái: Thuộc tính chung -->
-                        <StackPanel Grid.Column="0">
-                            <!-- Key combination -->
-                            <TextBlock Text="Key combination:" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonYellow}" Margin="0,0,0,4" />
-                            <Grid Margin="0,0,0,10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBox x:Name="TxtKeyCombination" Grid.Column="0" Height="26" VerticalContentAlignment="Center" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonYellow}" Background="{StaticResource CyberInput}" BorderBrush="{StaticResource CyberBorderDim}" IsReadOnly="True" />
-                                <Button Grid.Column="1" Content="⌨" Click="BtnChangeCombination_Click" Width="30" Height="26" Margin="4,0,0,0" FontFamily="Segoe UI Symbol" ToolTip="Nhấn tổ hợp phím mới" />
-                            </Grid>
+                        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                            <StackPanel Margin="0,0,4,0">
+                                <!-- Enable Checkbox & Conflict Warning -->
+                                <CheckBox x:Name="ChkShortcutEnabled" Content="✔ Kích hoạt phím tắt này" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonGreen}" Margin="0,0,0,6" Checked="ChkShortcutEnabled_Changed" Unchecked="ChkShortcutEnabled_Changed" ToolTip="Bật hoặc tạm thời vô hiệu hóa phím tắt này" />
 
-                            <!-- Action type -->
-                            <TextBlock Text="Action type:" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,4" />
-                            <ComboBox x:Name="CmbActionType" Height="26" Margin="0,0,0,10" SelectionChanged="CmbActionType_SelectionChanged" FontFamily="Consolas" />
+                                <!-- Panel cảnh báo xung đột phím tắt -->
+                                <Border x:Name="PnlConflictWarning" Visibility="Collapsed" Background="#2B1008" BorderBrush="{StaticResource CyberNeonYellow}" BorderThickness="1" CornerRadius="2" Padding="6,4" Margin="0,0,0,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="⚠️" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                        <TextBlock x:Name="TxtConflictWarning" Grid.Column="1" Text="Cảnh báo: Trùng lặp tổ hợp phím!" FontSize="11" FontFamily="Consolas" Foreground="{StaticResource CyberNeonYellow}" TextWrapping="Wrap" />
+                                    </Grid>
+                                </Border>
 
-                            <!-- Active -->
-                            <TextBlock Text="Active:" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
-                            <ComboBox x:Name="CmbActiveScope" Height="26" Margin="0,0,0,10" FontFamily="Consolas" SelectionChanged="CommonField_Changed">
-                                <ComboBoxItem Content="In all screen modes" IsSelected="True" />
-                                <ComboBoxItem Content="Only in desktop mode" />
-                                <ComboBoxItem Content="Disabled in full screen games" />
-                            </ComboBox>
+                                <!-- Key combination -->
+                                <TextBlock Text="Key combination:" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonYellow}" Margin="0,0,0,3" />
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="TxtKeyCombination" Grid.Column="0" Height="26" VerticalContentAlignment="Center" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonYellow}" Background="{StaticResource CyberInput}" BorderBrush="{StaticResource CyberBorderDim}" IsReadOnly="True" />
+                                    <Button Grid.Column="1" Content="⌨" Click="BtnChangeCombination_Click" Width="30" Height="26" Margin="4,0,0,0" FontFamily="Segoe UI Symbol" ToolTip="Nhấn tổ hợp phím mới" />
+                                </Grid>
 
-                            <!-- Sound -->
-                            <TextBlock Text="Sound:" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
-                            <Grid Margin="0,0,0,10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBox x:Name="TxtSoundPath" Grid.Column="0" Height="26" VerticalContentAlignment="Center" FontFamily="Consolas" TextChanged="TxtSoundPath_TextChanged" Background="{StaticResource CyberInput}" BorderBrush="{StaticResource CyberBorderDim}" />
-                                <Button Grid.Column="1" Content="..." Click="BtnBrowseSound_Click" Width="30" Height="26" Margin="4,0,0,0" ToolTip="Chọn file âm thanh (.wav)" />
-                            </Grid>
+                                <!-- Action type -->
+                                <TextBlock Text="Action type:" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,3" />
+                                <ComboBox x:Name="CmbActionType" Height="26" Margin="0,0,0,8" SelectionChanged="CmbActionType_SelectionChanged" FontFamily="Consolas" />
 
-                            <!-- Label -->
-                            <TextBlock Text="Label:" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
-                            <TextBox x:Name="TxtLabel" Height="26" VerticalContentAlignment="Center" FontFamily="Consolas" Margin="0,0,0,12" TextChanged="TxtLabel_TextChanged" Background="{StaticResource CyberInput}" BorderBrush="{StaticResource CyberBorderDim}" />
+                                <!-- Active Scope -->
+                                <TextBlock Text="Active in:" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,3" />
+                                <ComboBox x:Name="CmbActiveScope" Height="26" Margin="0,0,0,8" FontFamily="Consolas" SelectionChanged="CommonField_Changed">
+                                    <ComboBoxItem Content="In all screen modes" IsSelected="True" />
+                                    <ComboBoxItem Content="Only in desktop mode" />
+                                    <ComboBoxItem Content="Disabled in full screen games" />
+                                </ComboBox>
 
-                            <!-- Last changed -->
-                            <TextBlock Text="Last changed:" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource CyberTextSecondary}" />
-                            <TextBlock x:Name="TxtLastChanged" Text="9/21/2026" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource CyberNeonCyan}" Margin="0,2,0,0" />
-                        </StackPanel>
+                                <!-- Target App Filter (Gợi ý 15) -->
+                                <TextBlock Text="Target application:" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,3" />
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="TxtTargetApp" Grid.Column="0" Height="26" VerticalContentAlignment="Center" FontFamily="Consolas" FontSize="11" TextChanged="TxtTargetApp_TextChanged" Background="{StaticResource CyberInput}" BorderBrush="{StaticResource CyberBorderDim}" ToolTip="Để trống nếu áp dụng cho mọi phần mềm, hoặc nhập tên exe (vd: chrome, code, notepad)" />
+                                    <Button Grid.Column="1" Content="🎯" Click="BtnSelectTargetApp_Click" Width="30" Height="26" Margin="4,0,0,0" FontFamily="Segoe UI Symbol" ToolTip="Chọn ứng dụng đang chạy làm mục tiêu" />
+                                </Grid>
+
+                                <!-- Sound -->
+                                <TextBlock Text="Sound:" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,3" />
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="TxtSoundPath" Grid.Column="0" Height="26" VerticalContentAlignment="Center" FontFamily="Consolas" TextChanged="TxtSoundPath_TextChanged" Background="{StaticResource CyberInput}" BorderBrush="{StaticResource CyberBorderDim}" />
+                                    <Button Grid.Column="1" Content="..." Click="BtnBrowseSound_Click" Width="30" Height="26" Margin="4,0,0,0" ToolTip="Chọn file âm thanh (.wav)" />
+                                </Grid>
+
+                                <!-- Label -->
+                                <TextBlock Text="Label:" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,3" />
+                                <TextBox x:Name="TxtLabel" Height="26" VerticalContentAlignment="Center" FontFamily="Consolas" Margin="0,0,0,10" TextChanged="TxtLabel_TextChanged" Background="{StaticResource CyberInput}" BorderBrush="{StaticResource CyberBorderDim}" />
+
+                                <!-- Thống kê sử dụng & Thời gian (Gợi ý 5) -->
+                                <Border Background="{StaticResource CyberDark}" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="6,5" Margin="0,0,0,4">
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Trigger count:" FontFamily="Consolas" FontSize="10.5" Foreground="{StaticResource CyberTextSecondary}" />
+                                            <TextBlock x:Name="TxtTriggerCount" Grid.Column="1" Text="0 lần" FontFamily="Consolas" FontSize="10.5" FontWeight="Bold" Foreground="{StaticResource CyberNeonGreen}" />
+                                        </Grid>
+                                        <Grid Margin="0,0,0,2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Last used:" FontFamily="Consolas" FontSize="10.5" Foreground="{StaticResource CyberTextSecondary}" />
+                                            <TextBlock x:Name="TxtLastUsed" Grid.Column="1" Text="Never" FontFamily="Consolas" FontSize="10.5" Foreground="{StaticResource CyberNeonCyan}" />
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Last changed:" FontFamily="Consolas" FontSize="10.5" Foreground="{StaticResource CyberTextSecondary}" />
+                                            <TextBlock x:Name="TxtLastChanged" Grid.Column="1" Text="-" FontFamily="Consolas" FontSize="10.5" Foreground="{StaticResource CyberNeonPink}" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
 
                         <Separator Grid.Column="1" Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" />
 
@@ -330,7 +403,7 @@
                                 </Grid>
                             </Grid>
 
-                            <!-- ACTION TYPE 3: PASTE TEXT (Đợt 4) -->
+                            <!-- ACTION TYPE 3: PASTE TEXT (Đợt 4 & Gợi ý 11, 12, 13) -->
                             <Grid x:Name="PanelPasteText" Visibility="Collapsed">
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
@@ -341,11 +414,14 @@
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Text="Action type : Paste text" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,8" />
-                                <TextBlock Grid.Row="1" Text="Text:" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
+                                <TextBlock Grid.Row="1" Text="Text (hỗ trợ các thẻ động &lt;DATE&gt;, &lt;INPUT:...&gt;, &lt;CURSOR&gt;):" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
 
-                                <TextBox x:Name="TxtPasteContent" Grid.Row="2" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12" Padding="6" Background="{StaticResource CyberInput}" Foreground="{StaticResource CyberTextPrimary}" BorderBrush="{StaticResource CyberBorderDim}" TextChanged="TxtPasteContent_TextChanged" Margin="0,0,0,10" />
+                                <TextBox x:Name="TxtPasteContent" Grid.Row="2" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12" Padding="6" Background="{StaticResource CyberInput}" Foreground="{StaticResource CyberTextPrimary}" BorderBrush="{StaticResource CyberBorderDim}" TextChanged="TxtPasteContent_TextChanged" Margin="0,0,0,8" />
 
-                                <CheckBox x:Name="ChkShowTextOnKeyboard" Grid.Row="3" Content="Show text on the on-screen keyboard" FontFamily="Consolas" Margin="0,0,0,8" Checked="ChkShowTextOnKeyboard_Changed" Unchecked="ChkShowTextOnKeyboard_Changed" />
+                                <StackPanel Grid.Row="3" Margin="0,0,0,8">
+                                    <CheckBox x:Name="ChkShowTextOnKeyboard" Content="Show text on the on-screen keyboard" FontFamily="Consolas" Margin="0,0,0,4" Checked="ChkShowTextOnKeyboard_Changed" Unchecked="ChkShowTextOnKeyboard_Changed" />
+                                    <CheckBox x:Name="ChkPasteAsPlainText" Content="Paste as plain text (Dán văn bản thuần, loại bỏ format rườm rà)" FontFamily="Consolas" Foreground="{StaticResource CyberNeonYellow}" Checked="ChkPasteAsPlainText_Changed" Unchecked="ChkPasteAsPlainText_Changed" />
+                                </StackPanel>
 
                                 <Grid Grid.Row="4">
                                     <Grid.ColumnDefinitions>
@@ -353,8 +429,10 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="Insert Tag:" VerticalAlignment="Center" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,8,0" />
-                                    <ComboBox x:Name="CmbInsertTag" Grid.Column="1" HorizontalAlignment="Left" Width="300" Height="26" FontFamily="Consolas" SelectionChanged="CmbInsertTag_SelectionChanged">
+                                    <ComboBox x:Name="CmbInsertTag" Grid.Column="1" HorizontalAlignment="Left" Width="330" Height="26" FontFamily="Consolas" SelectionChanged="CmbInsertTag_SelectionChanged">
                                         <ComboBoxItem Content="🪄 Select Tag to Insert..." IsSelected="True" />
+                                        <ComboBoxItem Content="💬 Tag: &lt;INPUT: Nhập họ tên&gt; (Hộp thoại Cyberpunk)" Tag="&lt;INPUT: Nhập thông tin&gt;" />
+                                        <ComboBoxItem Content="📍 Tag: &lt;CURSOR&gt; (Vị trí con trỏ sau khi dán)" Tag="&lt;CURSOR&gt;" />
                                         <ComboBoxItem Content="📅 Date: Long Default" Tag="&lt;DATE_LONG&gt;" />
                                         <ComboBoxItem Content="📅 Date: Short Default [date]" Tag="{}{date}" />
                                         <ComboBoxItem Content="📅 Date: mm/dd/yyyy" Tag="&lt;DATE_MM_DD_YYYY&gt;" />
@@ -467,7 +545,117 @@
                                 </StackPanel>
                             </Grid>
 
-                            <!-- ACTION TYPE 6: WINDOW / MONITOR / SYSTEM ACTIONS -->
+                            <!-- ACTION TYPE: WINDOW CONTROL (Gợi ý 6) -->
+                            <Grid x:Name="PanelWindowControl" Visibility="Collapsed">
+                                <StackPanel Margin="0,5,0,0">
+                                    <TextBlock Text="Action type : Window control" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,10" FontSize="13" />
+                                    <TextBlock Text="Hành động điều khiển cửa sổ hiện tại:" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
+                                    <ComboBox x:Name="CmbWindowAction" Height="26" FontFamily="Consolas" SelectionChanged="CmbWindowAction_SelectionChanged" Margin="0,0,0,12">
+                                        <ComboBoxItem Content="❌ Đóng cửa sổ (Close Window)" Tag="CloseWindow" IsSelected="True" />
+                                        <ComboBoxItem Content="📌 Ghim luôn trên cùng (Toggle Always on Top)" Tag="ToggleAlwaysOnTop" />
+                                        <ComboBoxItem Content="🕵 Boss Key: Ẩn/Hiện tức thì (Toggle Boss Key Hide/Show)" Tag="BossKeyHideShow" />
+                                        <ComboBoxItem Content="🗕 Thu nhỏ cửa sổ (Minimize Window)" Tag="MinimizeWindow" />
+                                        <ComboBoxItem Content="👻 Chỉnh độ trong suốt (Set Transparency)" Tag="SetTransparency" />
+                                        <ComboBoxItem Content="🖥 Chuyển sang màn hình tiếp theo (Move to Next Monitor)" Tag="MoveToNextMonitor" />
+                                    </ComboBox>
+
+                                    <!-- Panel độ trong suốt (chỉ hiện khi chọn SetTransparency) -->
+                                    <StackPanel x:Name="PnlWindowTransparency" Visibility="Collapsed" Margin="0,0,0,12">
+                                        <Grid Margin="0,0,0,4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Độ mờ / trong suốt (Opacity):" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" />
+                                            <TextBlock x:Name="TxtWindowTransparencyVal" Grid.Column="1" Text="80%" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" />
+                                        </Grid>
+                                        <Slider x:Name="SldWindowTransparency" Minimum="10" Maximum="100" Value="80" TickFrequency="5" IsSnapToTickEnabled="True" ValueChanged="SldWindowTransparency_ValueChanged" />
+                                    </StackPanel>
+
+                                    <Border Background="#0B1C28" BorderBrush="{StaticResource CyberNeonCyan}" BorderThickness="1" CornerRadius="2" Padding="10,8">
+                                        <TextBlock Text="💡 Mẹo: Chức năng Ghim Always on Top và Boss Key hỗ trợ chế độ bật/tắt (Toggle) thông minh theo thời gian thực."
+                                                   FontFamily="Consolas" FontSize="11" Foreground="{StaticResource CyberTextSecondary}" TextWrapping="Wrap" />
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- ACTION TYPE: MONITOR CONTROL (Gợi ý 7) -->
+                            <Grid x:Name="PanelMonitorControl" Visibility="Collapsed">
+                                <StackPanel Margin="0,5,0,0">
+                                    <TextBlock Text="Action type : Monitor control" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,10" FontSize="13" />
+                                    <TextBlock Text="Hành động điều khiển màn hình:" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
+                                    <ComboBox x:Name="CmbMonitorAction" Height="26" FontFamily="Consolas" SelectionChanged="CmbMonitorAction_SelectionChanged" Margin="0,0,0,12">
+                                        <ComboBoxItem Content="💤 Tắt màn hình (Turn Off Monitor)" Tag="TurnOffMonitor" IsSelected="True" />
+                                        <ComboBoxItem Content="🌌 Bật trình bảo vệ màn hình (Screen Saver)" Tag="ScreenSaver" />
+                                        <ComboBoxItem Content="🔒 Khóa máy tính (Lock Workstation)" Tag="LockWorkstation" />
+                                    </ComboBox>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- ACTION TYPE: SYSTEM ACTION (Gợi ý 8) -->
+                            <Grid x:Name="PanelSystemAction" Visibility="Collapsed">
+                                <StackPanel Margin="0,5,0,0">
+                                    <TextBlock Text="Action type : System action" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,10" FontSize="13" />
+                                    <TextBlock Text="Hành động hệ thống:" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
+                                    <ComboBox x:Name="CmbSystemAction" Height="26" FontFamily="Consolas" SelectionChanged="CmbSystemAction_SelectionChanged" Margin="0,0,0,12">
+                                        <ComboBoxItem Content="🌙 Ngủ (Sleep)" Tag="Sleep" IsSelected="True" />
+                                        <ComboBoxItem Content="❄ Ngủ đông (Hibernate)" Tag="Hibernate" />
+                                        <ComboBoxItem Content="🔄 Khởi động lại (Restart)" Tag="Restart" />
+                                        <ComboBoxItem Content="⚡ Tắt máy (Shutdown)" Tag="Shutdown" />
+                                        <ComboBoxItem Content="🗑 Dọn sạch thùng rác (Empty Recycle Bin)" Tag="EmptyRecycleBin" />
+                                        <ComboBoxItem Content="✂ Chụp màn hình (Snipping Tool)" Tag="SnippingTool" />
+                                    </ComboBox>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- ACTION TYPE: MOUSE CONTROL (Gợi ý 9) -->
+                            <Grid x:Name="PanelMouseControl" Visibility="Collapsed">
+                                <StackPanel Margin="0,5,0,0">
+                                    <TextBlock Text="Action type : Mouse control" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,10" FontSize="13" />
+                                    <TextBlock Text="Hành động chuột mô phỏng:" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
+                                    <ComboBox x:Name="CmbMouseAction" Height="26" FontFamily="Consolas" SelectionChanged="CmbMouseAction_SelectionChanged" Margin="0,0,0,12">
+                                        <ComboBoxItem Content="🖱 Nhấp chuột trái (Left Click)" Tag="LeftClick" IsSelected="True" />
+                                        <ComboBoxItem Content="🖱 Nhấp chuột phải (Right Click)" Tag="RightClick" />
+                                        <ComboBoxItem Content="🖱 Nhấp chuột giữa (Middle Click)" Tag="MiddleClick" />
+                                        <ComboBoxItem Content="🖱 Nhấp đúp chuột trái (Double Click)" Tag="DoubleClick" />
+                                        <ComboBoxItem Content="📜 Cuộn lên (Wheel Up)" Tag="WheelUp" />
+                                        <ComboBoxItem Content="📜 Cuộn xuống (Wheel Down)" Tag="WheelDown" />
+                                    </ComboBox>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- ACTION TYPE: KEYSTROKE MACRO (Gợi ý 10) -->
+                            <Grid x:Name="PanelKeystrokeMacro" Visibility="Collapsed">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Grid.Row="0" Text="Action type : Keystroke macro" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,5,0,8" FontSize="13" />
+                                <TextBlock Grid.Row="1" Text="Chuỗi phím Macro và độ trễ (Delay):" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
+                                <TextBox x:Name="TxtMacroKeystrokes" Grid.Row="2" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12" Padding="6" Background="{StaticResource CyberInput}" Foreground="{StaticResource CyberTextPrimary}" BorderBrush="{StaticResource CyberBorderDim}" TextChanged="TxtMacroKeystrokes_TextChanged" Margin="0,0,0,8" />
+                                <Border Grid.Row="3" Background="#0B1C28" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="8,6">
+                                    <TextBlock Text="Cú pháp hỗ trợ: {Ctrl+C}, {Ctrl+V}, {ENTER}, {TAB}, {ESC}, {DELAY:200} (nghỉ 200ms) hoặc văn bản gõ tự do."
+                                               FontFamily="Consolas" FontSize="10.5" Foreground="{StaticResource CyberNeonCyan}" TextWrapping="Wrap" />
+                                </Border>
+                            </Grid>
+
+                            <!-- ACTION TYPE: CHANGE CASE (Gợi ý 14) -->
+                            <Grid x:Name="PanelChangeCase" Visibility="Collapsed">
+                                <StackPanel Margin="0,5,0,0">
+                                    <TextBlock Text="Action type : Change text case" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,10" FontSize="13" />
+                                    <TextBlock Text="Chế độ chuyển đổi chữ hoa / chữ thường văn bản đang chọn:" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
+                                    <ComboBox x:Name="CmbChangeCaseMode" Height="26" FontFamily="Consolas" SelectionChanged="CmbChangeCaseMode_SelectionChanged" Margin="0,0,0,12">
+                                        <ComboBoxItem Content="🔠 VIẾT HOA TOÀN BỘ (UPPERCASE)" Tag="UPPERCASE" IsSelected="True" />
+                                        <ComboBoxItem Content="🔡 viết thường toàn bộ (lowercase)" Tag="lowercase" />
+                                        <ComboBoxItem Content="🔤 Viết Hoa Chữ Đầu Mỗi Từ (Title Case)" Tag="TitleCase" />
+                                        <ComboBoxItem Content="📝 Viết hoa đầu câu (Sentence case)" Tag="SentenceCase" />
+                                    </ComboBox>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- ACTION TYPE: OTHER ACTIONS FALLBACK -->
                             <Grid x:Name="PanelOtherActions" Visibility="Collapsed">
                                 <StackPanel>
                                     <TextBlock x:Name="TxtOtherActionTitle" Text="Action type : Other" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,8" />

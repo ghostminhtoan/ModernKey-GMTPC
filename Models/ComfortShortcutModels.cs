@@ -17,7 +17,10 @@ namespace ModernKey.Models
         SystemAction,
         ChangeLanguage,
         BlockKey,
-        ReplaceKey
+        ReplaceKey,
+        MouseControl,
+        KeystrokeMacro,
+        ChangeCase
     }
 
     public class ComfortShortcutItem : INotifyPropertyChanged
@@ -31,6 +34,12 @@ namespace ModernKey.Models
         private string _label = string.Empty;
         private DateTime _lastChanged = DateTime.Now;
 
+        // Bật / Tắt và thống kê
+        private bool _isEnabled = true;
+        private int _triggerCount = 0;
+        private DateTime? _lastUsed = null;
+        private string _targetApp = string.Empty;
+
         // Run program options
         private string _programPaths = string.Empty;
         private string _startInFolder = string.Empty;
@@ -43,6 +52,7 @@ namespace ModernKey.Models
         // Paste text options
         private string _pasteText = string.Empty;
         private bool _showTextOnKeyboard = false;
+        private bool _pasteAsPlainText = false;
 
         // Audio control options
         private string _audioAction = "Volume up";
@@ -54,6 +64,25 @@ namespace ModernKey.Models
         private bool _replaceCtrl = false;
         private bool _replaceAlt = false;
         private bool _replaceWin = false;
+
+        // Window control options
+        private string _windowAction = "Close window";
+        private int _windowTransparency = 80;
+
+        // Monitor control options
+        private string _monitorAction = "Turn off monitor";
+
+        // System action options
+        private string _systemActionType = "Lock workstation";
+
+        // Mouse action options
+        private string _mouseAction = "Left click";
+
+        // Keystroke macro options
+        private string _macroKeystrokes = string.Empty;
+
+        // Change case options
+        private string _changeCaseMode = "UPPERCASE";
 
         public string Id
         {
@@ -187,6 +216,78 @@ namespace ModernKey.Models
             set { _replaceWin = value; OnPropertyChanged(); }
         }
 
+        public bool IsEnabled
+        {
+            get => _isEnabled;
+            set { _isEnabled = value; OnPropertyChanged(); }
+        }
+
+        public int TriggerCount
+        {
+            get => _triggerCount;
+            set { _triggerCount = value; OnPropertyChanged(); }
+        }
+
+        public DateTime? LastUsed
+        {
+            get => _lastUsed;
+            set { _lastUsed = value; OnPropertyChanged(); }
+        }
+
+        public string TargetApp
+        {
+            get => _targetApp;
+            set { _targetApp = value; OnPropertyChanged(); }
+        }
+
+        public string WindowAction
+        {
+            get => _windowAction;
+            set { _windowAction = value; OnPropertyChanged(); }
+        }
+
+        public int WindowTransparency
+        {
+            get => _windowTransparency;
+            set { _windowTransparency = value; OnPropertyChanged(); }
+        }
+
+        public string MonitorAction
+        {
+            get => _monitorAction;
+            set { _monitorAction = value; OnPropertyChanged(); }
+        }
+
+        public string SystemActionType
+        {
+            get => _systemActionType;
+            set { _systemActionType = value; OnPropertyChanged(); }
+        }
+
+        public string MouseAction
+        {
+            get => _mouseAction;
+            set { _mouseAction = value; OnPropertyChanged(); }
+        }
+
+        public string MacroKeystrokes
+        {
+            get => _macroKeystrokes;
+            set { _macroKeystrokes = value; OnPropertyChanged(); }
+        }
+
+        public string ChangeCaseMode
+        {
+            get => _changeCaseMode;
+            set { _changeCaseMode = value; OnPropertyChanged(); }
+        }
+
+        public bool PasteAsPlainText
+        {
+            get => _pasteAsPlainText;
+            set { _pasteAsPlainText = value; OnPropertyChanged(); }
+        }
+
         public uint GetReplaceTargetVk()
         {
             if (string.IsNullOrEmpty(_replaceWithKey)) return 0;
@@ -217,6 +318,10 @@ namespace ModernKey.Models
                 SoundPath = this.SoundPath,
                 Label = this.Label,
                 LastChanged = DateTime.Now,
+                IsEnabled = this.IsEnabled,
+                TriggerCount = this.TriggerCount,
+                LastUsed = this.LastUsed,
+                TargetApp = this.TargetApp,
                 ProgramPaths = this.ProgramPaths,
                 StartInFolder = this.StartInFolder,
                 SwitchToAlreadyLaunched = this.SwitchToAlreadyLaunched,
@@ -224,13 +329,21 @@ namespace ModernKey.Models
                 UrlOpenType = this.UrlOpenType,
                 PasteText = this.PasteText,
                 ShowTextOnKeyboard = this.ShowTextOnKeyboard,
+                PasteAsPlainText = this.PasteAsPlainText,
                 AudioAction = this.AudioAction,
                 AudioStepSize = this.AudioStepSize,
                 ReplaceWithKey = this.ReplaceWithKey,
                 ReplaceShift = this.ReplaceShift,
                 ReplaceCtrl = this.ReplaceCtrl,
                 ReplaceAlt = this.ReplaceAlt,
-                ReplaceWin = this.ReplaceWin
+                ReplaceWin = this.ReplaceWin,
+                WindowAction = this.WindowAction,
+                WindowTransparency = this.WindowTransparency,
+                MonitorAction = this.MonitorAction,
+                SystemActionType = this.SystemActionType,
+                MouseAction = this.MouseAction,
+                MacroKeystrokes = this.MacroKeystrokes,
+                ChangeCaseMode = this.ChangeCaseMode
             };
 
             return item;

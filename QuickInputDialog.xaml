@@ -1,0 +1,34 @@
+<Window x:Class="ModernKey.QuickInputDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Nhập liệu nhanh - Comfort Shortcuts" Height="175" Width="440"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize" Topmost="True"
+        Background="{StaticResource CyberBlack}" Foreground="{StaticResource CyberTextPrimary}"
+        Icon="Resources/AppIcon.ico" WindowStyle="ToolWindow">
+    <Grid Margin="16,12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="TxtPrompt" Grid.Row="0" Text="Nhập giá trị:" FontFamily="Consolas" FontSize="12" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,8" TextWrapping="Wrap" />
+
+        <TextBox x:Name="TxtInput" Grid.Row="1" Height="28" VerticalContentAlignment="Center" FontFamily="Consolas" FontSize="13"
+                 Background="{StaticResource CyberInput}" Foreground="{StaticResource CyberTextPrimary}" BorderBrush="{StaticResource CyberBorderDim}"
+                 KeyDown="TxtInput_KeyDown" Margin="0,0,0,10" />
+
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Column="1" Content="Hủy bỏ" Click="BtnCancel_Click" Width="80" Height="26" Margin="0,0,8,0" FontFamily="Consolas" />
+            <Button Grid.Column="2" Content="Đồng ý (Enter)" Click="BtnOk_Click" Width="120" Height="26"
+                    Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" FontFamily="Consolas" FontWeight="Bold" />
+        </Grid>
+    </Grid>
+</Window>

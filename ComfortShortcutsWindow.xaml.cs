@@ -23,11 +23,32 @@ namespace ModernKey
         public ComfortShortcutsWindow()
         {
             InitializeComponent();
+            PopulateProfilesCombo();
             InitActionTypeCombo();
             PopulateReplaceWithKeyCombo();
             PopulateRunAppCombo();
             BuildVirtualKeyboard();
             PopulateTreeView();
+        }
+
+        private void PopulateProfilesCombo()
+        {
+            _isUpdatingUi = true;
+            CmbProfiles.Items.Clear();
+            foreach (var profile in _manager.AvailableProfiles)
+            {
+                var cbi = new ComboBoxItem { Content = profile, Tag = profile };
+                CmbProfiles.Items.Add(cbi);
+                if (string.Equals(profile, _manager.CurrentProfile, StringComparison.OrdinalIgnoreCase))
+                {
+                    CmbProfiles.SelectedItem = cbi;
+                }
+            }
+            if (CmbProfiles.SelectedItem == null && CmbProfiles.Items.Count > 0)
+            {
+                CmbProfiles.SelectedIndex = 0;
+            }
+            _isUpdatingUi = false;
         }
 
         private static readonly string[] StandardReplaceKeys = new string[]
@@ -73,6 +94,9 @@ namespace ModernKey
             CmbActionType.Items.Add(new ComboBoxItem { Content = "Window control", Tag = ShortcutActionType.WindowControl });
             CmbActionType.Items.Add(new ComboBoxItem { Content = "Monitor control", Tag = ShortcutActionType.MonitorControl });
             CmbActionType.Items.Add(new ComboBoxItem { Content = "System action", Tag = ShortcutActionType.SystemAction });
+            CmbActionType.Items.Add(new ComboBoxItem { Content = "Mouse control", Tag = ShortcutActionType.MouseControl });
+            CmbActionType.Items.Add(new ComboBoxItem { Content = "Keystroke macro", Tag = ShortcutActionType.KeystrokeMacro });
+            CmbActionType.Items.Add(new ComboBoxItem { Content = "Change text case", Tag = ShortcutActionType.ChangeCase });
         }
 
         private void PopulateRunAppCombo()
@@ -189,25 +213,25 @@ namespace ModernKey
 
             // Hàng 4: Shift Row (L-Shift Z../ R-Shift)
             var rowShift = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 1, 0, 1) };
-            rowShift.Children.Add(CreateKeyButton("LeftShift", "Shift", 68, 26));
+            rowShift.Children.Add(CreateKeyButton("LeftShift", "L-Shift", 68, 26));
             string[] shiftKeys = { "Z", "X", "C", "V", "B", "N", "M", ",", ".", "/" };
             foreach (var k in shiftKeys) rowShift.Children.Add(CreateKeyButton(k, k, 29, 26));
-            rowShift.Children.Add(CreateKeyButton("RightShift", "Shift", 83, 26));
+            rowShift.Children.Add(CreateKeyButton("RightShift", "R-Shift", 83, 26));
             pnlMainBlock.Children.Add(rowShift);
 
             // Hàng 5: Bottom Modifiers Row (Ctrl Win Alt Space Alt Win Menu Ctrl)
             var rowBottom = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 1, 0, 1) };
-            rowBottom.Children.Add(CreateKeyButton("LeftCtrl", "Ctrl", 37, 26));
-            rowBottom.Children.Add(CreateKeyButton("LeftWin", "Win", 37, 26));
-            rowBottom.Children.Add(CreateKeyButton("LeftAlt", "Alt", 37, 26));
+            rowBottom.Children.Add(CreateKeyButton("LeftCtrl", "L-Ctrl", 37, 26));
+            rowBottom.Children.Add(CreateKeyButton("LeftWin", "L-Win", 37, 26));
+            rowBottom.Children.Add(CreateKeyButton("LeftAlt", "L-Alt", 37, 26));
             rowBottom.Children.Add(CreateKeyButton("Space", "Space", 187, 26));
-            rowBottom.Children.Add(CreateKeyButton("RightAlt", "Alt", 37, 26));
-            rowBottom.Children.Add(CreateKeyButton("RightWin", "Win", 37, 26));
+            rowBottom.Children.Add(CreateKeyButton("RightAlt", "R-Alt", 37, 26));
+            rowBottom.Children.Add(CreateKeyButton("RightWin", "R-Win", 37, 26));
             var btnApps = CreateKeyButton("Apps", "Apps", 37, 26);
             _keyButtons["Menu"] = btnApps;
             _originalKeyLabels["Menu"] = "Apps";
             rowBottom.Children.Add(btnApps);
-            rowBottom.Children.Add(CreateKeyButton("RightCtrl", "Ctrl", 37, 26));
+            rowBottom.Children.Add(CreateKeyButton("RightCtrl", "R-Ctrl", 37, 26));
             pnlMainBlock.Children.Add(rowBottom);
 
             pnlBody.Children.Add(pnlMainBlock);
@@ -541,7 +565,7 @@ namespace ModernKey
 
         #region TreeView & Data Binding
 
-        private void PopulateTreeView()
+        private void PopulateTreeView(string filter = null)
         {
             TvShortcuts.Items.Clear();
 
@@ -551,9 +575,12 @@ namespace ModernKey
                 "Paste text",
                 "Comfort Keys Pro actions",
                 "Audio control",
-                "Monitor control",
                 "Window control",
+                "Monitor control",
                 "System actions",
+                "Mouse control",
+                "Keystroke macro",
+                "Change text case",
                 "Change language, layout or case",
                 "Block key or shortcut",
                 "Replace key or shortcut",
@@ -574,8 +601,25 @@ namespace ModernKey
                 TvShortcuts.Items.Add(node);
             }
 
+            string q = (filter ?? TxtSearch?.Text)?.Trim();
+            bool hasFilter = !string.IsNullOrEmpty(q);
+
             foreach (var item in _manager.Shortcuts)
             {
+                if (hasFilter)
+                {
+                    bool match = (item.KeyCombination != null && item.KeyCombination.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0)
+                              || (item.Label != null && item.Label.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0)
+                              || (item.TargetApp != null && item.TargetApp.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0)
+                              || (item.Category != null && item.Category.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0)
+                              || (item.ProgramPaths != null && item.ProgramPaths.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0)
+                              || (item.PasteText != null && item.PasteText.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0)
+                              || (item.Urls != null && item.Urls.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0)
+                              || (item.MacroKeystrokes != null && item.MacroKeystrokes.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0);
+
+                    if (!match) continue;
+                }
+
                 string cat = string.IsNullOrEmpty(item.Category) ? "Run program" : item.Category;
                 if (!groupNodes.TryGetValue(cat, out var parentNode))
                 {
@@ -597,11 +641,35 @@ namespace ModernKey
                 }
             }
 
+            // Xóa các node category rỗng nếu đang filter
+            if (hasFilter)
+            {
+                for (int i = TvShortcuts.Items.Count - 1; i >= 0; i--)
+                {
+                    if (TvShortcuts.Items[i] is TreeViewItem tvi && tvi.Items.Count == 0)
+                    {
+                        TvShortcuts.Items.RemoveAt(i);
+                    }
+                }
+            }
+
             // Mặc định chọn mục đầu tiên nếu chưa chọn
             if (_selectedItem == null && _manager.Shortcuts.Count > 0)
             {
                 SelectShortcutInTree(_manager.Shortcuts[0]);
             }
+        }
+
+        private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isUpdatingUi) return;
+            PopulateTreeView(TxtSearch.Text);
+        }
+
+        private void BtnClearSearch_Click(object sender, RoutedEventArgs e)
+        {
+            TxtSearch.Text = string.Empty;
+            PopulateTreeView();
         }
 
         private string GetCategoryHeader(string cat)
@@ -615,6 +683,9 @@ namespace ModernKey
                 case "Monitor control": return "🖥 Monitor control";
                 case "Window control": return "🗔 Window control";
                 case "System actions": return "⚙ System actions";
+                case "Mouse control": return "🖱 Mouse control";
+                case "Keystroke macro": return "⚡ Keystroke macro";
+                case "Change text case": return "🔤 Change text case";
                 case "Change language, layout or case": return "🌐 Change language, layout or case";
                 case "Block key or shortcut": return "🚫 Block key or shortcut";
                 case "Replace key or shortcut": return "🔄 Replace key or shortcut";
@@ -636,9 +707,14 @@ namespace ModernKey
                 case ShortcutActionType.ReplaceKey: icon = "🔄"; break;
                 case ShortcutActionType.WindowControl: icon = "🗔"; break;
                 case ShortcutActionType.MonitorControl: icon = "🖥"; break;
+                case ShortcutActionType.SystemAction: icon = "⚙"; break;
+                case ShortcutActionType.MouseControl: icon = "🖱"; break;
+                case ShortcutActionType.KeystrokeMacro: icon = "⚡"; break;
+                case ShortcutActionType.ChangeCase: icon = "🔤"; break;
             }
 
-            return $"{icon} {item.KeyCombination}";
+            string state = item.IsEnabled ? "" : " [Tắt]";
+            return $"{icon} {item.KeyCombination}{state}";
         }
 
         private void SelectShortcutInTree(ComfortShortcutItem target)
@@ -670,10 +746,26 @@ namespace ModernKey
             _isUpdatingUi = true;
             _selectedItem = item;
 
+            ChkShortcutEnabled.IsChecked = item.IsEnabled;
             TxtKeyCombination.Text = item.KeyCombination ?? string.Empty;
             TxtLabel.Text = item.Label ?? string.Empty;
+            TxtTargetApp.Text = item.TargetApp ?? string.Empty;
             TxtSoundPath.Text = item.SoundPath ?? string.Empty;
+            TxtTriggerCount.Text = $"{item.TriggerCount} lần";
+            TxtLastUsed.Text = item.LastUsed.HasValue ? item.LastUsed.Value.ToString("M/d/yyyy h:mm:ss tt") : "Chưa dùng";
             TxtLastChanged.Text = item.LastChanged.ToString("M/d/yyyy h:mm:ss tt");
+
+            // Kiểm tra xung đột phím tắt (Gợi ý 18)
+            var conflicts = _manager.CheckConflicts(item.KeyCombination, item.Id);
+            if (conflicts != null && conflicts.Count > 0)
+            {
+                PnlConflictWarning.Visibility = Visibility.Visible;
+                TxtConflictWarning.Text = string.Join("\n", conflicts);
+            }
+            else
+            {
+                PnlConflictWarning.Visibility = Visibility.Collapsed;
+            }
 
             // Chọn ActionType ComboBox
             foreach (ComboBoxItem cbi in CmbActionType.Items)
@@ -714,6 +806,7 @@ namespace ModernKey
             // 3. Paste text
             TxtPasteContent.Text = item.PasteText ?? string.Empty;
             ChkShowTextOnKeyboard.IsChecked = item.ShowTextOnKeyboard;
+            ChkPasteAsPlainText.IsChecked = item.PasteAsPlainText;
 
             // 4. Audio control
             foreach (ListBoxItem lbi in LstAudioActions.Items)
@@ -749,6 +842,62 @@ namespace ModernKey
             ChkReplaceAlt.IsChecked = item.ReplaceAlt;
             ChkReplaceWin.IsChecked = item.ReplaceWin;
 
+            // 6. Window control (Gợi ý 6)
+            foreach (ComboBoxItem cbi in CmbWindowAction.Items)
+            {
+                if (string.Equals(cbi.Tag?.ToString(), item.WindowAction, StringComparison.OrdinalIgnoreCase))
+                {
+                    CmbWindowAction.SelectedItem = cbi;
+                    break;
+                }
+            }
+            SldWindowTransparency.Value = item.WindowTransparency > 0 ? item.WindowTransparency : 80;
+            TxtWindowTransparencyVal.Text = (int)SldWindowTransparency.Value + "%";
+            PnlWindowTransparency.Visibility = string.Equals(item.WindowAction, "SetTransparency", StringComparison.OrdinalIgnoreCase) ? Visibility.Visible : Visibility.Collapsed;
+
+            // 7. Monitor control (Gợi ý 7)
+            foreach (ComboBoxItem cbi in CmbMonitorAction.Items)
+            {
+                if (string.Equals(cbi.Tag?.ToString(), item.MonitorAction, StringComparison.OrdinalIgnoreCase))
+                {
+                    CmbMonitorAction.SelectedItem = cbi;
+                    break;
+                }
+            }
+
+            // 8. System action (Gợi ý 8)
+            foreach (ComboBoxItem cbi in CmbSystemAction.Items)
+            {
+                if (string.Equals(cbi.Tag?.ToString(), item.SystemActionType, StringComparison.OrdinalIgnoreCase))
+                {
+                    CmbSystemAction.SelectedItem = cbi;
+                    break;
+                }
+            }
+
+            // 9. Mouse control (Gợi ý 9)
+            foreach (ComboBoxItem cbi in CmbMouseAction.Items)
+            {
+                if (string.Equals(cbi.Tag?.ToString(), item.MouseAction, StringComparison.OrdinalIgnoreCase))
+                {
+                    CmbMouseAction.SelectedItem = cbi;
+                    break;
+                }
+            }
+
+            // 10. Keystroke macro (Gợi ý 10)
+            TxtMacroKeystrokes.Text = item.MacroKeystrokes ?? string.Empty;
+
+            // 11. Change case (Gợi ý 14)
+            foreach (ComboBoxItem cbi in CmbChangeCaseMode.Items)
+            {
+                if (string.Equals(cbi.Tag?.ToString(), item.ChangeCaseMode, StringComparison.OrdinalIgnoreCase))
+                {
+                    CmbChangeCaseMode.SelectedItem = cbi;
+                    break;
+                }
+            }
+
             SwitchActionPanel(item.ActionType);
             HighlightVirtualKeyboard();
 
@@ -763,6 +912,12 @@ namespace ModernKey
             PanelAudioControl.Visibility = Visibility.Collapsed;
             PanelBlockKey.Visibility = Visibility.Collapsed;
             PanelReplaceKey.Visibility = Visibility.Collapsed;
+            PanelWindowControl.Visibility = Visibility.Collapsed;
+            PanelMonitorControl.Visibility = Visibility.Collapsed;
+            PanelSystemAction.Visibility = Visibility.Collapsed;
+            PanelMouseControl.Visibility = Visibility.Collapsed;
+            PanelKeystrokeMacro.Visibility = Visibility.Collapsed;
+            PanelChangeCase.Visibility = Visibility.Collapsed;
             PanelOtherActions.Visibility = Visibility.Collapsed;
 
             switch (type)
@@ -784,6 +939,24 @@ namespace ModernKey
                     break;
                 case ShortcutActionType.ReplaceKey:
                     PanelReplaceKey.Visibility = Visibility.Visible;
+                    break;
+                case ShortcutActionType.WindowControl:
+                    PanelWindowControl.Visibility = Visibility.Visible;
+                    break;
+                case ShortcutActionType.MonitorControl:
+                    PanelMonitorControl.Visibility = Visibility.Visible;
+                    break;
+                case ShortcutActionType.SystemAction:
+                    PanelSystemAction.Visibility = Visibility.Visible;
+                    break;
+                case ShortcutActionType.MouseControl:
+                    PanelMouseControl.Visibility = Visibility.Visible;
+                    break;
+                case ShortcutActionType.KeystrokeMacro:
+                    PanelKeystrokeMacro.Visibility = Visibility.Visible;
+                    break;
+                case ShortcutActionType.ChangeCase:
+                    PanelChangeCase.Visibility = Visibility.Visible;
                     break;
                 default:
                     PanelOtherActions.Visibility = Visibility.Visible;
@@ -857,11 +1030,165 @@ namespace ModernKey
                     case ShortcutActionType.AudioControl:
                         _selectedItem.Category = "Audio control";
                         break;
+                    case ShortcutActionType.WindowControl:
+                        _selectedItem.Category = "Window control";
+                        break;
+                    case ShortcutActionType.MonitorControl:
+                        _selectedItem.Category = "Monitor control";
+                        break;
+                    case ShortcutActionType.SystemAction:
+                        _selectedItem.Category = "System actions";
+                        break;
+                    case ShortcutActionType.MouseControl:
+                        _selectedItem.Category = "Mouse control";
+                        break;
+                    case ShortcutActionType.KeystrokeMacro:
+                        _selectedItem.Category = "Keystroke macro";
+                        break;
+                    case ShortcutActionType.ChangeCase:
+                        _selectedItem.Category = "Change text case";
+                        break;
                 }
 
                 SwitchActionPanel(sat);
                 PopulateTreeView();
                 HighlightVirtualKeyboard();
+            }
+        }
+
+        private void ChkShortcutEnabled_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isUpdatingUi || _selectedItem == null) return;
+            _selectedItem.IsEnabled = ChkShortcutEnabled.IsChecked == true;
+            _selectedItem.LastChanged = DateTime.Now;
+            PopulateTreeView();
+        }
+
+        private void TxtTargetApp_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isUpdatingUi || _selectedItem == null) return;
+            _selectedItem.TargetApp = TxtTargetApp.Text;
+            _selectedItem.LastChanged = DateTime.Now;
+        }
+
+        private void BtnSelectTargetApp_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isUpdatingUi || _selectedItem == null) return;
+            var dlg = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "Executable Files (*.exe)|*.exe|All Files (*.*)|*.*",
+                Title = "Chọn ứng dụng mục tiêu (Target Application)"
+            };
+            if (dlg.ShowDialog() == true)
+            {
+                string procName = Path.GetFileNameWithoutExtension(dlg.FileName);
+                TxtTargetApp.Text = procName;
+            }
+        }
+
+        private void ChkPasteAsPlainText_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_isUpdatingUi || _selectedItem == null) return;
+            _selectedItem.PasteAsPlainText = ChkPasteAsPlainText.IsChecked == true;
+            _selectedItem.LastChanged = DateTime.Now;
+        }
+
+        private void CmbWindowAction_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isUpdatingUi || _selectedItem == null) return;
+            if (CmbWindowAction.SelectedItem is ComboBoxItem cbi && cbi.Tag is string act)
+            {
+                _selectedItem.WindowAction = act;
+                _selectedItem.LastChanged = DateTime.Now;
+                PnlWindowTransparency.Visibility = string.Equals(act, "SetTransparency", StringComparison.OrdinalIgnoreCase) ? Visibility.Visible : Visibility.Collapsed;
+            }
+        }
+
+        private void SldWindowTransparency_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (_isUpdatingUi || _selectedItem == null) return;
+            int val = (int)SldWindowTransparency.Value;
+            _selectedItem.WindowTransparency = val;
+            TxtWindowTransparencyVal.Text = val + "%";
+            _selectedItem.LastChanged = DateTime.Now;
+        }
+
+        private void CmbMonitorAction_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isUpdatingUi || _selectedItem == null) return;
+            if (CmbMonitorAction.SelectedItem is ComboBoxItem cbi && cbi.Tag is string act)
+            {
+                _selectedItem.MonitorAction = act;
+                _selectedItem.LastChanged = DateTime.Now;
+            }
+        }
+
+        private void CmbSystemAction_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isUpdatingUi || _selectedItem == null) return;
+            if (CmbSystemAction.SelectedItem is ComboBoxItem cbi && cbi.Tag is string act)
+            {
+                _selectedItem.SystemActionType = act;
+                _selectedItem.LastChanged = DateTime.Now;
+            }
+        }
+
+        private void CmbMouseAction_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isUpdatingUi || _selectedItem == null) return;
+            if (CmbMouseAction.SelectedItem is ComboBoxItem cbi && cbi.Tag is string act)
+            {
+                _selectedItem.MouseAction = act;
+                _selectedItem.LastChanged = DateTime.Now;
+            }
+        }
+
+        private void TxtMacroKeystrokes_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isUpdatingUi || _selectedItem == null) return;
+            _selectedItem.MacroKeystrokes = TxtMacroKeystrokes.Text;
+            _selectedItem.LastChanged = DateTime.Now;
+        }
+
+        private void CmbChangeCaseMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isUpdatingUi || _selectedItem == null) return;
+            if (CmbChangeCaseMode.SelectedItem is ComboBoxItem cbi && cbi.Tag is string mode)
+            {
+                _selectedItem.ChangeCaseMode = mode;
+                _selectedItem.LastChanged = DateTime.Now;
+            }
+        }
+
+        private void CmbProfiles_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isUpdatingUi) return;
+            if (CmbProfiles.SelectedItem is ComboBoxItem cbi && cbi.Tag is string prof)
+            {
+                _manager.SwitchProfile(prof);
+                _selectedItem = null;
+                PopulateTreeView();
+                HighlightVirtualKeyboard();
+            }
+        }
+
+        private void BtnRestoreBackup_Click(object sender, RoutedEventArgs e)
+        {
+            var res = MessageBox.Show("Bạn có muốn hoàn tác (khôi phục) cấu hình phím tắt từ bản sao lưu tự động .bak gần nhất không?", "Khôi phục sao lưu", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (res == MessageBoxResult.Yes)
+            {
+                bool ok = _manager.RestoreFromBackup();
+                if (ok)
+                {
+                    _selectedItem = null;
+                    PopulateTreeView();
+                    HighlightVirtualKeyboard();
+                    MessageBox.Show("Đã khôi phục thành công từ file sao lưu!", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else
+                {
+                    MessageBox.Show("Không tìm thấy file sao lưu hợp lệ.", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
             }
         }
 

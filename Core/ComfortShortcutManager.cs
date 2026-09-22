@@ -30,6 +30,51 @@ namespace ModernKey.Core
         private static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
 
         [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern bool LockWorkStation();
+
+        [DllImport("user32.dll")]
+        private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll")]
+        private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+        [DllImport("user32.dll")]
+        private static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
+
+        [DllImport("user32.dll")]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+
+        [DllImport("user32.dll")]
+        private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+        [DllImport("user32.dll")]
+        private static extern void mouse_event(uint dwFlags, int dx, int dy, int dwData, UIntPtr dwExtraInfo);
+
+        [DllImport("shell32.dll")]
+        private static extern int SHEmptyRecycleBin(IntPtr hwnd, string pszRootPath, uint dwFlags);
+
+        [DllImport("Powrprof.dll", SetLastError = true)]
+        private static extern bool SetSuspendState(bool bHibernate, bool bForce, bool bWakeupEventsDisabled);
+
+        [DllImport("user32.dll")]
         private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, IntPtr dwExtraInfo);
 
         [DllImport("winmm.dll", EntryPoint = "mciSendStringA", CharSet = CharSet.Ansi)]
@@ -42,8 +87,68 @@ namespace ModernKey.Core
         private static extern uint MapVirtualKey(uint uCode, uint uMapType);
 
         private const int SW_RESTORE = 9;
+        private const int SW_HIDE = 0;
+        private const int SW_SHOW = 5;
+        private const int SW_MINIMIZE = 6;
         private const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
         private const uint KEYEVENTF_KEYUP = 0x0002;
+
+        private const int GWL_EXSTYLE = -20;
+        private const int WS_EX_TOPMOST = 0x0008;
+        private const int WS_EX_LAYERED = 0x80000;
+        private const uint LWA_ALPHA = 0x2;
+        private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+        private static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
+        private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOMOVE = 0x0002;
+        private const uint SWP_NOACTIVATE = 0x0010;
+        private const uint WM_SYSCOMMAND = 0x0112;
+        private const uint SC_CLOSE = 0xF060;
+        private const uint SC_MONITORPOWER = 0xF170;
+        private const uint SC_SCREENSAVE = 0xF140;
+
+        private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
+        private const uint MOUSEEVENTF_LEFTUP = 0x0004;
+        private const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;
+        private const uint MOUSEEVENTF_RIGHTUP = 0x0010;
+        private const uint MOUSEEVENTF_MIDDLEDOWN = 0x0020;
+        private const uint MOUSEEVENTF_MIDDLEUP = 0x0040;
+        private const uint MOUSEEVENTF_WHEEL = 0x0800;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        private static readonly HashSet<IntPtr> _hiddenBossWindows = new HashSet<IntPtr>();
+
+        private string _currentProfile = "Default";
+        public string CurrentProfile
+        {
+            get => _currentProfile;
+            set
+            {
+                if (_currentProfile != value)
+                {
+                    _currentProfile = value;
+                    Load();
+                }
+            }
+        }
+
+        public void SwitchProfile(string profileName)
+        {
+            CurrentProfile = profileName;
+        }
+
+        public string[] AvailableProfiles => new[] { "Default", "Work", "Gaming", "Office", "Dev" };
+
+        private string _pendingChordPrefix = null;
+        private int _chordPrefixTick = 0;
 
         private static bool IsExtendedKey(uint vk)
         {
@@ -70,15 +175,18 @@ namespace ModernKey.Core
             Load();
         }
 
-        public string GetShortcutsFilePath()
+        public string GetShortcutsFilePath(string profile = null)
         {
+            string prof = profile ?? _currentProfile;
             string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             string dir = Path.Combine(appData, "ModernKey");
             if (!Directory.Exists(dir))
             {
                 Directory.CreateDirectory(dir);
             }
-            return Path.Combine(dir, "comfort_shortcuts.json");
+            if (string.Equals(prof, "Default", StringComparison.OrdinalIgnoreCase))
+                return Path.Combine(dir, "comfort_shortcuts.json");
+            return Path.Combine(dir, $"comfort_shortcuts_{prof.ToLower()}.json");
         }
 
         public void Load()
@@ -190,10 +298,140 @@ namespace ModernKey.Core
             try
             {
                 string path = GetShortcutsFilePath();
+                if (File.Exists(path))
+                {
+                    try
+                    {
+                        string bak = path + ".bak";
+                        File.Copy(path, bak, true);
+                    }
+                    catch { }
+                }
                 string json = SerializeJson(Shortcuts.ToList());
                 File.WriteAllText(path, json, Encoding.UTF8);
             }
             catch { }
+        }
+
+        public bool RestoreFromBackup()
+        {
+            try
+            {
+                string path = GetShortcutsFilePath();
+                string bak = path + ".bak";
+                if (File.Exists(bak))
+                {
+                    string json = File.ReadAllText(bak, Encoding.UTF8);
+                    var list = DeserializeJson(json);
+                    if (list != null && list.Count > 0)
+                    {
+                        Shortcuts.Clear();
+                        foreach (var item in list) Shortcuts.Add(item);
+                        Save();
+                        return true;
+                    }
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        public List<string> CheckConflicts(string combo, string excludeId = null)
+        {
+            var list = new List<string>();
+            if (string.IsNullOrWhiteSpace(combo)) return list;
+
+            var match = Shortcuts.FirstOrDefault(s => s.Id != excludeId &&
+                                                      string.Equals(s.KeyCombination, combo, StringComparison.OrdinalIgnoreCase));
+            if (match != null)
+            {
+                list.Add($"Trùng với phím tắt '{match.Label}' trong danh sách");
+            }
+
+            string upper = combo.Replace(" ", "").ToUpper();
+            if (upper == "WIN+D") list.Add("Trùng phím tắt Windows: Show Desktop");
+            else if (upper == "WIN+E") list.Add("Trùng phím tắt Windows: File Explorer");
+            else if (upper == "WIN+R") list.Add("Trùng phím tắt Windows: Run");
+            else if (upper == "WIN+L") list.Add("Trùng phím tắt Windows: Lock");
+            else if (upper == "WIN+X") list.Add("Trùng phím tắt Windows: Quick Link Menu");
+            else if (upper == "ALT+TAB") list.Add("Trùng phím tắt Windows: Chuyển cửa sổ");
+            else if (upper == "ALT+F4") list.Add("Trùng phím tắt Windows: Đóng ứng dụng");
+            else if (upper == "CTRL+SHIFT+ESC") list.Add("Trùng phím tắt Windows: Task Manager");
+            else if (upper == "CTRL+C" || upper == "CTRL+V" || upper == "CTRL+X" || upper == "CTRL+Z" || upper == "CTRL+A")
+            {
+                list.Add($"Trùng phím thao tác soạn thảo ({combo})");
+            }
+
+            return list;
+        }
+
+        public static bool IsMatchingTargetApp(string targetApp)
+        {
+            if (string.IsNullOrWhiteSpace(targetApp)) return true;
+            try
+            {
+                IntPtr hWnd = GetForegroundWindow();
+                if (hWnd == IntPtr.Zero) return true;
+
+                GetWindowThreadProcessId(hWnd, out uint pid);
+                if (pid == 0) return true;
+
+                var proc = Process.GetProcessById((int)pid);
+                string procName = proc.ProcessName;
+                string exeName = string.Empty;
+                try { exeName = Path.GetFileName(proc.MainModule?.FileName ?? ""); } catch { }
+
+                string filter = targetApp.Trim();
+                if (string.Equals(procName, filter, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(exeName, filter, StringComparison.OrdinalIgnoreCase) ||
+                    procName.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    exeName.IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return true;
+                }
+
+                var sb = new StringBuilder(256);
+                GetWindowText(hWnd, sb, 256);
+                if (sb.ToString().IndexOf(filter, StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return true;
+                }
+
+                return false;
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
+        public static bool IsForegroundFullscreenGame()
+        {
+            try
+            {
+                IntPtr hWnd = GetForegroundWindow();
+                if (hWnd == IntPtr.Zero) return false;
+
+                var sb = new StringBuilder(256);
+                GetClassName(hWnd, sb, 256);
+                string className = sb.ToString();
+                if (className == "Progman" || className == "WorkerW" || className == "Shell_TrayWnd")
+                    return false;
+
+                if (GetWindowRect(hWnd, out RECT rect))
+                {
+                    int w = rect.Right - rect.Left;
+                    int h = rect.Bottom - rect.Top;
+                    int screenW = (int)SystemParameters.PrimaryScreenWidth;
+                    int screenH = (int)SystemParameters.PrimaryScreenHeight;
+                    if (w >= screenW && h >= screenH)
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch { }
+            return false;
         }
 
         public void ExportToFile(string filePath)
@@ -431,6 +669,10 @@ namespace ModernKey.Core
             var match = FindShortcut(combo);
             if (match == null) return false;
 
+            if (!match.IsEnabled) return false;
+            if (!IsMatchingTargetApp(match.TargetApp)) return false;
+            if (match.ActiveScope == "Disabled in full screen games" && IsForegroundFullscreenGame()) return false;
+
             if (match.ActionType == ShortcutActionType.BlockKey)
             {
                 lock (_lockObj)
@@ -578,8 +820,44 @@ namespace ModernKey.Core
             string combo = BuildCombinationString(vk, ctrl, alt, shift, win);
             if (string.IsNullOrEmpty(combo)) return false;
 
+            // Xử lý tổ hợp phím 2 bước (Sequential Key Chords)
+            if (!string.IsNullOrEmpty(_pendingChordPrefix))
+            {
+                if (Math.Abs(Environment.TickCount - _chordPrefixTick) < 2000)
+                {
+                    string fullChord = _pendingChordPrefix + ", " + combo;
+                    var chordMatch = FindShortcut(fullChord);
+                    _pendingChordPrefix = null;
+                    if (chordMatch != null && chordMatch.IsEnabled && IsMatchingTargetApp(chordMatch.TargetApp))
+                    {
+                        Task.Run(() => ExecuteShortcutAction(chordMatch));
+                        return true;
+                    }
+                }
+                else
+                {
+                    _pendingChordPrefix = null;
+                }
+            }
+
             var match = FindShortcut(combo);
-            if (match == null) return false;
+            if (match == null)
+            {
+                // Kiểm tra xem combo này có phải là tiền tố của bất kỳ shortcut nào có dạng "combo, ..." không
+                bool isPrefix = Shortcuts.Any(s => s.IsEnabled && s.KeyCombination != null &&
+                                                    s.KeyCombination.StartsWith(combo + ",", StringComparison.OrdinalIgnoreCase));
+                if (isPrefix)
+                {
+                    _pendingChordPrefix = combo;
+                    _chordPrefixTick = Environment.TickCount;
+                    return true;
+                }
+                return false;
+            }
+
+            if (!match.IsEnabled) return false;
+            if (!IsMatchingTargetApp(match.TargetApp)) return false;
+            if (match.ActiveScope == "Disabled in full screen games" && IsForegroundFullscreenGame()) return false;
 
             // Nếu là BlockKey hoặc ReplaceKey thì đã được xử lý ở TryHandleBlockOrReplaceKeyDown
             if (match.ActionType == ShortcutActionType.BlockKey || match.ActionType == ShortcutActionType.ReplaceKey)
@@ -627,7 +905,36 @@ namespace ModernKey.Core
                 case ShortcutActionType.WindowControl:
                     ExecuteWindowControl(item);
                     break;
+
+                case ShortcutActionType.MonitorControl:
+                    ExecuteMonitorControl(item);
+                    break;
+
+                case ShortcutActionType.SystemAction:
+                    ExecuteSystemAction(item);
+                    break;
+
+                case ShortcutActionType.MouseControl:
+                    ExecuteMouseControl(item);
+                    break;
+
+                case ShortcutActionType.KeystrokeMacro:
+                    ExecuteKeystrokeMacro(item);
+                    break;
+
+                case ShortcutActionType.ChangeCase:
+                    ExecuteChangeCase(item);
+                    break;
             }
+
+            // Ghi nhận thống kê sử dụng (Gợi ý 5)
+            try
+            {
+                item.TriggerCount++;
+                item.LastUsed = DateTime.Now;
+                Save();
+            }
+            catch { }
         }
 
         private void ExecuteRunProgram(ComfortShortcutItem item)
@@ -732,6 +1039,14 @@ namespace ModernKey.Core
             var now = DateTime.Now;
             string text = template;
 
+            // Xử lý thẻ <INPUT: Prompt Text> (Gợi ý 11)
+            var inputRegex = new Regex(@"<INPUT:(.*?)>", RegexOptions.IgnoreCase);
+            text = inputRegex.Replace(text, m =>
+            {
+                string prompt = m.Groups[1].Value.Trim();
+                return QuickInputDialog.ShowInput(prompt);
+            });
+
             // Ngày (10 định dạng từ Đợt 4)
             text = text.Replace("{date}", now.ToShortDateString());
             text = text.Replace("<DATE_LONG>", now.ToString("dddd, MMMM d, yyyy"));
@@ -803,6 +1118,32 @@ namespace ModernKey.Core
 
             string expanded = ExpandDynamicPasteTags(item.PasteText);
 
+            // Dán văn bản thuần túy (Gợi ý 13)
+            if (item.PasteAsPlainText)
+            {
+                Application.Current?.Dispatcher?.Invoke(() =>
+                {
+                    try
+                    {
+                        if (System.Windows.Clipboard.ContainsText())
+                        {
+                            expanded = System.Windows.Clipboard.GetText(TextDataFormat.UnicodeText);
+                        }
+                    }
+                    catch { }
+                });
+            }
+
+            // Kiểm tra thẻ định vị con trỏ <CURSOR> (Gợi ý 12)
+            int cursorBackCount = 0;
+            if (expanded.Contains("<CURSOR>"))
+            {
+                int cursorIdx = expanded.IndexOf("<CURSOR>");
+                string afterCursor = expanded.Substring(cursorIdx + "<CURSOR>".Length);
+                cursorBackCount = afterCursor.Length;
+                expanded = expanded.Replace("<CURSOR>", "");
+            }
+
             // Kiểm tra nếu có phím điều khiển (Tab, Enter, Backspace...)
             bool hasKeyControl = expanded.Contains("<KEY_TAB>") || expanded.Contains("<KEY_ENTER>") ||
                                  expanded.Contains("<KEY_BACKSPACE>") || expanded.Contains("<KEY_DEL>") ||
@@ -858,8 +1199,18 @@ namespace ModernKey.Core
                     Thread.Sleep(30);
                 }
             }
-        }
 
+            // Tự động lùi con trỏ về vị trí thẻ <CURSOR> (Gợi ý 12)
+            if (cursorBackCount > 0)
+            {
+                Thread.Sleep(80);
+                for (int i = 0; i < cursorBackCount; i++)
+                {
+                    keybd_event(0x25 /* Left Arrow */, 0, 0, IntPtr.Zero);
+                    keybd_event(0x25, 0, KEYEVENTF_KEYUP, IntPtr.Zero);
+                }
+            }
+        }
 
         public void AdjustVolume(float deltaPercent)
         {
@@ -897,11 +1248,341 @@ namespace ModernKey.Core
 
         private void ExecuteWindowControl(ComfortShortcutItem item)
         {
-            // Close window: Alt + F4
-            keybd_event(0x12, 0, 0, IntPtr.Zero); // Alt Down
-            keybd_event(0x73, 0, 0, IntPtr.Zero); // F4 Down
-            keybd_event(0x73, 0, KEYEVENTF_KEYUP, IntPtr.Zero);
-            keybd_event(0x12, 0, KEYEVENTF_KEYUP, IntPtr.Zero);
+            try
+            {
+                IntPtr hWnd = GetForegroundWindow();
+                if (hWnd == IntPtr.Zero) return;
+
+                string act = item.WindowAction ?? "Close window";
+                switch (act)
+                {
+                    case "Close window":
+                        SendMessage(hWnd, WM_SYSCOMMAND, (IntPtr)SC_CLOSE, IntPtr.Zero);
+                        break;
+                    case "Pin always on top (Toggle)":
+                        int exStyle = GetWindowLong(hWnd, GWL_EXSTYLE);
+                        bool isTop = (exStyle & WS_EX_TOPMOST) != 0;
+                        SetWindowPos(hWnd, isTop ? HWND_NOTOPMOST : HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                        break;
+                    case "Hide window / Boss key (Toggle)":
+                        lock (_hiddenBossWindows)
+                        {
+                            if (_hiddenBossWindows.Contains(hWnd))
+                            {
+                                ShowWindow(hWnd, SW_SHOW);
+                                SetForegroundWindow(hWnd);
+                                _hiddenBossWindows.Remove(hWnd);
+                            }
+                            else if (_hiddenBossWindows.Count > 0)
+                            {
+                                foreach (var h in _hiddenBossWindows.ToList())
+                                {
+                                    ShowWindow(h, SW_SHOW);
+                                    SetForegroundWindow(h);
+                                }
+                                _hiddenBossWindows.Clear();
+                            }
+                            else
+                            {
+                                _hiddenBossWindows.Add(hWnd);
+                                ShowWindow(hWnd, SW_HIDE);
+                            }
+                        }
+                        break;
+                    case "Minimize window":
+                        ShowWindow(hWnd, SW_MINIMIZE);
+                        break;
+                    case "Set transparency":
+                        int trans = item.WindowTransparency;
+                        if (trans < 10) trans = 10;
+                        if (trans > 100) trans = 100;
+                        int style = GetWindowLong(hWnd, GWL_EXSTYLE);
+                        SetWindowLong(hWnd, GWL_EXSTYLE, style | WS_EX_LAYERED);
+                        byte alpha = (byte)(255 * trans / 100);
+                        SetLayeredWindowAttributes(hWnd, 0, alpha, LWA_ALPHA);
+                        break;
+                    case "Move to next monitor":
+                        MoveWindowToNextMonitor(hWnd);
+                        break;
+                }
+            }
+            catch { }
+        }
+
+        private void ExecuteMonitorControl(ComfortShortcutItem item)
+        {
+            try
+            {
+                string act = item.MonitorAction ?? "Turn off monitor";
+                switch (act)
+                {
+                    case "Turn off monitor":
+                        SendMessage((IntPtr)0xFFFF, WM_SYSCOMMAND, (IntPtr)SC_MONITORPOWER, (IntPtr)2);
+                        break;
+                    case "Start screensaver":
+                        SendMessage((IntPtr)0xFFFF, WM_SYSCOMMAND, (IntPtr)SC_SCREENSAVE, IntPtr.Zero);
+                        break;
+                    case "Lock workstation":
+                        LockWorkStation();
+                        break;
+                }
+            }
+            catch { }
+        }
+
+        private void ExecuteSystemAction(ComfortShortcutItem item)
+        {
+            try
+            {
+                string act = item.SystemActionType ?? "Lock workstation";
+                switch (act)
+                {
+                    case "Lock workstation":
+                        LockWorkStation();
+                        break;
+                    case "Sleep":
+                        SetSuspendState(false, true, false);
+                        break;
+                    case "Hibernate":
+                        SetSuspendState(true, true, false);
+                        break;
+                    case "Restart computer":
+                        Process.Start(new ProcessStartInfo("shutdown.exe", "/r /t 0") { CreateNoWindow = true, UseShellExecute = false });
+                        break;
+                    case "Shutdown computer":
+                        Process.Start(new ProcessStartInfo("shutdown.exe", "/s /t 0") { CreateNoWindow = true, UseShellExecute = false });
+                        break;
+                    case "Empty Recycle Bin":
+                        SHEmptyRecycleBin(IntPtr.Zero, null, 7);
+                        break;
+                    case "Capture Screen (Snipping Tool)":
+                        try
+                        {
+                            Process.Start("ms-screenclip:");
+                        }
+                        catch
+                        {
+                            Process.Start("snippingtool.exe");
+                        }
+                        break;
+                }
+            }
+            catch { }
+        }
+
+        private void ExecuteMouseControl(ComfortShortcutItem item)
+        {
+            try
+            {
+                string act = item.MouseAction ?? "Left click";
+                switch (act)
+                {
+                    case "Left click":
+                        mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
+                        Thread.Sleep(20);
+                        mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
+                        break;
+                    case "Right click":
+                        mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, UIntPtr.Zero);
+                        Thread.Sleep(20);
+                        mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, UIntPtr.Zero);
+                        break;
+                    case "Middle click":
+                        mouse_event(MOUSEEVENTF_MIDDLEDOWN, 0, 0, 0, UIntPtr.Zero);
+                        Thread.Sleep(20);
+                        mouse_event(MOUSEEVENTF_MIDDLEUP, 0, 0, 0, UIntPtr.Zero);
+                        break;
+                    case "Double click":
+                        mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
+                        mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
+                        Thread.Sleep(50);
+                        mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
+                        mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
+                        break;
+                    case "Wheel up":
+                        mouse_event(MOUSEEVENTF_WHEEL, 0, 0, 120, UIntPtr.Zero);
+                        break;
+                    case "Wheel down":
+                        mouse_event(MOUSEEVENTF_WHEEL, 0, 0, -120, UIntPtr.Zero);
+                        break;
+                }
+            }
+            catch { }
+        }
+
+        private void ExecuteKeystrokeMacro(ComfortShortcutItem item)
+        {
+            if (string.IsNullOrWhiteSpace(item.MacroKeystrokes)) return;
+            string macro = item.MacroKeystrokes;
+
+            var tokens = Regex.Split(macro, @"(\{[A-Za-z0-9_:+]+?\})");
+            foreach (var tok in tokens)
+            {
+                if (string.IsNullOrEmpty(tok)) continue;
+                if (tok.StartsWith("{DELAY:", StringComparison.OrdinalIgnoreCase) && tok.EndsWith("}"))
+                {
+                    string msStr = tok.Substring(7, tok.Length - 8);
+                    if (int.TryParse(msStr, out int ms) && ms > 0)
+                    {
+                        Thread.Sleep(Math.Min(ms, 5000));
+                    }
+                }
+                else if (tok.StartsWith("{KEY:", StringComparison.OrdinalIgnoreCase) && tok.EndsWith("}"))
+                {
+                    string keyName = tok.Substring(5, tok.Length - 6);
+                    uint vk = GetVkFromFriendlyName(keyName);
+                    if (vk > 0)
+                    {
+                        SendSingleKeyEvent(vk, false);
+                        Thread.Sleep(20);
+                        SendSingleKeyEvent(vk, true);
+                    }
+                }
+                else
+                {
+                    KeySender.SendViaClipboardPaste(tok);
+                }
+            }
+        }
+
+        private void ExecuteChangeCase(ComfortShortcutItem item)
+        {
+            try
+            {
+                // Sao chép vùng chọn bằng Ctrl+C
+                keybd_event(0x11 /* Ctrl */, 0, 0, IntPtr.Zero);
+                keybd_event(0x43 /* C */, 0, 0, IntPtr.Zero);
+                keybd_event(0x43, 0, KEYEVENTF_KEYUP, IntPtr.Zero);
+                keybd_event(0x11, 0, KEYEVENTF_KEYUP, IntPtr.Zero);
+
+                Thread.Sleep(100);
+
+                string selectedText = string.Empty;
+                Application.Current?.Dispatcher?.Invoke(() =>
+                {
+                    try
+                    {
+                        if (System.Windows.Clipboard.ContainsText())
+                            selectedText = System.Windows.Clipboard.GetText();
+                    }
+                    catch { }
+                });
+
+                if (string.IsNullOrEmpty(selectedText)) return;
+
+                string mode = item.ChangeCaseMode ?? "UPPERCASE";
+                string transformed = selectedText;
+                switch (mode)
+                {
+                    case "UPPERCASE":
+                        transformed = selectedText.ToUpper();
+                        break;
+                    case "lowercase":
+                        transformed = selectedText.ToLower();
+                        break;
+                    case "Title Case":
+                        transformed = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(selectedText.ToLower());
+                        break;
+                    case "Sentence case":
+                        var parts = Regex.Split(selectedText, @"(?<=[.!?]\s+)");
+                        var sb = new StringBuilder();
+                        foreach (var p in parts)
+                        {
+                            if (p.Length > 0)
+                            {
+                                string trimmed = p.TrimStart();
+                                int leadSpaces = p.Length - trimmed.Length;
+                                string prefix = p.Substring(0, leadSpaces);
+                                if (trimmed.Length > 0)
+                                {
+                                    sb.Append(prefix + char.ToUpper(trimmed[0]) + (trimmed.Length > 1 ? trimmed.Substring(1).ToLower() : ""));
+                                }
+                                else sb.Append(p);
+                            }
+                        }
+                        transformed = sb.ToString();
+                        break;
+                }
+
+                KeySender.SendViaClipboardPaste(transformed);
+            }
+            catch { }
+        }
+
+        private static void MoveWindowToNextMonitor(IntPtr hWnd)
+        {
+            try
+            {
+                var screens = System.Windows.Forms.Screen.AllScreens;
+                if (screens.Length <= 1) return;
+
+                if (GetWindowRect(hWnd, out RECT rect))
+                {
+                    int w = rect.Right - rect.Left;
+                    int h = rect.Bottom - rect.Top;
+                    var curScreen = System.Windows.Forms.Screen.FromHandle(hWnd);
+                    int curIdx = Array.IndexOf(screens, curScreen);
+                    int nextIdx = (curIdx + 1) % screens.Length;
+                    var nextScreen = screens[nextIdx];
+
+                    int newX = nextScreen.Bounds.Left + (rect.Left - curScreen.Bounds.Left);
+                    int newY = nextScreen.Bounds.Top + (rect.Top - curScreen.Bounds.Top);
+
+                    SetWindowPos(hWnd, IntPtr.Zero, newX, newY, w, h, SWP_NOACTIVATE);
+                }
+            }
+            catch { }
+        }
+
+        public static uint GetVkFromFriendlyName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return 0;
+            name = name.Trim();
+            if (name.Length == 1)
+            {
+                char c = char.ToUpper(name[0]);
+                if (c >= '0' && c <= '9') return (uint)c;
+                if (c >= 'A' && c <= 'Z') return (uint)c;
+            }
+            if (name.StartsWith("F") && int.TryParse(name.Substring(1), out int f) && f >= 1 && f <= 12)
+            {
+                return (uint)(0x6F + f);
+            }
+            if ((name.StartsWith("Nm ") || name.StartsWith("Num ")) && int.TryParse(name.Substring(name.IndexOf(' ') + 1), out int n) && n >= 0 && n <= 9)
+            {
+                return (uint)(0x60 + n);
+            }
+            switch (name.ToUpper())
+            {
+                case "ENTER": return 0x0D;
+                case "BACKSPACE": case "BACK": return 0x08;
+                case "TAB": return 0x09;
+                case "SPACE": return 0x20;
+                case "ESC": return 0x1B;
+                case "CAPS": return 0x14;
+                case "DEL": case "DELETE": return 0x2E;
+                case "INS": case "INSERT": return 0x2D;
+                case "HOME": return 0x24;
+                case "END": return 0x23;
+                case "PGUP": return 0x21;
+                case "PGDN": return 0x22;
+                case "UP": return 0x26;
+                case "DOWN": return 0x28;
+                case "LEFT": return 0x25;
+                case "RIGHT": return 0x27;
+                case "PRTSC": return 0x2C;
+                case "PAUSE": case "BREAK": return 0x13;
+                case "APPS": case "MENU": return 0x5D;
+                case "LEFTWIN": case "WIN": return 0x5B;
+                case "RIGHTWIN": return 0x5C;
+                case "CTRL": case "LEFTCTRL": return 0x11;
+                case "RIGHTCTRL": return 0xA3;
+                case "ALT": case "LEFTALT": return 0x12;
+                case "RIGHTALT": return 0xA5;
+                case "SHIFT": case "LEFTSHIFT": return 0x10;
+                case "RIGHTSHIFT": return 0xA1;
+                default: return 0;
+            }
         }
 
         private string BuildCombinationString(uint vk, bool ctrl, bool alt, bool shift, bool win)
@@ -1027,13 +1708,28 @@ namespace ModernKey.Core
                 sb.AppendLine($"    \"UrlOpenType\": \"{Escape(item.UrlOpenType)}\",");
                 sb.AppendLine($"    \"PasteText\": \"{Escape(item.PasteText)}\",");
                 sb.AppendLine($"    \"ShowTextOnKeyboard\": {item.ShowTextOnKeyboard.ToString().ToLower()},");
+                sb.AppendLine($"    \"PasteAsPlainText\": {item.PasteAsPlainText.ToString().ToLower()},");
+                sb.AppendLine($"    \"IsEnabled\": {item.IsEnabled.ToString().ToLower()},");
+                sb.AppendLine($"    \"TriggerCount\": {item.TriggerCount},");
+                if (item.LastUsed.HasValue)
+                    sb.AppendLine($"    \"LastUsed\": \"{item.LastUsed.Value:o}\",");
+                else
+                    sb.AppendLine("    \"LastUsed\": null,");
+                sb.AppendLine($"    \"TargetApp\": \"{Escape(item.TargetApp)}\",");
                 sb.AppendLine($"    \"AudioAction\": \"{Escape(item.AudioAction)}\",");
                 sb.AppendLine($"    \"AudioStepSize\": {item.AudioStepSize},");
                 sb.AppendLine($"    \"ReplaceWithKey\": \"{Escape(item.ReplaceWithKey)}\",");
                 sb.AppendLine($"    \"ReplaceShift\": {item.ReplaceShift.ToString().ToLower()},");
                 sb.AppendLine($"    \"ReplaceCtrl\": {item.ReplaceCtrl.ToString().ToLower()},");
                 sb.AppendLine($"    \"ReplaceAlt\": {item.ReplaceAlt.ToString().ToLower()},");
-                sb.AppendLine($"    \"ReplaceWin\": {item.ReplaceWin.ToString().ToLower()}");
+                sb.AppendLine($"    \"ReplaceWin\": {item.ReplaceWin.ToString().ToLower()},");
+                sb.AppendLine($"    \"WindowAction\": \"{Escape(item.WindowAction)}\",");
+                sb.AppendLine($"    \"WindowTransparency\": {item.WindowTransparency},");
+                sb.AppendLine($"    \"MonitorAction\": \"{Escape(item.MonitorAction)}\",");
+                sb.AppendLine($"    \"SystemActionType\": \"{Escape(item.SystemActionType)}\",");
+                sb.AppendLine($"    \"MouseAction\": \"{Escape(item.MouseAction)}\",");
+                sb.AppendLine($"    \"MacroKeystrokes\": \"{Escape(item.MacroKeystrokes)}\",");
+                sb.AppendLine($"    \"ChangeCaseMode\": \"{Escape(item.ChangeCaseMode)}\"");
                 sb.Append("  }");
                 if (i < list.Count - 1) sb.Append(",");
                 sb.AppendLine();
@@ -1124,6 +1820,19 @@ namespace ModernKey.Core
                     case "ShowTextOnKeyboard":
                         if (bool.TryParse(val, out var stk)) item.ShowTextOnKeyboard = stk;
                         break;
+                    case "PasteAsPlainText":
+                        if (bool.TryParse(val, out var pap)) item.PasteAsPlainText = pap;
+                        break;
+                    case "IsEnabled":
+                        if (bool.TryParse(val, out var enb)) item.IsEnabled = enb;
+                        break;
+                    case "TriggerCount":
+                        if (int.TryParse(val, out var tc)) item.TriggerCount = tc;
+                        break;
+                    case "LastUsed":
+                        if (DateTime.TryParse(val, out var lu)) item.LastUsed = lu;
+                        break;
+                    case "TargetApp": item.TargetApp = val; break;
                     case "AudioAction": item.AudioAction = val; break;
                     case "AudioStepSize":
                         if (int.TryParse(val, out var ass)) item.AudioStepSize = ass;
@@ -1141,6 +1850,15 @@ namespace ModernKey.Core
                     case "ReplaceWin":
                         if (bool.TryParse(val, out var rwn)) item.ReplaceWin = rwn;
                         break;
+                    case "WindowAction": item.WindowAction = val; break;
+                    case "WindowTransparency":
+                        if (int.TryParse(val, out var wt)) item.WindowTransparency = wt;
+                        break;
+                    case "MonitorAction": item.MonitorAction = val; break;
+                    case "SystemActionType": item.SystemActionType = val; break;
+                    case "MouseAction": item.MouseAction = val; break;
+                    case "MacroKeystrokes": item.MacroKeystrokes = val; break;
+                    case "ChangeCaseMode": item.ChangeCaseMode = val; break;
                 }
             }
 
