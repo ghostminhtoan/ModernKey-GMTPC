@@ -77,72 +77,211 @@ namespace ModernKey
             PnlVirtualKeyboard.Children.Clear();
             _keyButtons.Clear();
 
-            // Hàng 0: Multimedia & Web keys
-            string[] row0 = { "Back", "Fwd", "Stop", "Refresh", "Search", "Fav", "Home", "Mail", "Vol -", "Vol +", "Mute", "Play", "Prev", "Next", "Media", "Calc" };
-            PnlVirtualKeyboard.Children.Add(CreateKeyRow(row0, 42, 22, true));
+            // 1. HÀNG 0: Multimedia & Web Keys (Căn giữa phía trên)
+            var pnlMedia = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 5) };
+            (string tag, string display, double w)[] mediaKeys = {
+                ("Back", "Back", 39), ("Fwd", "Fwd", 39), ("Stop", "Stop", 39), ("Refresh", "Refresh", 50),
+                ("Search", "Search", 46), ("Fav", "Fav", 38), ("Home", "Home", 39), ("Mail", "Mail", 39),
+                ("Vol -", "Vol -", 41), ("Vol +", "Vol +", 41), ("Mute", "Mute", 39), ("Play", "Play", 39),
+                ("Prev", "Prev", 39), ("Next", "Next", 39), ("Media", "Media", 42), ("Calc", "Calc", 39)
+            };
+            foreach (var mk in mediaKeys)
+            {
+                pnlMedia.Children.Add(CreateKeyButton(mk.tag, mk.display, mk.w, 20, isMultiMedia: true));
+            }
+            PnlVirtualKeyboard.Children.Add(pnlMedia);
 
-            // Hàng 1: Function keys
-            string[] row1 = { "Esc", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12", "PrtSc", "ScrLk", "Pause" };
-            PnlVirtualKeyboard.Children.Add(CreateKeyRow(row1, 42, 26, false));
+            // 2. HÀNG 1: Function Keys Row (Esc + F1-F12 + PrtSc/ScrLk/Pause)
+            var pnlFuncRow = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 6) };
+            
+            // Cụm Function phím chính
+            pnlFuncRow.Children.Add(CreateKeyButton("Esc", "Esc", 29, 24));
+            pnlFuncRow.Children.Add(new Border { Width = 14 }); // Gap Esc -> F1
 
-            // Hàng 2: Number row + Nav + Numpad
-            string[] row2 = { "~", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=", "Backspace", "Ins", "Home", "PgUp", "NumL", "/", "*", "-" };
-            PnlVirtualKeyboard.Children.Add(CreateKeyRow(row2, 34, 26, false));
+            string[] f1_4 = { "F1", "F2", "F3", "F4" };
+            foreach (var f in f1_4) pnlFuncRow.Children.Add(CreateKeyButton(f, f, 29, 24));
+            pnlFuncRow.Children.Add(new Border { Width = 10 }); // Gap F4 -> F5
 
-            // Hàng 3: Tab + QWERTY + Nav + Numpad
-            string[] row3 = { "Tab", "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]", "\\", "Del", "End", "PgDn", "Nm 7", "Nm 8", "Nm 9", "+" };
-            PnlVirtualKeyboard.Children.Add(CreateKeyRow(row3, 34, 26, false));
+            string[] f5_8 = { "F5", "F6", "F7", "F8" };
+            foreach (var f in f5_8) pnlFuncRow.Children.Add(CreateKeyButton(f, f, 29, 24));
+            pnlFuncRow.Children.Add(new Border { Width = 10 }); // Gap F8 -> F9
 
-            // Hàng 4: Caps + Home row + Numpad
-            string[] row4 = { "Caps", "A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'", "Enter", "Nm 4", "Nm 5", "Nm 6" };
-            PnlVirtualKeyboard.Children.Add(CreateKeyRow(row4, 36, 26, false));
+            string[] f9_12 = { "F9", "F10", "F11", "F12" };
+            foreach (var f in f9_12) pnlFuncRow.Children.Add(CreateKeyButton(f, f, 29, 24));
 
-            // Hàng 5: Shift + Bottom row + Arrows + Numpad
-            string[] row5 = { "LeftShift", "Z", "X", "C", "V", "B", "N", "M", ",", ".", "/", "RightShift", "Up", "Nm 1", "Nm 2", "Nm 3", "Nm Enter" };
-            PnlVirtualKeyboard.Children.Add(CreateKeyRow(row5, 36, 26, false));
+            // Gap giữa Main và Nav
+            pnlFuncRow.Children.Add(new Border { Width = 23 });
 
-            // Hàng 6: Modifiers + Space + Arrows + Numpad 0
-            string[] row6 = { "LeftCtrl", "LeftWin", "LeftAlt", "Space", "RightAlt", "RightWin", "Menu", "RightCtrl", "Left", "Down", "Right", "Nm 0", "." };
-            PnlVirtualKeyboard.Children.Add(CreateKeyRow(row6, 40, 26, false));
+            // Cụm Function Nav
+            string[] sysNav = { "PrtSc", "ScrLk", "Pause" };
+            foreach (var s in sysNav) pnlFuncRow.Children.Add(CreateKeyButton(s, s, 29, 24));
+
+            // Gap giữa Nav và Numpad
+            pnlFuncRow.Children.Add(new Border { Width = 12 });
+            // Khoảng trống trên đầu Numpad
+            pnlFuncRow.Children.Add(new Border { Width = 124, Height = 24 });
+
+            PnlVirtualKeyboard.Children.Add(pnlFuncRow);
+
+            // 3. THÂN BÀN PHÍM: 3 KHỐI RIÊNG BIỆT (MAIN ALPHANUMERIC - NAVIGATION - NUMPAD)
+            var pnlBody = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
+
+            // === KHỐI 1: MAIN ALPHANUMERIC BLOCK (15U Width = 465px) ===
+            var pnlMainBlock = new StackPanel { Orientation = Orientation.Vertical, Width = 465 };
+
+            // Hàng 1: Number Row (~ 1..0 - = Backspace)
+            var rowNum = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 1, 0, 1) };
+            string[] numKeys = { "~", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "=" };
+            foreach (var k in numKeys) rowNum.Children.Add(CreateKeyButton(k, k, 29, 26));
+            rowNum.Children.Add(CreateKeyButton("Backspace", "⌫ Back", 60, 26));
+            pnlMainBlock.Children.Add(rowNum);
+
+            // Hàng 2: QWERTY Row (Tab Q..P [ ] \)
+            var rowQwerty = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 1, 0, 1) };
+            rowQwerty.Children.Add(CreateKeyButton("Tab", "Tab", 44.5, 26));
+            string[] qwertyKeys = { "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]" };
+            foreach (var k in qwertyKeys) rowQwerty.Children.Add(CreateKeyButton(k, k, 29, 26));
+            rowQwerty.Children.Add(CreateKeyButton("\\", "\\", 44.5, 26));
+            pnlMainBlock.Children.Add(rowQwerty);
+
+            // Hàng 3: Home Row (Caps A..L ; ' Enter)
+            var rowHome = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 1, 0, 1) };
+            rowHome.Children.Add(CreateKeyButton("Caps", "Caps", 52, 26));
+            string[] homeKeys = { "A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'" };
+            foreach (var k in homeKeys) rowHome.Children.Add(CreateKeyButton(k, k, 29, 26));
+            rowHome.Children.Add(CreateKeyButton("Enter", "Enter", 68, 26));
+            pnlMainBlock.Children.Add(rowHome);
+
+            // Hàng 4: Shift Row (L-Shift Z../ R-Shift)
+            var rowShift = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 1, 0, 1) };
+            rowShift.Children.Add(CreateKeyButton("LeftShift", "Shift", 68, 26));
+            string[] shiftKeys = { "Z", "X", "C", "V", "B", "N", "M", ",", ".", "/" };
+            foreach (var k in shiftKeys) rowShift.Children.Add(CreateKeyButton(k, k, 29, 26));
+            rowShift.Children.Add(CreateKeyButton("RightShift", "Shift", 83, 26));
+            pnlMainBlock.Children.Add(rowShift);
+
+            // Hàng 5: Bottom Modifiers Row (Ctrl Win Alt Space Alt Win Menu Ctrl)
+            var rowBottom = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 1, 0, 1) };
+            rowBottom.Children.Add(CreateKeyButton("LeftCtrl", "Ctrl", 37, 26));
+            rowBottom.Children.Add(CreateKeyButton("LeftWin", "Win", 37, 26));
+            rowBottom.Children.Add(CreateKeyButton("LeftAlt", "Alt", 37, 26));
+            rowBottom.Children.Add(CreateKeyButton("Space", "Space", 187, 26));
+            rowBottom.Children.Add(CreateKeyButton("RightAlt", "Alt", 37, 26));
+            rowBottom.Children.Add(CreateKeyButton("RightWin", "Win", 37, 26));
+            rowBottom.Children.Add(CreateKeyButton("Menu", "Menu", 37, 26));
+            rowBottom.Children.Add(CreateKeyButton("RightCtrl", "Ctrl", 37, 26));
+            pnlMainBlock.Children.Add(rowBottom);
+
+            pnlBody.Children.Add(pnlMainBlock);
+
+            // Gap giữa Main và Nav
+            pnlBody.Children.Add(new Border { Width = 12 });
+
+            // === KHỐI 2: NAVIGATION & ARROW CLUSTER (3U Width = 93px) ===
+            var pnlNavBlock = new StackPanel { Orientation = Orientation.Vertical, Width = 93 };
+
+            // Nav Row 1: Ins, Home, PgUp
+            var rowNav1 = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 1, 0, 1) };
+            string[] nav1 = { "Ins", "Home", "PgUp" };
+            foreach (var k in nav1) rowNav1.Children.Add(CreateKeyButton(k, k, 29, 26));
+            pnlNavBlock.Children.Add(rowNav1);
+
+            // Nav Row 2: Del, End, PgDn
+            var rowNav2 = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 1, 0, 1) };
+            string[] nav2 = { "Del", "End", "PgDn" };
+            foreach (var k in nav2) rowNav2.Children.Add(CreateKeyButton(k, k, 29, 26));
+            pnlNavBlock.Children.Add(rowNav2);
+
+            // Nav Row 3: Khoảng trống giữa cụm biên tập và cụm mũi tên
+            pnlNavBlock.Children.Add(new Border { Height = 28 });
+
+            // Nav Row 4: Mũi tên Up (chữ T ngược)
+            var rowNav4 = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 1, 0, 1) };
+            rowNav4.Children.Add(new Border { Width = 31 }); // Khoảng trống bên trái Up
+            rowNav4.Children.Add(CreateKeyButton("Up", "▲", 29, 26));
+            rowNav4.Children.Add(new Border { Width = 31 }); // Khoảng trống bên phải Up
+            pnlNavBlock.Children.Add(rowNav4);
+
+            // Nav Row 5: Mũi tên Left, Down, Right
+            var rowNav5 = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 1, 0, 1) };
+            rowNav5.Children.Add(CreateKeyButton("Left", "◀", 29, 26));
+            rowNav5.Children.Add(CreateKeyButton("Down", "▼", 29, 26));
+            rowNav5.Children.Add(CreateKeyButton("Right", "▶", 29, 26));
+            pnlNavBlock.Children.Add(rowNav5);
+
+            pnlBody.Children.Add(pnlNavBlock);
+
+            // Gap giữa Nav và Numpad
+            pnlBody.Children.Add(new Border { Width = 12 });
+
+            // === KHỐI 3: NUMPAD CLUSTER (4 Cột x 5 Hàng Lưới Chuẩn = 124px) ===
+            var gridNumpad = new Grid { Width = 124 };
+            for (int i = 0; i < 4; i++) gridNumpad.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(31) });
+            for (int i = 0; i < 5; i++) gridNumpad.RowDefinitions.Add(new RowDefinition { Height = new GridLength(28) });
+
+            // Hàng 0: NumLock, /, *, -
+            AddKeyToGrid(gridNumpad, CreateKeyButton("NumLock", "Num", 29, 26), 0, 0);
+            AddKeyToGrid(gridNumpad, CreateKeyButton("/", "/", 29, 26), 0, 1);
+            AddKeyToGrid(gridNumpad, CreateKeyButton("*", "*", 29, 26), 0, 2);
+            AddKeyToGrid(gridNumpad, CreateKeyButton("-", "-", 29, 26), 0, 3);
+
+            // Hàng 1: 7, 8, 9, + (cao 2 hàng)
+            AddKeyToGrid(gridNumpad, CreateKeyButton("Num 7", "7", 29, 26), 1, 0);
+            AddKeyToGrid(gridNumpad, CreateKeyButton("Num 8", "8", 29, 26), 1, 1);
+            AddKeyToGrid(gridNumpad, CreateKeyButton("Num 9", "9", 29, 26), 1, 2);
+            AddKeyToGrid(gridNumpad, CreateKeyButton("+", "+", 29, 54), 1, 3, rowSpan: 2);
+
+            // Hàng 2: 4, 5, 6
+            AddKeyToGrid(gridNumpad, CreateKeyButton("Num 4", "4", 29, 26), 2, 0);
+            AddKeyToGrid(gridNumpad, CreateKeyButton("Num 5", "5", 29, 26), 2, 1);
+            AddKeyToGrid(gridNumpad, CreateKeyButton("Num 6", "6", 29, 26), 2, 2);
+
+            // Hàng 3: 1, 2, 3, Enter (cao 2 hàng)
+            AddKeyToGrid(gridNumpad, CreateKeyButton("Num 1", "1", 29, 26), 3, 0);
+            AddKeyToGrid(gridNumpad, CreateKeyButton("Num 2", "2", 29, 26), 3, 1);
+            AddKeyToGrid(gridNumpad, CreateKeyButton("Num 3", "3", 29, 26), 3, 2);
+            AddKeyToGrid(gridNumpad, CreateKeyButton("Num Enter", "Enter", 29, 54), 3, 3, rowSpan: 2);
+
+            // Hàng 4: 0 (rộng 2 cột), .
+            AddKeyToGrid(gridNumpad, CreateKeyButton("Num 0", "0", 60, 26), 4, 0, colSpan: 2);
+            AddKeyToGrid(gridNumpad, CreateKeyButton(".", ".", 29, 26), 4, 2);
+
+            pnlBody.Children.Add(gridNumpad);
+
+            PnlVirtualKeyboard.Children.Add(pnlBody);
         }
 
-        private StackPanel CreateKeyRow(string[] keys, double defaultWidth, double height, bool isMultiMedia)
+        private Button CreateKeyButton(string tag, string displayText, double width, double height, bool isMultiMedia = false)
         {
-            var rowPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 1, 0, 1) };
-
-            foreach (var k in keys)
+            var btn = new Button
             {
-                double w = defaultWidth;
-                if (k == "Space") w = 180;
-                else if (k == "Backspace" || k == "Tab" || k == "Caps") w = 54;
-                else if (k == "Enter" || k == "LeftShift" || k == "RightShift") w = 62;
-                else if (k == "Nm 0") w = 70;
-                else if (k.StartsWith("Left") || k.StartsWith("Right")) w = 46;
+                Content = displayText,
+                Tag = tag,
+                Width = width,
+                Height = height,
+                Margin = new Thickness(1),
+                FontFamily = new FontFamily("Consolas, Segoe UI"),
+                FontSize = isMultiMedia ? 8.5 : (displayText.Length > 4 ? 8.5 : 10),
+                Padding = new Thickness(0),
+                Background = isMultiMedia ? new SolidColorBrush(Color.FromRgb(15, 30, 45)) : new SolidColorBrush(Color.FromRgb(20, 24, 32)),
+                Foreground = isMultiMedia ? new SolidColorBrush(Color.FromRgb(0, 240, 255)) : new SolidColorBrush(Color.FromRgb(220, 220, 220)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(45, 55, 70)),
+                BorderThickness = new Thickness(1),
+                ToolTip = "Phím: " + tag
+            };
 
-                var btn = new Button
-                {
-                    Content = k.Replace("Left", "L-").Replace("Right", "R-"),
-                    Tag = k,
-                    Width = w,
-                    Height = height,
-                    Margin = new Thickness(1, 0, 1, 0),
-                    FontFamily = new FontFamily("Consolas"),
-                    FontSize = isMultiMedia ? 8.5 : 10,
-                    Padding = new Thickness(0),
-                    Background = isMultiMedia ? new SolidColorBrush(Color.FromRgb(15, 30, 45)) : new SolidColorBrush(Color.FromRgb(20, 24, 32)),
-                    Foreground = isMultiMedia ? new SolidColorBrush(Color.FromRgb(0, 240, 255)) : new SolidColorBrush(Color.FromRgb(220, 220, 220)),
-                    BorderBrush = new SolidColorBrush(Color.FromRgb(45, 55, 70)),
-                    BorderThickness = new Thickness(1),
-                    ToolTip = "Phím: " + k
-                };
+            btn.Click += VirtualKey_Click;
+            _keyButtons[tag] = btn;
+            return btn;
+        }
 
-                btn.Click += VirtualKey_Click;
-                rowPanel.Children.Add(btn);
-
-                _keyButtons[k] = btn;
-            }
-
-            return rowPanel;
+        private void AddKeyToGrid(Grid grid, Button btn, int row, int col, int rowSpan = 1, int colSpan = 1)
+        {
+            Grid.SetRow(btn, row);
+            Grid.SetColumn(btn, col);
+            if (rowSpan > 1) Grid.SetRowSpan(btn, rowSpan);
+            if (colSpan > 1) Grid.SetColumnSpan(btn, colSpan);
+            grid.Children.Add(btn);
         }
 
         private bool MatchesKeyToken(string combo, string keyName)
@@ -156,7 +295,19 @@ namespace ModernKey
             {
                 if (string.Equals(token, keyName, StringComparison.OrdinalIgnoreCase)) return true;
 
+                // Khớp phím mũi tên Left/Right/Up/Down
+                if (keyName == "Left" && (string.Equals(token, "LeftArrow", StringComparison.OrdinalIgnoreCase) || string.Equals(token, "Left", StringComparison.OrdinalIgnoreCase))) return true;
+                if (keyName == "Right" && (string.Equals(token, "RightArrow", StringComparison.OrdinalIgnoreCase) || string.Equals(token, "Right", StringComparison.OrdinalIgnoreCase))) return true;
+                if (keyName == "Up" && (string.Equals(token, "UpArrow", StringComparison.OrdinalIgnoreCase) || string.Equals(token, "Up", StringComparison.OrdinalIgnoreCase))) return true;
+                if (keyName == "Down" && (string.Equals(token, "DownArrow", StringComparison.OrdinalIgnoreCase) || string.Equals(token, "Down", StringComparison.OrdinalIgnoreCase))) return true;
+
                 // Khớp viết tắt Numpad
+                if (keyName.StartsWith("Num ") && (string.Equals(token, "Nm " + keyName.Substring(4), StringComparison.OrdinalIgnoreCase) ||
+                                                   string.Equals(token, "NumPad" + keyName.Substring(4), StringComparison.OrdinalIgnoreCase) ||
+                                                   string.Equals(token, "Num" + keyName.Substring(4), StringComparison.OrdinalIgnoreCase))) return true;
+                if (token.StartsWith("Num ") && (string.Equals(keyName, "Nm " + token.Substring(4), StringComparison.OrdinalIgnoreCase) ||
+                                                 string.Equals(keyName, "NumPad" + token.Substring(4), StringComparison.OrdinalIgnoreCase) ||
+                                                 string.Equals(keyName, "Num" + token.Substring(4), StringComparison.OrdinalIgnoreCase))) return true;
                 if (keyName.StartsWith("Nm ") && string.Equals(token, "Num " + keyName.Substring(3), StringComparison.OrdinalIgnoreCase)) return true;
                 if (token.StartsWith("Nm ") && string.Equals(keyName, "Num " + token.Substring(3), StringComparison.OrdinalIgnoreCase)) return true;
 
