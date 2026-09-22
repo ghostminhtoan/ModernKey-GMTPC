@@ -39,9 +39,6 @@ namespace ModernKey.Core
         private static extern bool PlaySound(string pszSound, IntPtr hmod, uint fdwSound);
 
         private const int SW_RESTORE = 9;
-        private const byte VK_VOLUME_MUTE = 0xAD;
-        private const byte VK_VOLUME_DOWN = 0xAE;
-        private const byte VK_VOLUME_UP = 0xAF;
         private const uint KEYEVENTF_KEYUP = 0x0002;
 
         public ComfortShortcutManager()
@@ -543,30 +540,33 @@ namespace ModernKey.Core
         }
 
 
+        public void AdjustVolume(float deltaPercent)
+        {
+            var res = VolumeController.AdjustVolume(deltaPercent);
+            ModernKey.VolumeOsdWindow.Instance?.ShowVolume(res.volume, res.isMuted);
+        }
+
+        public void ToggleMute()
+        {
+            var res = VolumeController.ToggleMute();
+            ModernKey.VolumeOsdWindow.Instance?.ShowVolume(res.volume, res.isMuted);
+        }
+
         private void ExecuteAudioControl(ComfortShortcutItem item)
         {
-            int step = Math.Max(1, item.AudioStepSize / 2); // Mỗi lần nhấn VK_VOLUME_UP/DOWN tăng/giảm 2%
+            int stepSize = item.AudioStepSize > 0 ? item.AudioStepSize : 10;
 
             if (item.AudioAction == "Volume up")
             {
-                for (int i = 0; i < step; i++)
-                {
-                    keybd_event(VK_VOLUME_UP, 0, 0, UIntPtr.Zero);
-                    keybd_event(VK_VOLUME_UP, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-                }
+                AdjustVolume(stepSize);
             }
             else if (item.AudioAction == "Volume down")
             {
-                for (int i = 0; i < step; i++)
-                {
-                    keybd_event(VK_VOLUME_DOWN, 0, 0, UIntPtr.Zero);
-                    keybd_event(VK_VOLUME_DOWN, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-                }
+                AdjustVolume(-stepSize);
             }
             else if (item.AudioAction == "Volume on/off")
             {
-                keybd_event(VK_VOLUME_MUTE, 0, 0, UIntPtr.Zero);
-                keybd_event(VK_VOLUME_MUTE, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
+                ToggleMute();
             }
             else if (item.AudioAction == "Eject/Close CD door")
             {

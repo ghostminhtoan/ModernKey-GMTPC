@@ -25,6 +25,7 @@ namespace ModernKey
         private AppSettings _settings;
         private MainWindow _mainWindow;
         private StatusOsdWindow _statusOsdWindow;
+        private VolumeOsdWindow _volumeOsdWindow;
         private ClipboardHistoryManager _clipboardHistory;
         private ClipboardListener _clipboardListener;
         private ClipboardWindow _clipboardWindow;
@@ -191,6 +192,7 @@ namespace ModernKey
             // 3. Khởi tạo Tray Icon, OSD & Clipboard Listener
             _trayManager = new SystemTrayManager(_settings, (tab) => ShowMainWindow(tab), ExitApplication, ShowClipboardWindow, QuickConvertClipboard, ShowComfortShortcutsWindow);
             _statusOsdWindow = new StatusOsdWindow();
+            _volumeOsdWindow = new VolumeOsdWindow();
             _clipboardListener = new ClipboardListener(_clipboardHistory, _settings);
 
             // 4. Kiểm tra xung đột với bộ gõ tiếng Việt khác đang chạy ngầm (OpenKey, UniKey, EVKey)
@@ -807,6 +809,7 @@ namespace ModernKey
                 try { _clipboardHistory?.SaveHistoryNow(); } catch { }
                 try { _trayManager?.Dispose(); } catch { }
                 try { _statusOsdWindow?.Close(); } catch { }
+                try { _volumeOsdWindow?.Close(); } catch { }
                 try { _clipboardWindow?.Close(); } catch { }
                 try { _macroQuickListWindow?.Close(); } catch { }
                 try { _comfortShortcutsWindow?.Close(); } catch { }

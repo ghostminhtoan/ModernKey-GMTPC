@@ -657,6 +657,26 @@ namespace ModernKey.Hook
                         return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
                     }
 
+                    // 0.1. Chặn phím Media Volume phần cứng để hiện OSD đáy màn hình (chuẩn Comfort Keys Pro), không kích hoạt System Flyout Windows
+                    if (vkCode == 0xAF) // VK_VOLUME_UP
+                    {
+                        ComfortShortcutManager.Instance.AdjustVolume(2);
+                        _engine?.Reset();
+                        return (IntPtr)1;
+                    }
+                    else if (vkCode == 0xAE) // VK_VOLUME_DOWN
+                    {
+                        ComfortShortcutManager.Instance.AdjustVolume(-2);
+                        _engine?.Reset();
+                        return (IntPtr)1;
+                    }
+                    else if (vkCode == 0xAD) // VK_VOLUME_MUTE
+                    {
+                        ComfortShortcutManager.Instance.ToggleMute();
+                        _engine?.Reset();
+                        return (IntPtr)1;
+                    }
+
                     // 17. Phát âm thanh click phím cơ Cyberpunk nếu được bật (non-blocking)
                     if (_settings.EnableKeySound)
                     {
@@ -1061,6 +1081,11 @@ namespace ModernKey.Hook
                 else if (msg == WM_KEYUP || msg == WM_SYSKEYUP)
                 {
                     uint vkCode = hookStruct.vkCode;
+
+                    if (vkCode == 0xAF || vkCode == 0xAE || vkCode == 0xAD)
+                    {
+                        return (IntPtr)1; // Nuốt sự kiện nhả phím media volume
+                    }
 
                     bool isModifierKey = (vkCode == 0x11 || vkCode == 0xA2 || vkCode == 0xA3 || // Ctrl
                                           vkCode == 0x10 || vkCode == 0xA0 || vkCode == 0xA1 || // Shift
