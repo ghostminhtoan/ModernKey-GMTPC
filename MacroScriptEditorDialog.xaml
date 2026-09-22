@@ -1,0 +1,218 @@
+<Window x:Class="ModernKey.MacroScriptEditorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Keystroke Macro Script Editor (Jitbit Engine)"
+        Height="620" Width="890" MinWidth="760" MinHeight="500"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        ResizeMode="CanResizeWithGrip">
+
+    <Border Background="{StaticResource CyberDark}" BorderBrush="{StaticResource CyberNeonCyan}"
+            BorderThickness="1.5" CornerRadius="4" Padding="12">
+        <Border.Effect>
+            <DropShadowEffect Color="#00F0FF" BlurRadius="16" ShadowDepth="0" Opacity="0.4" />
+        </Border.Effect>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <!-- 0: Title Bar (Draggable) -->
+                <RowDefinition Height="32" />
+                <!-- 1: Toolbar Actions (Record, Add, Edit, Delete, Move, Test) -->
+                <RowDefinition Height="Auto" />
+                <!-- 2: Main Workspace (Visual Steps vs Raw Script) -->
+                <RowDefinition Height="*" />
+                <!-- 3: Step Editor Helper Panel (Expander / Quick Add) -->
+                <RowDefinition Height="Auto" />
+                <!-- 4: Bottom Bar (Save, Cancel, Status) -->
+                <RowDefinition Height="42" />
+            </Grid.RowDefinitions>
+
+            <!-- 0: Title Bar -->
+            <Grid Grid.Row="0" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown" Background="Transparent">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="22" Height="22" Background="#1A102A" BorderBrush="{StaticResource CyberNeonPink}"
+                            BorderThickness="1" CornerRadius="3" Margin="0,0,8,0">
+                        <TextBlock Text="📝" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="Keystroke Macro Script Editor - [Jitbit Automation Engine]"
+                               FontWeight="Bold" FontFamily="Consolas, Segoe UI" FontSize="13.5"
+                               Foreground="{StaticResource CyberNeonCyan}" VerticalAlignment="Center" />
+                    <Border Background="#162A38" CornerRadius="2" Margin="10,0,0,0" Padding="6,2" VerticalAlignment="Center">
+                        <TextBlock Text="Hỗ trợ Chuột + Phím + Delay" FontSize="10.5" FontFamily="Consolas" Foreground="{StaticResource CyberNeonGreen}" />
+                    </Border>
+                </StackPanel>
+
+                <!-- Window Control Buttons -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="✕" Width="28" Height="24" Background="#3A1010" BorderBrush="{StaticResource CyberNeonPink}"
+                            Foreground="{StaticResource CyberNeonPink}" FontSize="12" Padding="0" Click="BtnClose_Click" ToolTip="Đóng cửa sổ" />
+                </StackPanel>
+            </Grid>
+
+            <!-- 1: Toolbar Actions -->
+            <Border Grid.Row="1" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}"
+                    BorderThickness="1" CornerRadius="3" Padding="8,6" Margin="0,6,0,8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <WrapPanel Grid.Column="0" VerticalAlignment="Center">
+                        <!-- Record Button -->
+                        <Button x:Name="BtnRecord" Content="🔴 Ghi Macro (F11/Esc)" Height="28" Padding="12,2" Margin="0,0,8,0"
+                                Background="#3A101A" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}"
+                                Click="BtnRecord_Click" ToolTip="Bắt đầu ghi lại thao tác chuột &amp; bàn phím thời gian thực. Nhấn [F11] hoặc [Esc] để kết thúc." />
+
+                        <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="4,0,8,0" Background="{StaticResource CyberBorderDim}" />
+
+                        <!-- Add / Edit / Delete / Move -->
+                        <Button Content="➕ Thêm Bước" Height="28" Padding="10,2" Margin="0,0,6,0" Click="BtnAddStep_Click" ToolTip="Thêm hành động mới vào kịch bản" />
+                        <Button Content="✏️ Sửa" Height="28" Padding="10,2" Margin="0,0,6,0" Click="BtnEditStep_Click" ToolTip="Sửa bước đang chọn" />
+                        <Button Content="🗑️ Xóa" Height="28" Padding="10,2" Margin="0,0,6,0" Click="BtnDeleteStep_Click" ToolTip="Xóa bước đang chọn" />
+                        <Button Content="⬆️ Lên" Height="28" Padding="8,2" Margin="0,0,6,0" Click="BtnMoveUp_Click" ToolTip="Di chuyển bước lên trên" />
+                        <Button Content="⬇️ Xuống" Height="28" Padding="8,2" Margin="0,0,8,0" Click="BtnMoveDown_Click" ToolTip="Di chuyển bước xuống dưới" />
+                        <Button Content="🧹 Xóa Hết" Height="28" Padding="8,2" Margin="0,0,6,0" Background="#281414" BorderBrush="#882030" Click="BtnClear_Click" ToolTip="Xóa sạch toàn bộ kịch bản" />
+                    </WrapPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <!-- Test Run Button -->
+                        <Button x:Name="BtnTestRun" Content="▶️ Chạy Thử (Test Run)" Height="28" Padding="14,2"
+                                Background="#0B3020" BorderBrush="{StaticResource CyberNeonGreen}" Foreground="{StaticResource CyberNeonGreen}"
+                                Click="BtnTestRun_Click" ToolTip="Thu nhỏ cửa sổ và chạy thử kịch bản sau 1.5 giây để kiểm tra độ chuẩn xác" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 2: Main Workspace (TabControl) -->
+            <TabControl x:Name="TabWorkspace" Grid.Row="2" Background="Transparent" BorderBrush="{StaticResource CyberBorderDim}">
+                <!-- Tab 1: Visual Steps Table -->
+                <TabItem Header="📋 Danh Sách Kịch Bản (Visual Steps)" FontFamily="Consolas">
+                    <Grid Margin="0,6,0,0">
+                        <ListView x:Name="ListSteps" Background="{StaticResource CyberInput}" Foreground="{StaticResource CyberTextPrimary}"
+                                  BorderBrush="{StaticResource CyberBorderDim}" FontFamily="Consolas" FontSize="12"
+                                  SelectionMode="Single" MouseDoubleClick="ListSteps_MouseDoubleClick" SelectionChanged="ListSteps_SelectionChanged">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="#" Width="45" DisplayMemberBinding="{Binding StepNumber}" />
+                                    <GridViewColumn Header="Hành Động (Action)" Width="170" DisplayMemberBinding="{Binding ActionDisplay}" />
+                                    <GridViewColumn Header="Chi Tiết Tham Số" Width="360" DisplayMemberBinding="{Binding DetailsDisplay}" />
+                                    <GridViewColumn Header="Độ Trễ" Width="80" DisplayMemberBinding="{Binding DelayDisplay}" />
+                                    <GridViewColumn Header="Lệnh Kịch Bản" Width="180" DisplayMemberBinding="{Binding RawScriptLine}" />
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
+                    </Grid>
+                </TabItem>
+
+                <!-- Tab 2: Raw Script Editor -->
+                <TabItem Header="📝 Mã Script Trực Tiếp (Raw Script)" FontFamily="Consolas">
+                    <Grid Margin="0,6,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBox x:Name="TxtRawScript" Grid.Row="0" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
+                                 HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12.5" Padding="8"
+                                 Background="{StaticResource CyberInput}" Foreground="{StaticResource CyberNeonCyan}"
+                                 BorderBrush="{StaticResource CyberBorderDim}" TextWrapping="NoWrap" />
+
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
+                            <Button Content="🔄 Đồng bộ vào bảng danh sách" Height="26" Padding="10,2" Margin="0,0,6,0" Click="BtnSyncToTable_Click" />
+                            <Button Content="⬇️ Cập nhật từ bảng sang mã" Height="26" Padding="10,2" Click="BtnSyncFromTable_Click" />
+                        </StackPanel>
+                    </Grid>
+                </TabItem>
+            </TabControl>
+
+            <!-- 3: Step Editor Helper Panel -->
+            <Border Grid.Row="3" Background="{StaticResource CyberPanel}" BorderBrush="{StaticResource CyberBorderDim}"
+                    BorderThickness="1" CornerRadius="3" Padding="10,8" Margin="0,8,0,8">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="⚡ Trình Chỉnh Sửa / Thêm Bước Nhanh:" FontWeight="Bold" FontFamily="Consolas"
+                               Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,6" FontSize="12" />
+
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Action Type Selector -->
+                        <ComboBox x:Name="CmbActionKind" Grid.Column="0" Height="26" FontFamily="Consolas" SelectionChanged="CmbActionKind_SelectionChanged">
+                            <ComboBoxItem Content="🖱️ Click Chuột" Tag="MOUSE_CLICK" IsSelected="True" />
+                            <ComboBoxItem Content="🖱️ Double Click" Tag="MOUSE_DBLCLICK" />
+                            <ComboBoxItem Content="📜 Cuộn Chuột" Tag="MOUSE_WHEEL" />
+                            <ComboBoxItem Content="⌨️ Nhấn Phím" Tag="KEY_PRESS" />
+                            <ComboBoxItem Content="🔤 Gõ Văn Bản" Tag="TEXT" />
+                            <ComboBoxItem Content="⏱️ Nghỉ (Delay)" Tag="DELAY" />
+                        </ComboBox>
+
+                        <!-- Button / Subtype -->
+                        <ComboBox x:Name="CmbSubKind" Grid.Column="2" Height="26" FontFamily="Consolas">
+                            <ComboBoxItem Content="Trái (LEFT)" Tag="LEFT" IsSelected="True" />
+                            <ComboBoxItem Content="Phải (RIGHT)" Tag="RIGHT" />
+                            <ComboBoxItem Content="Giữa (MIDDLE)" Tag="MIDDLE" />
+                        </ComboBox>
+
+                        <!-- Parameters Input -->
+                        <Grid Grid.Column="4">
+                            <!-- Mouse Coords Panel -->
+                            <StackPanel x:Name="PanelMouseParams" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="X:" VerticalAlignment="Center" FontFamily="Consolas" Margin="0,0,4,0" Foreground="{StaticResource CyberTextSecondary}" />
+                                <TextBox x:Name="TxtCoordX" Width="60" Height="26" Text="640" FontFamily="Consolas" Background="{StaticResource CyberInput}" Foreground="{StaticResource CyberTextPrimary}" Margin="0,0,8,0" />
+                                <TextBlock Text="Y:" VerticalAlignment="Center" FontFamily="Consolas" Margin="0,0,4,0" Foreground="{StaticResource CyberTextSecondary}" />
+                                <TextBox x:Name="TxtCoordY" Width="60" Height="26" Text="480" FontFamily="Consolas" Background="{StaticResource CyberInput}" Foreground="{StaticResource CyberTextPrimary}" Margin="0,0,8,0" />
+                                <Button Content="🎯 Lấy Vị Trí Chuột" Height="26" Padding="8,2" Click="BtnPickMousePos_Click" ToolTip="Lấy tọa độ con trỏ chuột hiện tại" />
+                            </StackPanel>
+
+                            <!-- Key / Text / Delay Param Panel -->
+                            <TextBox x:Name="TxtSingleParam" Height="26" FontFamily="Consolas" Background="{StaticResource CyberInput}"
+                                     Foreground="{StaticResource CyberTextPrimary}" Visibility="Collapsed" VerticalContentAlignment="Center" Padding="4,0" />
+                        </Grid>
+
+                        <!-- Action Buttons: Apply / Add -->
+                        <StackPanel Grid.Column="6" Orientation="Horizontal">
+                            <Button x:Name="BtnSaveStepEdit" Content="💾 Cập Nhật Bước" Height="26" Padding="10,2" Margin="0,0,6,0" Click="BtnSaveStepEdit_Click" />
+                            <Button Content="➕ Thêm Vào Cuối" Height="26" Padding="10,2" Click="BtnAddStepToEnd_Click" Background="#0F2840" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- 4: Bottom Bar (Save, Cancel, Status) -->
+            <Grid Grid.Row="4" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock x:Name="TxtStatus" Text="Sẵn sàng chỉnh sửa kịch bản macro." FontFamily="Consolas"
+                           Foreground="{StaticResource CyberTextSecondary}" VerticalAlignment="Center" />
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="💾 Lưu &amp; Áp Dụng (Save)" Height="30" Padding="18,4" Margin="0,0,8,0"
+                            Background="#0E3628" BorderBrush="{StaticResource CyberNeonGreen}" Foreground="{StaticResource CyberNeonGreen}"
+                            Click="BtnSaveAndApply_Click" ToolTip="Lưu kịch bản và áp dụng vào phím tắt" />
+                    <Button Content="❌ Hủy (Cancel)" Height="30" Padding="14,4" Click="BtnClose_Click" />
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

@@ -484,8 +484,8 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="Step size:" VerticalAlignment="Center" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,10,0" />
-                                    <Slider x:Name="SldAudioStepSize" Grid.Column="1" Minimum="2" Maximum="50" Value="10" TickFrequency="2" IsSnapToTickEnabled="True" VerticalAlignment="Center" ValueChanged="SldAudioStepSize_ValueChanged" />
-                                    <TextBlock x:Name="TxtAudioStepVal" Grid.Column="2" Text="10%" VerticalAlignment="Center" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" Margin="10,0,0,0" />
+                                    <Slider x:Name="SldAudioStepSize" Grid.Column="1" Minimum="1" Maximum="50" Value="5" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center" ValueChanged="SldAudioStepSize_ValueChanged" />
+                                    <TextBlock x:Name="TxtAudioStepVal" Grid.Column="2" Text="5%" VerticalAlignment="Center" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" Margin="10,0,0,0" />
                                 </Grid>
                             </Grid>
 
@@ -629,14 +629,31 @@
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
                                     <RowDefinition Height="*" />
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
                                 <TextBlock Grid.Row="0" Text="Action type : Keystroke macro" FontWeight="Bold" FontFamily="Consolas" Foreground="{StaticResource CyberNeonCyan}" Margin="0,5,0,8" FontSize="13" />
-                                <TextBlock Grid.Row="1" Text="Chuỗi phím Macro và độ trễ (Delay):" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
-                                <TextBox x:Name="TxtMacroKeystrokes" Grid.Row="2" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12" Padding="6" Background="{StaticResource CyberInput}" Foreground="{StaticResource CyberTextPrimary}" BorderBrush="{StaticResource CyberBorderDim}" TextChanged="TxtMacroKeystrokes_TextChanged" Margin="0,0,0,8" />
-                                <Border Grid.Row="3" Background="#0B1C28" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="8,6">
-                                    <TextBlock Text="Cú pháp hỗ trợ: {Ctrl+C}, {Ctrl+V}, {ENTER}, {TAB}, {ESC}, {DELAY:200} (nghỉ 200ms) hoặc văn bản gõ tự do."
+
+                                <!-- Record & Script Editor Action Buttons -->
+                                <Grid Grid.Row="1" Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Button x:Name="BtnRecordMacro" Grid.Column="0" Content="🔴 Record Macro (F11/Esc)" Height="30"
+                                            Background="#3A101A" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}"
+                                            Click="BtnRecordMacro_Click" ToolTip="Bắt đầu ghi thao tác chuột &amp; bàn phím thời gian thực. Nhấn [F11] hoặc [Esc] để dừng ghi." />
+                                    <Button x:Name="BtnOpenScriptEditor" Grid.Column="2" Content="📝 Script Editor..." Height="30"
+                                            Background="#0C263A" BorderBrush="{StaticResource CyberNeonCyan}" Foreground="{StaticResource CyberNeonCyan}"
+                                            Click="BtnOpenScriptEditor_Click" ToolTip="Mở bảng kịch bản trực quan &amp; chỉnh sửa từng bước kịch bản macro" />
+                                </Grid>
+
+                                <TextBlock Grid.Row="2" Text="Chuỗi phím Macro và kịch bản (Script):" FontFamily="Consolas" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,0,4" />
+                                <TextBox x:Name="TxtMacroKeystrokes" Grid.Row="3" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12" Padding="6" Background="{StaticResource CyberInput}" Foreground="{StaticResource CyberTextPrimary}" BorderBrush="{StaticResource CyberBorderDim}" TextChanged="TxtMacroKeystrokes_TextChanged" Margin="0,0,0,8" />
+                                <Border Grid.Row="4" Background="#0B1C28" BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1" CornerRadius="2" Padding="8,6">
+                                    <TextBlock Text="Cú pháp hỗ trợ Jitbit: MOUSE_CLICK, MOUSE_DBLCLICK, MOUSE_WHEEL, KEY_PRESS, DELAY hoặc token {Ctrl+C}, {ENTER}."
                                                FontFamily="Consolas" FontSize="10.5" Foreground="{StaticResource CyberNeonCyan}" TextWrapping="Wrap" />
                                 </Border>
                             </Grid>
@@ -651,6 +668,7 @@
                                         <ComboBoxItem Content="🔡 viết thường toàn bộ (lowercase)" Tag="lowercase" />
                                         <ComboBoxItem Content="🔤 Viết Hoa Chữ Đầu Mỗi Từ (Title Case)" Tag="TitleCase" />
                                         <ComboBoxItem Content="📝 Viết hoa đầu câu (Sentence case)" Tag="SentenceCase" />
+                                        <ComboBoxItem Content="🔀 ĐẢO NGƯỢC HOA/thường (tOGGLE cASE)" Tag="ToggleCase" />
                                     </ComboBox>
                                 </StackPanel>
                             </Grid>

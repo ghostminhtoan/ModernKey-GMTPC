@@ -291,7 +291,7 @@ namespace ModernKey.Hook
             return list;
         }
 
-        private static bool NativeSetClipboardText(string text)
+        public static bool NativeSetClipboardText(string text)
         {
             EnsureExcludeFormats();
 

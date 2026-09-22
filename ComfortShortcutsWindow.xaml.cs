@@ -817,7 +817,7 @@ namespace ModernKey
                     break;
                 }
             }
-            SldAudioStepSize.Value = Math.Max(2, item.AudioStepSize);
+            SldAudioStepSize.Value = item.AudioStepSize > 0 ? item.AudioStepSize : 5;
             TxtAudioStepVal.Text = (int)SldAudioStepSize.Value + "%";
 
             // 5. Replace key
@@ -891,7 +891,9 @@ namespace ModernKey
             // 11. Change case (Gợi ý 14)
             foreach (ComboBoxItem cbi in CmbChangeCaseMode.Items)
             {
-                if (string.Equals(cbi.Tag?.ToString(), item.ChangeCaseMode, StringComparison.OrdinalIgnoreCase))
+                string tag = cbi.Tag?.ToString();
+                if (string.Equals(tag, item.ChangeCaseMode, StringComparison.OrdinalIgnoreCase) ||
+                    (tag != null && item.ChangeCaseMode != null && tag.Replace(" ", "").Equals(item.ChangeCaseMode.Replace(" ", ""), StringComparison.OrdinalIgnoreCase)))
                 {
                     CmbChangeCaseMode.SelectedItem = cbi;
                     break;
@@ -1148,6 +1150,63 @@ namespace ModernKey
             if (_isUpdatingUi || _selectedItem == null) return;
             _selectedItem.MacroKeystrokes = TxtMacroKeystrokes.Text;
             _selectedItem.LastChanged = DateTime.Now;
+        }
+
+        private void BtnRecordMacro_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedItem == null)
+            {
+                MessageBox.Show("Vui lòng chọn một mục phím tắt Macro trước khi ghi!", "ModernKey Macro", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            WindowState = WindowState.Minimized;
+
+            Action<string> finishedHandler = null;
+            finishedHandler = (fullScript) =>
+            {
+                MacroRecorder.Instance.OnRecordingFinished -= finishedHandler;
+
+                Dispatcher.Invoke(() =>
+                {
+                    WindowState = WindowState.Normal;
+                    Activate();
+
+                    if (!string.IsNullOrWhiteSpace(fullScript))
+                    {
+                        TxtMacroKeystrokes.Text = fullScript;
+                        _selectedItem.MacroKeystrokes = fullScript;
+                        _selectedItem.LastChanged = DateTime.Now;
+                        ComfortShortcutManager.Instance.Save();
+                        MessageBox.Show("Đã ghi xong kịch bản Macro và lưu vào phím tắt!", "ModernKey Macro", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                });
+            };
+
+            MacroRecorder.Instance.OnRecordingFinished += finishedHandler;
+            MacroRecorder.Instance.StartRecording();
+        }
+
+        private void BtnOpenScriptEditor_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedItem == null)
+            {
+                MessageBox.Show("Vui lòng chọn một mục phím tắt Macro để mở bảng kịch bản!", "ModernKey Macro", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var dlg = new MacroScriptEditorDialog(TxtMacroKeystrokes.Text)
+            {
+                Owner = this
+            };
+
+            if (dlg.ShowDialog() == true)
+            {
+                TxtMacroKeystrokes.Text = dlg.ResultScript ?? string.Empty;
+                _selectedItem.MacroKeystrokes = TxtMacroKeystrokes.Text;
+                _selectedItem.LastChanged = DateTime.Now;
+                ComfortShortcutManager.Instance.Save();
+            }
         }
 
         private void CmbChangeCaseMode_SelectionChanged(object sender, SelectionChangedEventArgs e)

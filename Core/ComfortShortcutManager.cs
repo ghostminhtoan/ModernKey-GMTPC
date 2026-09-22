@@ -66,7 +66,10 @@ namespace ModernKey.Core
         private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
         [DllImport("user32.dll")]
-        private static extern void mouse_event(uint dwFlags, int dx, int dy, int dwData, UIntPtr dwExtraInfo);
+        private static extern bool SetCursorPos(int X, int Y);
+
+        [DllImport("user32.dll")]
+        private static extern void mouse_event(uint dwFlags, int dx, int dy, int dwData, IntPtr dwExtraInfo);
 
         [DllImport("shell32.dll")]
         private static extern int SHEmptyRecycleBin(IntPtr hwnd, string pszRootPath, uint dwFlags);
@@ -219,6 +222,12 @@ namespace ModernKey.Core
                                 continue;
                             }
 
+                            // Replace key or shortcut: xóa hết trừ nút Apps theo yêu cầu người dùng
+                            if (item.ActionType == ShortcutActionType.ReplaceKey && item.KeyCombination != "Apps")
+                            {
+                                continue;
+                            }
+
                             Shortcuts.Add(item);
                         }
                         EnsureBlockAndReplacePresets();
@@ -238,21 +247,10 @@ namespace ModernKey.Core
 
         private void EnsureBlockAndReplacePresets()
         {
-            bool hasReplace = Shortcuts.Any(s => s.ActionType == ShortcutActionType.ReplaceKey);
+            bool hasAppsReplace = Shortcuts.Any(s => s.ActionType == ShortcutActionType.ReplaceKey && s.KeyCombination == "Apps");
 
-            if (!hasReplace)
+            if (!hasAppsReplace)
             {
-                Shortcuts.Add(new ComfortShortcutItem
-                {
-                    Category = "Replace key or shortcut",
-                    KeyCombination = "Pause",
-                    ActionType = ShortcutActionType.ReplaceKey,
-                    ReplaceWithKey = "13 - Pause",
-                    ActiveScope = "In all screen modes",
-                    Label = "Thay thế phím Pause",
-                    LastChanged = DateTime.Now
-                });
-
                 Shortcuts.Add(new ComfortShortcutItem
                 {
                     Category = "Replace key or shortcut",
@@ -263,32 +261,6 @@ namespace ModernKey.Core
                     Label = "Thay phím Apps thành phím Win",
                     LastChanged = DateTime.Now
                 });
-
-                Shortcuts.Add(new ComfortShortcutItem
-                {
-                    Category = "Replace key or shortcut",
-                    KeyCombination = "RightCtrl+Break",
-                    ActionType = ShortcutActionType.ReplaceKey,
-                    ReplaceWithKey = "13 - Pause",
-                    ActiveScope = "In all screen modes",
-                    Label = "RightCtrl+Break -> Pause",
-                    LastChanged = DateTime.Now
-                });
-
-                Shortcuts.Add(new ComfortShortcutItem
-                {
-                    Category = "Replace key or shortcut",
-                    KeyCombination = "RightCtrl+RightShift+Break",
-                    ActionType = ShortcutActionType.ReplaceKey,
-                    ReplaceWithKey = "13 - Pause",
-                    ActiveScope = "In all screen modes",
-                    Label = "RightCtrl+RightShift+Break -> Pause",
-                    LastChanged = DateTime.Now
-                });
-            }
-
-            if (!hasReplace)
-            {
                 Save();
             }
         }
@@ -563,7 +535,7 @@ namespace ModernKey.Core
                 ActiveScope = "In all screen modes",
                 Label = "Tăng âm lượng",
                 AudioAction = "Volume up",
-                AudioStepSize = 10,
+                AudioStepSize = 5,
                 LastChanged = DateTime.Now
             });
 
@@ -575,7 +547,7 @@ namespace ModernKey.Core
                 ActiveScope = "In all screen modes",
                 Label = "Giảm âm lượng",
                 AudioAction = "Volume down",
-                AudioStepSize = 10,
+                AudioStepSize = 5,
                 LastChanged = DateTime.Now
             });
 
@@ -587,7 +559,7 @@ namespace ModernKey.Core
                 ActiveScope = "In all screen modes",
                 Label = "Bật / Tắt tiếng (Mute)",
                 AudioAction = "Volume on/off",
-                AudioStepSize = 10,
+                AudioStepSize = 5,
                 LastChanged = DateTime.Now
             });
 
@@ -602,18 +574,7 @@ namespace ModernKey.Core
                 LastChanged = DateTime.Now
             });
 
-            // 7. Replace key or shortcut (Theo Comfort Keys Pro)
-            Shortcuts.Add(new ComfortShortcutItem
-            {
-                Category = "Replace key or shortcut",
-                KeyCombination = "Pause",
-                ActionType = ShortcutActionType.ReplaceKey,
-                ReplaceWithKey = "13 - Pause",
-                ActiveScope = "In all screen modes",
-                Label = "Thay thế phím Pause",
-                LastChanged = DateTime.Now
-            });
-
+            // 7. Replace key or shortcut: Chỉ giữ lại nút Apps theo yêu cầu
             Shortcuts.Add(new ComfortShortcutItem
             {
                 Category = "Replace key or shortcut",
@@ -622,28 +583,6 @@ namespace ModernKey.Core
                 ReplaceWithKey = "5B - Win",
                 ActiveScope = "In all screen modes",
                 Label = "Thay phím Apps thành phím Win",
-                LastChanged = DateTime.Now
-            });
-
-            Shortcuts.Add(new ComfortShortcutItem
-            {
-                Category = "Replace key or shortcut",
-                KeyCombination = "RightCtrl+Break",
-                ActionType = ShortcutActionType.ReplaceKey,
-                ReplaceWithKey = "13 - Pause",
-                ActiveScope = "In all screen modes",
-                Label = "RightCtrl+Break -> Pause",
-                LastChanged = DateTime.Now
-            });
-
-            Shortcuts.Add(new ComfortShortcutItem
-            {
-                Category = "Replace key or shortcut",
-                KeyCombination = "RightCtrl+RightShift+Break",
-                ActionType = ShortcutActionType.ReplaceKey,
-                ReplaceWithKey = "13 - Pause",
-                ActiveScope = "In all screen modes",
-                Label = "RightCtrl+RightShift+Break -> Pause",
                 LastChanged = DateTime.Now
             });
         }
@@ -1226,7 +1165,7 @@ namespace ModernKey.Core
 
         private void ExecuteAudioControl(ComfortShortcutItem item)
         {
-            int stepSize = item.AudioStepSize > 0 ? item.AudioStepSize : 10;
+            int stepSize = item.AudioStepSize > 0 ? item.AudioStepSize : 5;
 
             if (item.AudioAction == "Volume up")
             {
@@ -1378,32 +1317,32 @@ namespace ModernKey.Core
                 switch (act)
                 {
                     case "Left click":
-                        mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
+                        mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, IntPtr.Zero);
                         Thread.Sleep(20);
-                        mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
+                        mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, IntPtr.Zero);
                         break;
                     case "Right click":
-                        mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, UIntPtr.Zero);
+                        mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, IntPtr.Zero);
                         Thread.Sleep(20);
-                        mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, UIntPtr.Zero);
+                        mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, IntPtr.Zero);
                         break;
                     case "Middle click":
-                        mouse_event(MOUSEEVENTF_MIDDLEDOWN, 0, 0, 0, UIntPtr.Zero);
+                        mouse_event(MOUSEEVENTF_MIDDLEDOWN, 0, 0, 0, IntPtr.Zero);
                         Thread.Sleep(20);
-                        mouse_event(MOUSEEVENTF_MIDDLEUP, 0, 0, 0, UIntPtr.Zero);
+                        mouse_event(MOUSEEVENTF_MIDDLEUP, 0, 0, 0, IntPtr.Zero);
                         break;
                     case "Double click":
-                        mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
-                        mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
+                        mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, IntPtr.Zero);
+                        mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, IntPtr.Zero);
                         Thread.Sleep(50);
-                        mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, UIntPtr.Zero);
-                        mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, UIntPtr.Zero);
+                        mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, IntPtr.Zero);
+                        mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, IntPtr.Zero);
                         break;
                     case "Wheel up":
-                        mouse_event(MOUSEEVENTF_WHEEL, 0, 0, 120, UIntPtr.Zero);
+                        mouse_event(MOUSEEVENTF_WHEEL, 0, 0, 120, IntPtr.Zero);
                         break;
                     case "Wheel down":
-                        mouse_event(MOUSEEVENTF_WHEEL, 0, 0, -120, UIntPtr.Zero);
+                        mouse_event(MOUSEEVENTF_WHEEL, 0, 0, -120, IntPtr.Zero);
                         break;
                 }
             }
@@ -1415,6 +1354,149 @@ namespace ModernKey.Core
             if (string.IsNullOrWhiteSpace(item.MacroKeystrokes)) return;
             string macro = item.MacroKeystrokes;
 
+            string[] lines = macro.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            bool isJitbitScript = false;
+            foreach (var line in lines)
+            {
+                string t = line.Trim();
+                if (t.StartsWith("MOUSE_", StringComparison.OrdinalIgnoreCase) ||
+                    t.StartsWith("KEY_", StringComparison.OrdinalIgnoreCase) ||
+                    t.StartsWith("DELAY :", StringComparison.OrdinalIgnoreCase) ||
+                    t.StartsWith("TEXT :", StringComparison.OrdinalIgnoreCase))
+                {
+                    isJitbitScript = true;
+                    break;
+                }
+            }
+
+            if (isJitbitScript)
+            {
+                foreach (var rawLine in lines)
+                {
+                    string line = rawLine.Trim();
+                    if (string.IsNullOrEmpty(line) || line.StartsWith("#") || line.StartsWith("//")) continue;
+
+                    string[] parts = line.Split(new[] { ':' }, StringSplitOptions.RemoveEmptyEntries);
+                    for (int i = 0; i < parts.Length; i++) parts[i] = parts[i].Trim();
+                    if (parts.Length == 0) continue;
+
+                    string cmd = parts[0].ToUpperInvariant();
+                    try
+                    {
+                        switch (cmd)
+                        {
+                            case "DELAY":
+                                if (parts.Length >= 2 && int.TryParse(parts[1], out int ms) && ms > 0)
+                                {
+                                    Thread.Sleep(Math.Min(ms, 10000));
+                                }
+                                break;
+
+                            case "MOUSE_CLICK":
+                                if (parts.Length >= 4 && int.TryParse(parts[2], out int mcX) && int.TryParse(parts[3], out int mcY))
+                                {
+                                    SetCursorPos(mcX, mcY);
+                                    Thread.Sleep(10);
+                                    string btn = parts[1].ToUpperInvariant();
+                                    if (btn == "RIGHT")
+                                    {
+                                        mouse_event(MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, KeySender.INJECTED_SIGNATURE);
+                                        Thread.Sleep(15);
+                                        mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, KeySender.INJECTED_SIGNATURE);
+                                    }
+                                    else if (btn == "MIDDLE")
+                                    {
+                                        mouse_event(MOUSEEVENTF_MIDDLEDOWN, 0, 0, 0, KeySender.INJECTED_SIGNATURE);
+                                        Thread.Sleep(15);
+                                        mouse_event(MOUSEEVENTF_MIDDLEUP, 0, 0, 0, KeySender.INJECTED_SIGNATURE);
+                                    }
+                                    else
+                                    {
+                                        mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, KeySender.INJECTED_SIGNATURE);
+                                        Thread.Sleep(15);
+                                        mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, KeySender.INJECTED_SIGNATURE);
+                                    }
+                                }
+                                break;
+
+                            case "MOUSE_DBLCLICK":
+                                if (parts.Length >= 4 && int.TryParse(parts[2], out int mdX) && int.TryParse(parts[3], out int mdY))
+                                {
+                                    SetCursorPos(mdX, mdY);
+                                    Thread.Sleep(10);
+                                    mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, KeySender.INJECTED_SIGNATURE);
+                                    mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, KeySender.INJECTED_SIGNATURE);
+                                    Thread.Sleep(45);
+                                    mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, KeySender.INJECTED_SIGNATURE);
+                                    mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, KeySender.INJECTED_SIGNATURE);
+                                }
+                                break;
+
+                            case "MOUSE_MOVE":
+                                if (parts.Length >= 3 && int.TryParse(parts[1], out int mmX) && int.TryParse(parts[2], out int mmY))
+                                {
+                                    SetCursorPos(mmX, mmY);
+                                }
+                                break;
+
+                            case "MOUSE_WHEEL":
+                                if (parts.Length >= 4 && int.TryParse(parts[1], out int wheelDelta) &&
+                                    int.TryParse(parts[2], out int mwX) && int.TryParse(parts[3], out int mwY))
+                                {
+                                    SetCursorPos(mwX, mwY);
+                                    Thread.Sleep(10);
+                                    mouse_event(MOUSEEVENTF_WHEEL, 0, 0, wheelDelta, KeySender.INJECTED_SIGNATURE);
+                                }
+                                break;
+
+                            case "KEY_PRESS":
+                                if (parts.Length >= 2)
+                                {
+                                    uint vk = GetVkFromFriendlyName(parts[1]);
+                                    if (vk > 0)
+                                    {
+                                        SendSingleKeyEvent(vk, false);
+                                        Thread.Sleep(15);
+                                        SendSingleKeyEvent(vk, true);
+                                    }
+                                }
+                                break;
+
+                            case "KEY_DOWN":
+                                if (parts.Length >= 2)
+                                {
+                                    uint vk = GetVkFromFriendlyName(parts[1]);
+                                    if (vk > 0) SendSingleKeyEvent(vk, false);
+                                }
+                                break;
+
+                            case "KEY_UP":
+                                if (parts.Length >= 2)
+                                {
+                                    uint vk = GetVkFromFriendlyName(parts[1]);
+                                    if (vk > 0) SendSingleKeyEvent(vk, true);
+                                }
+                                break;
+
+                            case "TEXT":
+                                if (parts.Length >= 2)
+                                {
+                                    int colonIdx = rawLine.IndexOf(':');
+                                    string textContent = colonIdx >= 0 ? rawLine.Substring(colonIdx + 1).Trim() : string.Empty;
+                                    if (!string.IsNullOrEmpty(textContent))
+                                    {
+                                        KeySender.SendUnicodeString(textContent);
+                                    }
+                                }
+                                break;
+                        }
+                    }
+                    catch { }
+                }
+                return;
+            }
+
+            // Fallback: Xử lý cú pháp token cổ điển ({DELAY:...}, {KEY:...}, text tự do)
             var tokens = Regex.Split(macro, @"(\{[A-Za-z0-9_:+]+?\})");
             foreach (var tok in tokens)
             {
@@ -1449,61 +1531,92 @@ namespace ModernKey.Core
         {
             try
             {
-                // Sao chép vùng chọn bằng Ctrl+C
-                keybd_event(0x11 /* Ctrl */, 0, 0, IntPtr.Zero);
-                keybd_event(0x43 /* C */, 0, 0, IntPtr.Zero);
-                keybd_event(0x43, 0, KEYEVENTF_KEYUP, IntPtr.Zero);
-                keybd_event(0x11, 0, KEYEVENTF_KEYUP, IntPtr.Zero);
+                // 1. Giải phóng triệt để toàn bộ phím Modifier đang bị đè bởi hotkey (Shift, Ctrl, Alt, Win)
+                KeySender.ReleaseAllModifiers();
+                Thread.Sleep(30);
 
-                Thread.Sleep(100);
+                // 2. Gán chuỗi marker độc nhất vào clipboard để phát hiện chính xác khi nào lệnh Copy hoàn tất
+                string marker = "__MK_CASE_CHECK_" + Guid.NewGuid().ToString("N");
+                KeySender.NativeSetClipboardText(marker);
 
-                string selectedText = string.Empty;
-                Application.Current?.Dispatcher?.Invoke(() =>
+                // 3. Gửi lệnh Copy (Ctrl+C) kèm INJECTED_SIGNATURE
+                KeySender.ReleaseAllModifiers();
+                keybd_event(0x11 /* VK_CONTROL */, 0, 0, (IntPtr)KeySender.INJECTED_SIGNATURE);
+                keybd_event(0x43 /* 'C' */, 0, 0, (IntPtr)KeySender.INJECTED_SIGNATURE);
+                Thread.Sleep(25);
+                keybd_event(0x43, 0, KEYEVENTF_KEYUP, (IntPtr)KeySender.INJECTED_SIGNATURE);
+                keybd_event(0x11, 0, KEYEVENTF_KEYUP, (IntPtr)KeySender.INJECTED_SIGNATURE);
+
+                // 4. Polling Native Clipboard để đọc đoạn văn bản người dùng đang bôi đen
+                string selectedText = null;
+                for (int retry = 0; retry < 25; retry++)
                 {
-                    try
+                    Thread.Sleep(20);
+                    string clip = KeySender.NativeGetClipboardText();
+                    if (!string.IsNullOrEmpty(clip) && clip != marker)
                     {
-                        if (System.Windows.Clipboard.ContainsText())
-                            selectedText = System.Windows.Clipboard.GetText();
+                        selectedText = clip;
+                        break;
                     }
-                    catch { }
-                });
-
-                if (string.IsNullOrEmpty(selectedText)) return;
-
-                string mode = item.ChangeCaseMode ?? "UPPERCASE";
-                string transformed = selectedText;
-                switch (mode)
-                {
-                    case "UPPERCASE":
-                        transformed = selectedText.ToUpper();
-                        break;
-                    case "lowercase":
-                        transformed = selectedText.ToLower();
-                        break;
-                    case "Title Case":
-                        transformed = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(selectedText.ToLower());
-                        break;
-                    case "Sentence case":
-                        var parts = Regex.Split(selectedText, @"(?<=[.!?]\s+)");
-                        var sb = new StringBuilder();
-                        foreach (var p in parts)
-                        {
-                            if (p.Length > 0)
-                            {
-                                string trimmed = p.TrimStart();
-                                int leadSpaces = p.Length - trimmed.Length;
-                                string prefix = p.Substring(0, leadSpaces);
-                                if (trimmed.Length > 0)
-                                {
-                                    sb.Append(prefix + char.ToUpper(trimmed[0]) + (trimmed.Length > 1 ? trimmed.Substring(1).ToLower() : ""));
-                                }
-                                else sb.Append(p);
-                            }
-                        }
-                        transformed = sb.ToString();
-                        break;
                 }
 
+                // Nếu không có văn bản nào được chọn hoặc clipboard không thay đổi
+                if (string.IsNullOrEmpty(selectedText) || selectedText == marker)
+                {
+                    return;
+                }
+
+                // 5. Chuyển đổi Case linh hoạt (không phụ thuộc khoảng trắng hay viết hoa chữ cái đầu)
+                string mode = (item.ChangeCaseMode ?? "UPPERCASE").Trim().ToLowerInvariant();
+                string transformed = selectedText;
+
+                if (mode.Contains("upper"))
+                {
+                    transformed = selectedText.ToUpper();
+                }
+                else if (mode.Contains("lower"))
+                {
+                    transformed = selectedText.ToLower();
+                }
+                else if (mode.Contains("title"))
+                {
+                    transformed = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(selectedText.ToLower());
+                }
+                else if (mode.Contains("sentence"))
+                {
+                    var parts = Regex.Split(selectedText, @"(?<=[.!?\r\n]+\s*)");
+                    var sb = new StringBuilder();
+                    foreach (var p in parts)
+                    {
+                        if (p.Length > 0)
+                        {
+                            string trimmed = p.TrimStart();
+                            int leadSpaces = p.Length - trimmed.Length;
+                            string prefix = p.Substring(0, leadSpaces);
+                            if (trimmed.Length > 0)
+                            {
+                                sb.Append(prefix + char.ToUpper(trimmed[0]) + (trimmed.Length > 1 ? trimmed.Substring(1).ToLower() : ""));
+                            }
+                            else sb.Append(p);
+                        }
+                    }
+                    transformed = sb.ToString();
+                }
+                else if (mode.Contains("toggle") || mode.Contains("invert"))
+                {
+                    var sb = new StringBuilder(selectedText.Length);
+                    foreach (char c in selectedText)
+                    {
+                        if (char.IsUpper(c)) sb.Append(char.ToLower(c));
+                        else if (char.IsLower(c)) sb.Append(char.ToUpper(c));
+                        else sb.Append(c);
+                    }
+                    transformed = sb.ToString();
+                }
+
+                // 6. Nhả modifier lần nữa và dán đè văn bản mới vào vị trí bôi đen
+                KeySender.ReleaseAllModifiers();
+                Thread.Sleep(25);
                 KeySender.SendViaClipboardPaste(transformed);
             }
             catch { }
