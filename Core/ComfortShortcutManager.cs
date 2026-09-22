@@ -524,7 +524,17 @@ namespace ModernKey.Core
                 ShowTextOnKeyboard = true,
                 LastChanged = DateTime.Now
             });
-
+            // 4. Change text case (Gợi ý 14)
+            Shortcuts.Add(new ComfortShortcutItem
+            {
+                Category = "Change text case",
+                KeyCombination = "Win+Alt+U",
+                ActionType = ShortcutActionType.ChangeCase,
+                ActiveScope = "In all screen modes",
+                Label = "Chuyển chữ hoa / thường (Change case)",
+                ChangeCaseMode = "UPPERCASE",
+                LastChanged = DateTime.Now
+            });
 
             // 5. Audio control (Đợt 1)
             Shortcuts.Add(new ComfortShortcutItem
@@ -1619,11 +1629,18 @@ namespace ModernKey.Core
                     {
                         try
                         {
-                            return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(cutText.ToLower());
+                            return new System.Globalization.CultureInfo("vi-VN").TextInfo.ToTitleCase(cutText.ToLower());
                         }
                         catch
                         {
-                            return cutText;
+                            try
+                            {
+                                return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(cutText.ToLower());
+                            }
+                            catch
+                            {
+                                return cutText;
+                            }
                         }
                     }
                     else if (mode.Contains("sentence"))
@@ -1656,6 +1673,44 @@ namespace ModernKey.Core
                             else sb.Append(c);
                         }
                         return sb.ToString();
+                    }
+                    else if (mode.Contains("cycle") || mode.Contains("rotate"))
+                    {
+                        // Chế độ xoay vòng chuẩn OpenKey C++: lower -> UPPER -> Title Case -> lower
+                        bool isAllLower = true;
+                        bool isAllUpper = true;
+                        bool hasLetter = false;
+                        foreach (char c in cutText)
+                        {
+                            if (char.IsLetter(c))
+                            {
+                                hasLetter = true;
+                                if (char.IsLower(c)) isAllUpper = false;
+                                if (char.IsUpper(c)) isAllLower = false;
+                            }
+                        }
+
+                        if (!hasLetter) return cutText;
+
+                        if (isAllLower)
+                        {
+                            return cutText.ToUpper();
+                        }
+                        else if (isAllUpper)
+                        {
+                            try
+                            {
+                                return new System.Globalization.CultureInfo("vi-VN").TextInfo.ToTitleCase(cutText.ToLower());
+                            }
+                            catch
+                            {
+                                return cutText.ToLower();
+                            }
+                        }
+                        else
+                        {
+                            return cutText.ToLower();
+                        }
                     }
 
                     return cutText;

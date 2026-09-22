@@ -39,6 +39,7 @@ namespace ModernKey.Hook
         public const uint SCI_CUT = 2177;   // Scintilla Direct Cut
         public const uint SCI_COPY = 2178;  // Scintilla Direct Copy
         public const uint SCI_PASTE = 2179; // Scintilla (Notepad++, Code Editor) Direct Paste
+        public const uint SCI_SETSEL = 2160; // Scintilla Set Selection (anchor, currentPos)
 
         public static readonly IntPtr INJECTED_SIGNATURE = (IntPtr)0x4D4F444B; // "MODK"
 
@@ -453,19 +454,24 @@ namespace ModernKey.Hook
         }
 
         /// <summary>
-        /// Giải phóng toàn bộ phím Modifier (Shift, Ctrl, Alt) chuẩn OpenKey C++.
-        /// Tránh triệt để việc dán phím bị biến thành Ctrl+Shift+V khi kích hoạt bằng Double Shift.
+        /// Giải phóng toàn bộ phím Modifier (Shift, Ctrl, Alt, Win) chuẩn OpenKey C++.
+        /// Đồng thời gửi phím MaskKey (0xE8) để ngăn chặn triệt để Menu Bar (khi nhấn Alt) hoặc Start Menu (khi nhấn Win).
         /// </summary>
         public static void ReleaseAllModifiers()
         {
-            INPUT[] cleanModifiers = new INPUT[7];
+            SendMaskKey();
+            INPUT[] cleanModifiers = new INPUT[11];
             cleanModifiers[0] = CreateKeyInput(0xA0, KEYEVENTF_KEYUP); // VK_LSHIFT
             cleanModifiers[1] = CreateKeyInput(0xA1, KEYEVENTF_KEYUP); // VK_RSHIFT
             cleanModifiers[2] = CreateKeyInput(0x10, KEYEVENTF_KEYUP); // VK_SHIFT
             cleanModifiers[3] = CreateKeyInput(0xA2, KEYEVENTF_KEYUP); // VK_LCONTROL
-            cleanModifiers[4] = CreateKeyInput(0xA3, KEYEVENTF_KEYUP); // VK_RCONTROL
-            cleanModifiers[5] = CreateKeyInput(0xA4, KEYEVENTF_KEYUP); // VK_LMENU
-            cleanModifiers[6] = CreateKeyInput(0xA5, KEYEVENTF_KEYUP); // VK_RMENU
+            cleanModifiers[4] = CreateKeyInput(0xA3, KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY); // VK_RCONTROL
+            cleanModifiers[5] = CreateKeyInput(0x11, KEYEVENTF_KEYUP); // VK_CONTROL
+            cleanModifiers[6] = CreateKeyInput(0xA4, KEYEVENTF_KEYUP); // VK_LMENU
+            cleanModifiers[7] = CreateKeyInput(0xA5, KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY); // VK_RMENU
+            cleanModifiers[8] = CreateKeyInput(0x12, KEYEVENTF_KEYUP); // VK_MENU
+            cleanModifiers[9] = CreateKeyInput(0x5B, KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY); // VK_LWIN
+            cleanModifiers[10] = CreateKeyInput(0x5C, KEYEVENTF_KEYUP | KEYEVENTF_EXTENDEDKEY); // VK_RWIN
             SendInput((uint)cleanModifiers.Length, cleanModifiers, Marshal.SizeOf(typeof(INPUT)));
         }
 
@@ -946,12 +952,14 @@ namespace ModernKey.Hook
         }
 
         /// <summary>
-        /// Cắt văn bản đang chọn (Ctrl+X hoặc SCI_CUT), biến đổi theo hàm transformFunc, dán đè lại (Ctrl+V hoặc SCI_PASTE),
-        /// và phục hồi lại hoàn toàn clipboard ban đầu của người dùng chuẩn gõ tắt.
-        /// Đặc trị hoàn hảo cho Scintilla (Notepad++) và trình soạn thảo thông thường:
-        /// - Làm rỗng clipboard trước khi Cut để nhận diện chính xác 100% kể cả khi văn bản trùng với clipboard cũ.
-        /// - Dọn sạch văn bản vừa dán ra khỏi clipboard và khôi phục clipboard cũ ngay tức thì sau khi paste, tránh kẹt dữ liệu sang lần 2.
-        /// - Đồng bộ qua _clipLock và hủy timer cũ, đảm bảo các lần change case liên tiếp không bị xung đột.
+        /// Cắt văn bản đang chọn (hoặc tự động chọn từ tại con trỏ), biến đổi theo hàm transformFunc,
+        /// dán đè lại và phục hồi hoàn toàn clipboard ban đầu của người dùng.
+        /// Cơ chế phòng vệ 3 lớp:
+        /// 1. Tự động nhận diện Scintilla (Notepad++, Code Editor) với thông điệp SCI nội bộ.
+        /// 2. Thử Cut (Ctrl+X); nếu ứng dụng không hỗ trợ Cut (read-only, web, PDF) thì tự động fallback sang Copy (Ctrl+C).
+        /// 3. Nếu người dùng chưa bôi đen mà chỉ nhấp chuột vào từ: tự động chọn từ hiện tại.
+        /// 4. Duy trì vùng chọn sau khi paste (SCI_SETSEL hoặc Shift+Left) để có thể đổi case liên tiếp.
+        /// 5. Khôi phục an toàn clipboard gốc bằng Timer đồng bộ (800ms) thay vì xóa gấp sau 70ms làm mất paste.
         /// </summary>
         public static bool CutTransformAndPaste(Func<string, string> transformFunc)
         {
@@ -981,27 +989,34 @@ namespace ModernKey.Hook
             {
                 // 2. Nhận diện cửa sổ đích (đặc trị Scintilla như Notepad++)
                 bool isScintilla = DetectTargetScintilla(IntPtr.Zero, out IntPtr hFocus);
+                long selStart = 0;
+                long selEnd = 0;
 
-                // Nếu là Scintilla, kiểm tra xem có đang highlight (selection) văn bản không
                 if (isScintilla)
                 {
-                    long selStart = SendMessage(hFocus, SCI_GETSELECTIONSTART, IntPtr.Zero, IntPtr.Zero).ToInt64();
-                    long selEnd = SendMessage(hFocus, SCI_GETSELECTIONEND, IntPtr.Zero, IntPtr.Zero).ToInt64();
+                    selStart = SendMessage(hFocus, SCI_GETSELECTIONSTART, IntPtr.Zero, IntPtr.Zero).ToInt64();
+                    selEnd = SendMessage(hFocus, SCI_GETSELECTIONEND, IntPtr.Zero, IntPtr.Zero).ToInt64();
                     if (selStart == selEnd)
                     {
-                        // Không có văn bản nào được chọn trong Notepad++ -> Huỷ bỏ, tránh cắt nhầm cả dòng
-                        RestoreClipboardImmediate();
-                        return false;
+                        // Chưa bôi đen trong Scintilla: Tự động chọn từ tại vị trí con trỏ hiện tại
+                        long currentPos = SendMessage(hFocus, 2008 /* SCI_GETCURRENTPOS */, IntPtr.Zero, IntPtr.Zero).ToInt64();
+                        long wordStart = SendMessage(hFocus, 2266 /* SCI_WORDSTARTPOSITION */, (IntPtr)currentPos, (IntPtr)1).ToInt64();
+                        long wordEnd = SendMessage(hFocus, 2267 /* SCI_WORDENDPOSITION */, (IntPtr)currentPos, (IntPtr)1).ToInt64();
+                        if (wordEnd > wordStart)
+                        {
+                            SendMessage(hFocus, SCI_SETSEL, (IntPtr)wordStart, (IntPtr)wordEnd);
+                            selStart = wordStart;
+                            selEnd = wordEnd;
+                        }
                     }
                 }
 
-                // 3. Giải phóng phím Modifier
+                // 3. Giải phóng phím Modifier và gửi MaskKey
                 ReleaseAllModifiers();
-                Thread.Sleep(10);
+                Thread.Sleep(20);
 
-                // Làm rỗng clipboard trước khi Cut để nhận diện chính xác dữ liệu vừa Cut,
-                // loại bỏ hoàn toàn lỗi không đổi case khi văn bản bôi đen trùng với clipboard cũ!
-                for (int r = 0; r < 10; r++)
+                // Làm rỗng clipboard trước khi Cut/Copy để nhận diện chính xác dữ liệu vừa lấy ra
+                for (int r = 0; r < 15; r++)
                 {
                     if (OpenClipboard(IntPtr.Zero))
                     {
@@ -1012,56 +1027,123 @@ namespace ModernKey.Hook
                     Thread.Sleep(5);
                 }
 
-                WaitForClipboardReady(40);
+                WaitForClipboardReady(50);
 
-                // 4. Thực hiện lệnh Cut
+                // 4. Thực hiện lấy văn bản (Lớp 1: Cut, Lớp 2: Copy fallback, Lớp 3: Tự động chọn từ)
+                string cutText = null;
+
                 if (isScintilla)
                 {
-                    // Với Scintilla (Notepad++): Gửi thông điệp nội bộ SCI_CUT đồng bộ, bất chấp phím cứng
+                    // Với Scintilla (Notepad++): Gửi thông điệp nội bộ SCI_CUT đồng bộ
                     SendMessage(hFocus, SCI_CUT, IntPtr.Zero, IntPtr.Zero);
+                    for (int retry = 0; retry < 25; retry++)
+                    {
+                        Thread.Sleep(10);
+                        string clip = NativeGetClipboardText();
+                        if (!string.IsNullOrEmpty(clip))
+                        {
+                            cutText = clip;
+                            break;
+                        }
+                    }
                 }
                 else
                 {
-                    // Ứng dụng thông thường: Gửi lệnh Ctrl+X với Scan Code phần cứng
+                    // Lớp 1: Gửi lệnh Cut (Ctrl+X)
                     ReleaseAllModifiers();
-                    Thread.Sleep(15);
+                    Thread.Sleep(10);
+
                     INPUT[] ctrlX = new INPUT[4];
                     ctrlX[0] = CreateKeyInput(VK_CONTROL, 0, 0x1D);
                     ctrlX[1] = CreateKeyInput(0x58 /* VK_X */, 0, 0x2D);
                     ctrlX[2] = CreateKeyInput(0x58, KEYEVENTF_KEYUP, 0x2D);
                     ctrlX[3] = CreateKeyInput(VK_CONTROL, KEYEVENTF_KEYUP, 0x1D);
                     SendInput(4, ctrlX, Marshal.SizeOf(typeof(INPUT)));
-                }
 
-                // 5. Polling đọc nội dung vừa Cut (vì trước đó đã EmptyClipboard nên text đọc được chắc chắn là text vừa Cut)
-                string cutText = null;
-                for (int retry = 0; retry < 30; retry++)
-                {
-                    Thread.Sleep(isScintilla ? 10 : 20);
-                    string clip = NativeGetClipboardText();
-                    if (!string.IsNullOrEmpty(clip))
+                    for (int retry = 0; retry < 25; retry++)
                     {
-                        cutText = clip;
-                        break;
+                        Thread.Sleep(15);
+                        string clip = NativeGetClipboardText();
+                        if (!string.IsNullOrEmpty(clip))
+                        {
+                            cutText = clip;
+                            break;
+                        }
+                    }
+
+                    // Lớp 2: Nếu Cut không lấy được gì (trang web read-only, PDF, hoặc app chặn Cut): Thử Copy (Ctrl+C)
+                    if (string.IsNullOrEmpty(cutText))
+                    {
+                        ReleaseAllModifiers();
+                        Thread.Sleep(10);
+
+                        INPUT[] ctrlC = new INPUT[4];
+                        ctrlC[0] = CreateKeyInput(VK_CONTROL, 0, 0x1D);
+                        ctrlC[1] = CreateKeyInput(0x43 /* VK_C */, 0, 0x2E);
+                        ctrlC[2] = CreateKeyInput(0x43, KEYEVENTF_KEYUP, 0x2E);
+                        ctrlC[3] = CreateKeyInput(VK_CONTROL, KEYEVENTF_KEYUP, 0x1D);
+                        SendInput(4, ctrlC, Marshal.SizeOf(typeof(INPUT)));
+
+                        for (int retry = 0; retry < 20; retry++)
+                        {
+                            Thread.Sleep(15);
+                            string clip = NativeGetClipboardText();
+                            if (!string.IsNullOrEmpty(clip))
+                            {
+                                cutText = clip;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Lớp 3: Nếu vẫn chưa có gì (người dùng chưa bôi đen mà chỉ đặt con trỏ tại từ):
+                    // Thử tự động chọn từ hiện tại bằng Ctrl+Shift+Left
+                    if (string.IsNullOrEmpty(cutText))
+                    {
+                        ReleaseAllModifiers();
+                        Thread.Sleep(10);
+
+                        INPUT[] selWord = new INPUT[6];
+                        selWord[0] = CreateKeyInput(VK_CONTROL, 0, 0x1D);
+                        selWord[1] = CreateKeyInput(VK_SHIFT, 0, 0x2A);
+                        selWord[2] = CreateKeyInput(0x25 /* VK_LEFT */, 0, 0x4B);
+                        selWord[3] = CreateKeyInput(0x25 /* VK_LEFT */, KEYEVENTF_KEYUP, 0x4B);
+                        selWord[4] = CreateKeyInput(VK_SHIFT, KEYEVENTF_KEYUP, 0x2A);
+                        selWord[5] = CreateKeyInput(VK_CONTROL, KEYEVENTF_KEYUP, 0x1D);
+                        SendInput(6, selWord, Marshal.SizeOf(typeof(INPUT)));
+                        Thread.Sleep(25);
+
+                        // Thử Cut lại từ vừa chọn
+                        SendInput(4, ctrlX, Marshal.SizeOf(typeof(INPUT)));
+                        for (int retry = 0; retry < 15; retry++)
+                        {
+                            Thread.Sleep(15);
+                            string clip = NativeGetClipboardText();
+                            if (!string.IsNullOrEmpty(clip))
+                            {
+                                cutText = clip;
+                                break;
+                            }
+                        }
                     }
                 }
 
-                // Nếu không có văn bản nào được cut (người dùng không highlight gì hoặc ứng dụng không hỗ trợ cut)
+                // Nếu không có bất kỳ văn bản nào được trích xuất
                 if (string.IsNullOrEmpty(cutText))
                 {
                     RestoreClipboardImmediate();
                     return false;
                 }
 
-                // 6. Biến đổi văn bản theo hàm xử lý
+                // 5. Biến đổi văn bản theo hàm xử lý
                 string transformed = transformFunc(cutText);
                 if (string.IsNullOrEmpty(transformed))
                 {
                     transformed = cutText;
                 }
 
-                // 7. Đảm bảo clipboard rảnh và gán văn bản mới vào clipboard
-                WaitForClipboardReady(40);
+                // 6. Đảm bảo clipboard rảnh và gán văn bản mới vào clipboard
+                WaitForClipboardReady(50);
                 NativeSetClipboardText(transformed);
 
                 for (int retry = 0; retry < 15; retry++)
@@ -1071,12 +1153,14 @@ namespace ModernKey.Hook
                     Thread.Sleep(10);
                 }
 
-                // 8. Thực hiện lệnh Paste
+                // 7. Thực hiện lệnh Paste
                 if (isScintilla)
                 {
                     // Với Scintilla (Notepad++): Dán trực tiếp đồng bộ bằng thông điệp SCI_PASTE
                     SendMessage(hFocus, SCI_PASTE, IntPtr.Zero, IntPtr.Zero);
-                    Thread.Sleep(30); // Đợi Scintilla hoàn tất đọc buffer
+                    Thread.Sleep(20);
+                    // Duy trì vùng chọn trong Scintilla để người dùng có thể bấm tiếp Change Case
+                    SendMessage(hFocus, SCI_SETSEL, (IntPtr)selStart, (IntPtr)(selStart + transformed.Length));
                 }
                 else
                 {
@@ -1089,11 +1173,57 @@ namespace ModernKey.Hook
                     ctrlV[2] = CreateKeyInput(VK_V, KEYEVENTF_KEYUP, 0x2F);
                     ctrlV[3] = CreateKeyInput(VK_CONTROL, KEYEVENTF_KEYUP, 0x1D);
                     SendInput(4, ctrlV, Marshal.SizeOf(typeof(INPUT)));
-                    Thread.Sleep(70); // Đợi ứng dụng thông thường nhận và paste xong
+                    Thread.Sleep(50);
+
+                    // Bôi đen lại văn bản vừa paste chuẩn OpenKey C++ để người dùng có thể đổi case liên tiếp
+                    int len = transformed.Length;
+                    if (len > 0 && len <= 120 && !transformed.Contains("\n") && !transformed.Contains("\r"))
+                    {
+                        INPUT[] reselect = new INPUT[len * 2 + 2];
+                        reselect[0] = CreateKeyInput(VK_SHIFT, 0, 0x2A);
+                        for (int i = 0; i < len; i++)
+                        {
+                            reselect[1 + i * 2] = CreateKeyInput(0x25 /* VK_LEFT */, 0, 0x4B);
+                            reselect[2 + i * 2] = CreateKeyInput(0x25 /* VK_LEFT */, KEYEVENTF_KEYUP, 0x4B);
+                        }
+                        reselect[reselect.Length - 1] = CreateKeyInput(VK_SHIFT, KEYEVENTF_KEYUP, 0x2A);
+                        SendInput((uint)reselect.Length, reselect, Marshal.SizeOf(typeof(INPUT)));
+                    }
                 }
 
-                // 9. Ngay sau khi dán xong, lập tức dọn sạch text vừa dán ra khỏi clipboard và khôi phục lại clipboard cũ của người dùng!
-                RestoreClipboardImmediate();
+                // 8. Lên lịch phục hồi lại clipboard ban đầu của người dùng sau khi ứng dụng đích hoàn tất paste
+                // Đảm bảo không xóa gấp sau 70ms làm mất paste trong Word, Chrome, VS Code hay terminal.
+                int delayMs = _activeBackupHadImage ? 1500 : 800;
+                lock (_clipLock)
+                {
+                    _restoreTimer = new Timer(_ =>
+                    {
+                        List<ClipboardFormatItem> toRestore = null;
+                        bool hadBackup = false;
+
+                        lock (_clipLock)
+                        {
+                            toRestore = _activeBackupSnapshot;
+                            hadBackup = _hasActiveBackup;
+
+                            _activeBackupSnapshot = null;
+                            _hasActiveBackup = false;
+                            _activeBackupHadImage = false;
+
+                            if (_restoreTimer != null)
+                            {
+                                _restoreTimer.Dispose();
+                                _restoreTimer = null;
+                            }
+                        }
+
+                        if (hadBackup)
+                        {
+                            NativeRestoreClipboard(toRestore);
+                        }
+                    }, null, delayMs, Timeout.Infinite);
+                }
+
                 return true;
             }
             catch

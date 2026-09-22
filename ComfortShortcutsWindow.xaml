@@ -669,6 +669,7 @@
                                         <ComboBoxItem Content="🔤 Viết Hoa Chữ Đầu Mỗi Từ (Title Case)" Tag="TitleCase" />
                                         <ComboBoxItem Content="📝 Viết hoa đầu câu (Sentence case)" Tag="SentenceCase" />
                                         <ComboBoxItem Content="🔀 ĐẢO NGƯỢC HOA/thường (tOGGLE cASE)" Tag="ToggleCase" />
+                                        <ComboBoxItem Content="🔄 Xoay vòng (lowercase ➔ UPPER ➔ Title)" Tag="CycleCase" />
                                     </ComboBox>
                                 </StackPanel>
                             </Grid>
