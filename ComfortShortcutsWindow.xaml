@@ -33,6 +33,8 @@
                 <MenuItem Header="Lưu Profile (Save)" Click="BtnSaveProfile_Click" />
                 <MenuItem Header="Xuất danh sách (Export)..." Click="BtnExportProfile_Click" />
                 <Separator Background="{StaticResource CyberBorderDim}" />
+                <MenuItem Header="🔄 Khôi phục mặc định (Restore Defaults)..." Click="BtnRestoreDefaults_Click" />
+                <Separator Background="{StaticResource CyberBorderDim}" />
                 <MenuItem Header="Đóng cửa sổ" Click="BtnClose_Click" />
             </MenuItem>
             <MenuItem Header="Edit">
@@ -62,6 +64,11 @@
                 <Button Content="📋 Copy" Click="BtnCopyShortcut_Click" Height="28" Padding="10,2" Margin="0,0,6,0" FontFamily="Consolas" ToolTip="Nhân bản mục phím tắt" />
                 <Button Content="❌ Delete" Click="BtnDeleteShortcut_Click" Height="28" Padding="10,2" Margin="0,0,12,0"
                         Background="#2B0914" BorderBrush="{StaticResource CyberNeonPink}" Foreground="{StaticResource CyberNeonPink}" FontFamily="Consolas" ToolTip="Xóa phím tắt đang chọn" />
+
+                <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="0,2,12,2" />
+
+                <Button Content="🔄 Restore Defaults" Click="BtnRestoreDefaults_Click" Height="28" Padding="10,2" Margin="0,0,12,0"
+                        Background="#2B2008" BorderBrush="{StaticResource CyberNeonYellow}" Foreground="{StaticResource CyberNeonYellow}" FontFamily="Consolas" FontWeight="Bold" ToolTip="Khôi phục danh sách phím tắt mặc định (Restore Default Shortcuts)" />
 
                 <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="0,2,12,2" />
 

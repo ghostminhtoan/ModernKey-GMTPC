@@ -95,6 +95,13 @@ namespace ModernKey.Core
                     {
                         foreach (var item in list)
                         {
+                            // Tự động nâng cấp Ctrl+Nm 1 nếu còn là Q-Dir cũ
+                            if (item.KeyCombination == "Ctrl+Nm 1" && !string.IsNullOrEmpty(item.ProgramPaths) && item.ProgramPaths.Contains("Q-Dir"))
+                            {
+                                item.Label = "Mở File Explorer";
+                                item.ProgramPaths = "explorer.exe";
+                                item.StartInFolder = @"C:\";
+                            }
                             Shortcuts.Add(item);
                         }
                         EnsureBlockAndReplacePresets();
@@ -216,6 +223,13 @@ namespace ModernKey.Core
             }
         }
 
+        public void RestoreDefaults()
+        {
+            Shortcuts.Clear();
+            LoadDefaultPresets();
+            Save();
+        }
+
         private void LoadDefaultPresets()
         {
             // 1. Run program (Đợt 2)
@@ -225,8 +239,8 @@ namespace ModernKey.Core
                 KeyCombination = "Ctrl+Nm 1",
                 ActionType = ShortcutActionType.RunProgram,
                 ActiveScope = "In all screen modes",
-                Label = "Open Q-Dir Explorer",
-                ProgramPaths = @"T:\[HDD T]\Program files\Q-Dir explorer\Q-Dir_x64.exe" + "\n" + @"C:\Windows\explorer.exe",
+                Label = "Mở File Explorer",
+                ProgramPaths = "explorer.exe",
                 StartInFolder = @"C:\",
                 SwitchToAlreadyLaunched = true,
                 LastChanged = DateTime.Now

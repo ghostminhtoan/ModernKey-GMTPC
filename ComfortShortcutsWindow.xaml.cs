@@ -1185,6 +1185,19 @@ namespace ModernKey
             MessageBox.Show("Đã lưu toàn bộ cấu hình phím tắt Comfort Keys thành công!", "Lưu thành công", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
+        private void BtnRestoreDefaults_Click(object sender, RoutedEventArgs e)
+        {
+            var res = MessageBox.Show("Bạn có chắc chắn muốn khôi phục toàn bộ danh sách phím tắt về mặc định ban đầu không?\n(Mọi phím tắt tự tùy chỉnh sẽ được đặt lại theo thiết lập chuẩn)", "Xác nhận khôi phục mặc định", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (res == MessageBoxResult.Yes)
+            {
+                _manager.RestoreDefaults();
+                _selectedItem = null;
+                PopulateTreeView();
+                HighlightVirtualKeyboard();
+                MessageBox.Show("Đã khôi phục toàn bộ danh sách phím tắt về mặc định ban đầu thành công!", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+
         private void BtnOpenProfile_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new Microsoft.Win32.OpenFileDialog
