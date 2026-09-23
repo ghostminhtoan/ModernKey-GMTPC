@@ -486,6 +486,7 @@
                              VirtualizingPanel.CacheLength="1,1"
                              VirtualizingPanel.CacheLengthUnit="Page"
                              Foreground="{StaticResource CyberTextPrimary}" SelectionChanged="LstClipboard_SelectionChanged"
+                             PreviewMouseDown="LstClipboard_PreviewMouseDown"
                              MouseDoubleClick="LstClipboard_MouseDoubleClick" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListBox.LayoutTransform>
                             <ScaleTransform x:Name="ClipboardListScale" ScaleX="1.0" ScaleY="1.0" />

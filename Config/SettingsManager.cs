@@ -29,7 +29,8 @@ namespace ModernKey.Config
 
         public static string EnsurePortableDirectory()
         {
-            string portableDir = Path.Combine(GetAppDirectory(), ".portable");
+            string appDir = GetAppDirectory();
+            string portableDir = Path.Combine(appDir, ".portable");
             if (!Directory.Exists(portableDir))
             {
                 try
@@ -38,7 +39,37 @@ namespace ModernKey.Config
                 }
                 catch { }
             }
-            return Directory.Exists(portableDir) ? portableDir : GetAppDirectory();
+
+            // Môi trường Dev/IDE (chạy từ bin\Debug\net472): đồng bộ tự động dữ liệu từ .portable gốc dự án nếu chưa có
+            try
+            {
+                if (appDir.IndexOf(@"\bin\", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    string projectRoot = Path.GetFullPath(Path.Combine(appDir, @"..\..\.."));
+                    string rootPortable = Path.Combine(projectRoot, ".portable");
+                    if (Directory.Exists(rootPortable))
+                    {
+                        string rootClipJson = Path.Combine(rootPortable, "clipboard", "clipboard_history.json");
+                        string localClipJson = Path.Combine(portableDir, "clipboard", "clipboard_history.json");
+                        if (File.Exists(rootClipJson) && !File.Exists(localClipJson))
+                        {
+                            string localClipFolder = Path.Combine(portableDir, "clipboard");
+                            if (!Directory.Exists(localClipFolder)) Directory.CreateDirectory(localClipFolder);
+                            File.Copy(rootClipJson, localClipJson, true);
+                        }
+
+                        string rootIni = Path.Combine(rootPortable, "settings.ini");
+                        string localIni = Path.Combine(portableDir, "settings.ini");
+                        if (File.Exists(rootIni) && !File.Exists(localIni))
+                        {
+                            File.Copy(rootIni, localIni, true);
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            return Directory.Exists(portableDir) ? portableDir : appDir;
         }
 
         public static string CustomSyncDirectory { get; set; } = null;

@@ -1214,33 +1214,102 @@ namespace ModernKey.Core
         public void LoadHistory()
         {
             string path = GetHistoryFilePath();
-            if (!File.Exists(path)) return;
+            if (File.Exists(path))
+            {
+                try
+                {
+                    string content = File.ReadAllText(path, Encoding.UTF8);
+                    if (!string.IsNullOrWhiteSpace(content))
+                    {
+                        var list = ParseJsonItems(content);
+                        DispatchSafe(() =>
+                        {
+                            Items.Clear();
+                            foreach (var item in list)
+                            {
+                                item.DetectMetadata();
+                                if (item.IsImage)
+                                {
+                                    EnsureHistoryImageInHistoryFolder(item);
+                                }
+                                Items.Add(item);
+                            }
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine("Error loading clipboard history: " + ex.Message);
+                }
+            }
 
+            DispatchSafe(() =>
+            {
+                AutoRecoverOrphanedCacheImages();
+                TrimLimit();
+            });
+        }
+
+        private void AutoRecoverOrphanedCacheImages()
+        {
             try
             {
-                string content = File.ReadAllText(path, Encoding.UTF8);
-                if (string.IsNullOrWhiteSpace(content)) return;
+                string histCacheDir = GetHistoryCacheDirectory();
+                if (!Directory.Exists(histCacheDir)) return;
 
-                var list = ParseJsonItems(content);
-                DispatchSafe(() =>
+                var existingImageFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var item in Items)
                 {
-                    Items.Clear();
-                    foreach (var item in list)
+                    if (item.IsImage)
                     {
-                        item.DetectMetadata();
-                        if (item.IsImage)
-                        {
-                            EnsureHistoryImageInHistoryFolder(item);
-                        }
-                        Items.Add(item);
+                        if (!string.IsNullOrEmpty(item.ImagePath)) existingImageFiles.Add(Path.GetFileName(item.ImagePath));
+                        if (!string.IsNullOrEmpty(item.ThumbPath)) existingImageFiles.Add(Path.GetFileName(item.ThumbPath));
                     }
-                    TrimLimit();
-                });
+                }
+
+                var pngFiles = Directory.GetFiles(histCacheDir, "*.png", SearchOption.TopDirectoryOnly);
+                bool recoveredAny = false;
+
+                foreach (var png in pngFiles)
+                {
+                    string fileName = Path.GetFileName(png);
+                    if (fileName.EndsWith("_t.png", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (existingImageFiles.Contains(fileName)) continue;
+
+                    try
+                    {
+                        var fi = new FileInfo(png);
+                        string thumbPath = Path.Combine(histCacheDir, Path.GetFileNameWithoutExtension(fileName) + "_t.png");
+                        if (!File.Exists(thumbPath)) thumbPath = png;
+
+                        var item = new ClipboardItem
+                        {
+                            Id = Guid.NewGuid().ToString("N"),
+                            ContentType = ClipboardContentType.Image,
+                            ImagePath = png,
+                            ThumbPath = thumbPath,
+                            PreviewText = $"[Hình ảnh] {fi.Name}",
+                            Timestamp = fi.LastWriteTime,
+                            ByteSize = fi.Length,
+                            IsFavorite = false
+                        };
+
+                        item.DetectMetadata();
+                        Items.Add(item);
+                        recoveredAny = true;
+                    }
+                    catch { }
+                }
+
+                if (recoveredAny)
+                {
+                    var sorted = Items.OrderByDescending(x => x.Timestamp).ToList();
+                    Items.Clear();
+                    foreach (var it in sorted) Items.Add(it);
+                    SaveHistoryAsync();
+                }
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine("Error loading clipboard history: " + ex.Message);
-            }
+            catch { }
         }
 
         public void LoadFavorites()

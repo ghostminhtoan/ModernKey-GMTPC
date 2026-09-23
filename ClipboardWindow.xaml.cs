@@ -105,7 +105,7 @@ namespace ModernKey
                 _isSequentialPaste = _settings.ClipboardSequentialPaste;
                 _isCompactMode = _settings.ClipboardViewModeCompact;
                 _isSortDescending = _settings.ClipboardSortDescending;
-                _activeFilter = !string.IsNullOrEmpty(_settings.ClipboardActiveFilter) ? _settings.ClipboardActiveFilter : "ALL";
+                _activeFilter = (!string.IsNullOrEmpty(_settings.ClipboardActiveFilter) && _settings.ClipboardActiveFilter != "SESSION" && _settings.ClipboardActiveFilter != "TODAY") ? _settings.ClipboardActiveFilter : "ALL";
                 _lastActiveItemId = _settings.ClipboardLastSelectedItemId;
                 _textZoom = _settings.ClipboardTextZoom > 0.5 ? _settings.ClipboardTextZoom : 1.0;
             }
@@ -1308,6 +1308,71 @@ namespace ModernKey
         private void LstClipboard_MouseDoubleClick(object sender, MouseButtonEventArgs e)
         {
             ExecutePasteSelected(false, false);
+        }
+
+        private void LstClipboard_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Middle && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+            {
+                var element = e.OriginalSource as DependencyObject;
+                while (element != null && !(element is ListBoxItem) && element != LstClipboard)
+                {
+                    element = VisualTreeHelper.GetParent(element);
+                }
+
+                if (element is ListBoxItem lbi && lbi.DataContext is ClipboardItem item)
+                {
+                    e.Handled = true;
+                    OpenClipboardItemFile(item);
+                }
+            }
+        }
+
+        private void OpenClipboardItemFile(ClipboardItem item)
+        {
+            if (item == null) return;
+            try
+            {
+                if (item.ContentType == ClipboardContentType.Image && !string.IsNullOrEmpty(item.ImagePath) && File.Exists(item.ImagePath))
+                {
+                    Process.Start(new ProcessStartInfo(item.ImagePath) { UseShellExecute = true });
+                }
+                else if (item.ContentType == ClipboardContentType.Files && item.FilePaths != null && item.FilePaths.Count > 0)
+                {
+                    foreach (var p in item.FilePaths)
+                    {
+                        if (File.Exists(p) || Directory.Exists(p))
+                        {
+                            Process.Start(new ProcessStartInfo(p) { UseShellExecute = true });
+                        }
+                    }
+                }
+                else
+                {
+                    string txt = item.TextContent ?? string.Empty;
+                    string trimmed = txt.Trim();
+                    if (!string.IsNullOrWhiteSpace(trimmed) && (File.Exists(trimmed) || Directory.Exists(trimmed)))
+                    {
+                        Process.Start(new ProcessStartInfo(trimmed) { UseShellExecute = true });
+                    }
+                    else if (Uri.TryCreate(trimmed, UriKind.Absolute, out Uri uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps))
+                    {
+                        Process.Start(new ProcessStartInfo(uriResult.AbsoluteUri) { UseShellExecute = true });
+                    }
+                    else
+                    {
+                        string tempDir = Path.Combine(Path.GetTempPath(), "ModernKey");
+                        if (!Directory.Exists(tempDir)) Directory.CreateDirectory(tempDir);
+                        string tempFile = Path.Combine(tempDir, $"clip_{item.Id ?? Guid.NewGuid().ToString("N")}.txt");
+                        File.WriteAllText(tempFile, txt, Encoding.UTF8);
+                        Process.Start(new ProcessStartInfo(tempFile) { UseShellExecute = true });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("Error opening clipboard item file: " + ex.Message);
+            }
         }
 
         private void BtnPasteDirect_Click(object sender, RoutedEventArgs e)
