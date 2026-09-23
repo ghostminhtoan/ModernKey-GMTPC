@@ -124,7 +124,7 @@ namespace ModernKey
                 Console.WriteLine(report);
                 try
                 {
-                    string outPath = System.IO.Path.Combine(SettingsManager.GetConfigDirectory(), "test_results.txt");
+                    string outPath = @"C:\Users\Admin\.gemini\antigravity-ide\brain\6d33b639-082f-4206-9bfa-ccb5e1f6f78d\scratch\test_results.txt";
                     System.IO.File.WriteAllText(outPath, report, Encoding.UTF8);
                 }
                 catch { }

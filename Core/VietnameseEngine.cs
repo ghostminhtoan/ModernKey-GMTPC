@@ -558,7 +558,7 @@ namespace ModernKey.Core
                         OpenKeySpelling.HasToneMarkOnVowel(displayWord) &&
                         !OpenKeySpelling.IsValidWord(displayWord, forceCheckVowel: true, _settings))
                     {
-                        backspaceCount = Math.Max(displayWord.Length, rawWord.Length);
+                        backspaceCount = displayWord.Length;
                         newString = rawWord;
                         trailingVkCode = isSpace ? 0x20 : (isReturn ? 0x0D : 0);
                         Reset();
@@ -707,7 +707,7 @@ namespace ModernKey.Core
                         OpenKeySpelling.HasToneMarkOnVowel(displayWord) &&
                         !OpenKeySpelling.IsValidWord(displayWord, forceCheckVowel: true, _settings))
                     {
-                        backspaceCount = Math.Max(displayWord.Length, rawWord.Length);
+                        backspaceCount = displayWord.Length;
                         newString = rawWord + (ch != '\0' ? ch.ToString() : "");
                         trailingVkCode = 0;
                         Reset();

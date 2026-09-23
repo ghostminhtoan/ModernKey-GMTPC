@@ -1891,6 +1891,8 @@ namespace ModernKey.Core
                     sb.AppendLine($"  FAIL UpperCaseFirstChar test exception: {ex.Message}\n{ex.StackTrace}");
                 }
 
+            Test5Paragraphs(sb, ref allPassed);
+
             sb.AppendLine(allPassed ? "=== TAT CA CAC TEST DEU PASS 100% ===" : "=== CO TEST THAT BAI ===");
             report = sb.ToString();
             return allPassed;
@@ -2012,6 +2014,77 @@ namespace ModernKey.Core
             }
 
             return screen.ToString();
+        }
+
+        private static void Test5Paragraphs(StringBuilder sb, ref bool allPassed)
+        {
+            sb.AppendLine("[TEST 5 DOAN VAN - 4 KIEU GO]");
+            var pExpected = new string[] {
+                "Trời thu xanh ngắt mấy tầng cao, Cần trúc lơ phơ hắt hiu gió. Mấy sự bất bình, tôi muốn giải bày rõ ràng để mọi người cùng hiểu thấu đáo vấn đề.",
+                "Chuyến thuyền khuya lướt trên đường Nguyễn Huệ. Mưa tuôn rào rạt, những hoài bão tuổi trẻ luôn rực cháy. Sự việc ĐÃ ĐƯỢC GIẢI QUYẾT THOẢ ĐÁNG.",
+                "Hôm nay tôi đã commit code lên GitHub bằng lệnh git push. Màn hình HUD của project WPF bị lỗi font rendering. Project OpenKey đang phát triển rất tốt trên framework .NET Core.",
+                "Xoong nồi lẻng xẻng. Cái muỗng, chiếc xoong, quả bưởi, bông hoa mười giờ. Rõ ràng là xoáy nước đã cuốn trôi đi chiếc rương cũ kỹ sần sùi.",
+                "Kính gửi Ban Giám đốc, tôi xin phép báo cáo tiến độ công việc trong tuần qua. Hệ thống phần mềm đã xử lý được 99% khối lượng dữ liệu khổng lồ. Tuy nhiên, vẫn còn một vài khiếm khuyết nhỏ về mặt giao diện người dùng cần tiếp tục khắc phục."
+            };
+
+            var pTelex = new string[] {
+                "Troiwf thu xanh ngawts maasy taangf cao, Caanf trucs low phow hawts hiu gios. Maasy suwj baats binhf, tooi muoons giair bayf rox rangf ddeer moij nguwowif cungf hieeur thaaus ddaos vaasn ddeef.",
+                "Chuyeens thuyeefn khuya luwots treen dduwowfng Nguyeenx Hueej. Muwa tuoon raof rajt, nhuwngx hoaif baox tuooir trer luoon ruwcj chays. Suwj vieecj DDAX DDUWOWCJ GIAIR QUYEEST THOAR DDANGS.",
+                "Hoom nay tooi ddax commit code leen GitHub bawngf leenhj git push. Mafn hinhf HUD cuar project WWPF bij looxi font rendering. Project OpenKey ddang phats trieenr raats toots treen framework .NET Core.",
+                "Xoong nooif lerng xerng. Cais muoongx, chieecs xoong, quar buwowir, boong hoa muwowif giowf. Rox rangf laf xoasy nuwocs ddax cuoons trooi ddi chieecs ruwowng cux kyx saafn suif.",
+                "Kinhs guwir Ban Giams ddoocs, tooi xin pheps baos caos tieens ddooj coong vieecj trong tuaanf qua. Heej thoongs phaafn meemf ddax xuwr lys dduwowcj 99% khoois luwowngj duwx lieeuj khoongr loof. Tuy nhieen, vaanx cofn mootj vaif khieems khuyeets nhor veef mawtj giao dieenj nguwowif dungf caanf tieeps tucj khawcs phucj."
+            };
+
+            var pVni = new string[] {
+                "Tro7i2 thu xanh nga8t1 ma6y1 ta6ng2 cao, Ca6n2 truc1 lo7 pho7 ha8t1 hiu gio1. Ma6y1 su75 ba6t1 binh2, to6i muo6n1 giai3 bay2 ro4 rang2 d9e63 mo5i ngu7o7i2 cung2 hie6u3 tha6u1 d9ao1 va6n1 d9e62.",
+                "Chuye6n1 thuye6n2 khuya lu7o7t1 tre6n d9u7o7ng2 Nguye6n4 Hue65. Mu7a tuo6n rao2 rat5, nhu7ng4 hoai2 bao4 tuo6i3 tre3 luo6n ru7c5 chay1. Su75 vie6c5 D9A4 D9U7O7C5 GIAI3 QUYE6T1 THOA3 D9ANG1.",
+                "Ho6m nay to6i d9a4 commit code le6n GitHub ba8ng2 le6nh5 git push. Man2 hinh2 HUD cua3 project WPF bi5 lo6i4 font rendering. Project OpenKey d9ang phat1 trie6n3 ra6t1 to6t1 tre6n framework .NET Core.",
+                "Xoong no6i2 le3ng xe3ng. Cai1 muo6ng4, chie6c1 xoong, qua3 bu7o7i3, bo6ng hoa mu7o7i2 gio72. Ro4 rang2 la2 xoay1 nu7o7c1 d9a4 cuo6n1 tro6i d9i chie6c1 ru7o7ng cu4 ky4 sa6n2 sui2.",
+                "Kinh1 gu7i3 Ban Giam1 d9o6c1, to6i xin phep1 bao1 cao1 tie6n1 d9o65 co6ng vie6c5 trong tua6n2 qua. He65 tho6ng1 pha6n2 me6m2 d9a4 xu73 ly1 d9u7o7c5 99% kho6i1 lu7o7ng5 du74 lie6u5 kho6ng3 lo62. Tuy nhie6n, va6n4 con2 mo6t5 vai2 khie6m1 khuye6t1 nho3 ve62 ma8t5 giao die6n5 ngu7o7i2 dung2 ca6n2 tie6p1 tuc5 kha8c1 phuc5."
+            };
+
+            var pSimpleTelex = new string[] {
+                "Troiwf thu xanh ngawts maasy taangf cao, Caanf trucs low phow hawts hiu gios. Maasy suwj baats binhf, tooi muoons giair bayf rox rangf ddeer moij nguwowif cungf hieeur thaaus ddaos vaasn ddeef.",
+                "Chuyeens thuyeefn khuya luwots treen dduwowfng Nguyeenx Hueej. Muwa tuoon raof rajt, nhuwngx hoaif baox tuooir trer luoon ruwcj chays. Suwj vieecj DDAX DDUWOWCJ GIAIR QUYEEST THOAR DDANGS.",
+                "Hoom nay tooi ddax commit code leen GitHub bawngf leenhj git push. Mafn hinhf HUD cuar project WPF bij looxi font rendering. Project OpenKey ddang phats trieenr raats toots treen framework .NET Core.",
+                "Xoong nooif lerng xerng. Cais muoongx, chieecs xoong, quar buwowir, boong hoa muwowif giowf. Rox rangf laf xoasy nuwocs ddax cuoons trooi ddi chieecs ruwowng cux kyx saafn suif.",
+                "Kinhs guwir Ban Giams ddoocs, tooi xin pheps baos caos tieens ddooj coong vieecj trong tuaanf qua. Heej thoongs phaafn meemf ddax xuwr lys dduwowcj 99% khoois luwowngj duwx lieeuj khoongr loof. Tuy nhieen, vaanx cofn mootj vaif khieems khuyeets nhor veef mawtj giao dieenj nguwowif dungf caanf tieeps tucj khawcs phucj."
+            };
+
+            var pTbt = new string[] {
+                "Tr]i2 thu xanh ng9t1 m6y1 t6ng2 cao, C6n2 truc1 l] ph] h9t1 hiu gio1. M6y1 s[5 b6t1 binh2, t8i mu8n1 giai3 bay2 ro4 rang2 dd73 moi5 ng[]i2 cung2 hi7u3 th6u1 ddao1 v6n1 dd72.",
+                "Chuy7n1 thuy7n2 khuya l[]t1 tr7n ddu[]ng2 Nguy7n4 Hu75. M[a tu8n rao2 rat5, nh[ng4 hoai2 bao4 tu8i3 tre3 lu8n r[c5 chay1. S[5 vi7c5 DDA4 DDU[]C5 GIAI3 QUY7T1 THOA3 DDANG1.",
+                "H8m nay t8i dda4 commit code l7n GitHub b9ng2 l7nh5 git push. Man2 hinh2 HUD cua3 project WPF bi5 l8i4 font rendering. Project OpenKey ddang phat1 tri7n3 r6t1 t8t1 tr7n framework .NET Core.",
+                "Xoong n8i2 le3ng xe3ng. Cai1 mu8ng4, chi7c1 xoong, qua3 b[]i3, b8ng hoa m[]i2 gi]2. Ro4 rang2 la2 xoay1 n[]c1 dda4 cu8n1 tr8i ddi chi7c1 r[]ng cu4 ky4 s6n2 sui2.",
+                "Kinh1 g[i3 Ban Giam1 dd8c1, t8i xin phep1 bao1 cao1 ti7n1 dd85 c8ng vi7c5 trong tu6n2 qua. H75 th8ng1 ph6n2 m7m2 dda4 x[3 ly1 ddu[]c5 999% kh8i1 l[]ng5 d[4 li7u5 kh8ng3 l82. Tuy nhi7n, v6n4 con2 m8t5 vai2 khi7m1 khuy7t1 nho3 v72 m9t5 giao di7n5 ng[]i2 dung2 c6n2 ti7p1 tuc5 kh9c1 phuc5."
+            };
+
+            InputMethod[] methods = { InputMethod.TuBinhTran, InputMethod.Vni, InputMethod.Telex, InputMethod.SimpleTelex };
+            string[][] inputs = { pTbt, pVni, pTelex, pSimpleTelex };
+
+            for(int m = 0; m < methods.Length; m++)
+            {
+                var method = methods[m];
+                var mInputs = inputs[m];
+                var settings = new AppSettings { IsVietnamese = true, CurrentInputMethod = method, ModernToneRules = true, UpperCaseFirstChar = false };
+                var engine = new VietnameseEngine(settings, new MacroManager());
+                for(int i = 0; i < pExpected.Length; i++)
+                {
+                    string expected = pExpected[i];
+                    string input = mInputs[i];
+                    if ((method == InputMethod.Telex || method == InputMethod.SimpleTelex) && i == 3)
+                    {
+                        expected = expected.Replace("Xoong", "Xông").Replace("xoong", "xông");
+                    }
+                    string actual = SimulateTypingSentence(engine, input);
+                    if (actual == expected) {
+                        sb.AppendLine($"  PASS {method} Doan {i+1}");
+                    } else {
+                        allPassed = false;
+                        sb.AppendLine($"  FAIL {method} Doan {i+1}:\n    Ket qua : '{actual}'\n    Mong doi: '{expected}'");
+                    }
+                }
+            }
         }
     }
 }
