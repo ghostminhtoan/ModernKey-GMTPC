@@ -1026,8 +1026,32 @@ namespace ModernKey
                     {
                         // Enable TLS 1.2
                         System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
+                        
                         using (var client = new System.Net.WebClient())
                         {
+                            client.Headers.Add("User-Agent", "ModernKeyUpdater");
+                            string apiUrl = "https://api.github.com/repos/ghostminhtoan/ModernKey-GMTPC/releases/tags/Release";
+                            string json = client.DownloadString(apiUrl);
+                            
+                            // Find the asset's updated_at (approximate logic to find the first asset's updated_at)
+                            var match = System.Text.RegularExpressions.Regex.Match(json, @"""name"":\s*""ModernKey.exe"".*?""updated_at"":\s*""(.*?)""", System.Text.RegularExpressions.RegexOptions.Singleline);
+                            if (match.Success)
+                            {
+                                DateTime onlineTime = DateTime.Parse(match.Groups[1].Value).ToLocalTime();
+                                DateTime localTime = System.IO.File.GetLastWriteTime(System.Reflection.Assembly.GetExecutingAssembly().Location);
+                                
+                                if (onlineTime <= localTime)
+                                {
+                                    Dispatcher.Invoke(() =>
+                                    {
+                                        MessageBox.Show($"Phiên bản hiện tại của bạn ({localTime:yyyy-MM-dd HH:mm}) đã là mới nhất hoặc mới hơn bản online ({onlineTime:yyyy-MM-dd HH:mm})!\nKhông cần cập nhật.", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
+                                        BtnAutoUpdate.IsEnabled = true;
+                                        BtnAutoUpdate.Content = "AUTO UPDATE";
+                                    });
+                                    return;
+                                }
+                            }
+
                             client.DownloadFile(url, tempExe);
                         }
 
