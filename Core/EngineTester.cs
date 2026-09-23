@@ -2031,7 +2031,7 @@ namespace ModernKey.Core
                 "Troiwf thu xanh ngawts maasy taangf cao, Caanf trucs low phow hawts hiu gios. Maasy suwj baats binhf, tooi muoons giair bayf rox rangf ddeer moij nguwowif cungf hieeur thaaus ddaos vaasn ddeef.",
                 "Chuyeens thuyeefn khuya luwots treen dduwowfng Nguyeenx Hueej. Muwa tuoon raof rajt, nhuwngx hoaif baox tuooir trer luoon ruwcj chays. Suwj vieecj DDAX DDUWOWCJ GIAIR QUYEEST THOAR DDANGS.",
                 "Hoom nay tooi ddax commit code leen GitHub bawngf leenhj git push. Mafn hinhf HUD cuar project WWPF bij looxi font rendering. Project OpenKey ddang phats trieenr raats toots treen framework .NET Core.",
-                "Xoong nooif lerng xerng. Cais muoongx, chieecs xoong, quar buwowir, boong hoa muwowif giowf. Rox rangf laf xoasy nuwocs ddax cuoons trooi ddi chieecs ruwowng cux kyx saafn suif.",
+                "Xooong nooif lerng xerng. Cais muoongx, chieecs xooong, quar buwowir, boong hoa muwowif giowf. Rox rangf laf xoasy nuwocs ddax cuoons trooi ddi chieecs ruwowng cux kyx saafn suif.",
                 "Kinhs guwir Ban Giams ddoocs, tooi xin pheps baos caos tieens ddooj coong vieecj trong tuaanf qua. Heej thoongs phaafn meemf ddax xuwr lys dduwowcj 99% khoois luwowngj duwx lieeuj khoongr loof. Tuy nhieen, vaanx cofn mootj vaif khieems khuyeets nhor veef mawtj giao dieenj nguwowif dungf caanf tieeps tucj khawcs phucj."
             };
 
@@ -2047,7 +2047,7 @@ namespace ModernKey.Core
                 "Troiwf thu xanh ngawts maasy taangf cao, Caanf trucs low phow hawts hiu gios. Maasy suwj baats binhf, tooi muoons giair bayf rox rangf ddeer moij nguwowif cungf hieeur thaaus ddaos vaasn ddeef.",
                 "Chuyeens thuyeefn khuya luwots treen dduwowfng Nguyeenx Hueej. Muwa tuoon raof rajt, nhuwngx hoaif baox tuooir trer luoon ruwcj chays. Suwj vieecj DDAX DDUWOWCJ GIAIR QUYEEST THOAR DDANGS.",
                 "Hoom nay tooi ddax commit code leen GitHub bawngf leenhj git push. Mafn hinhf HUD cuar project WPF bij looxi font rendering. Project OpenKey ddang phats trieenr raats toots treen framework .NET Core.",
-                "Xoong nooif lerng xerng. Cais muoongx, chieecs xoong, quar buwowir, boong hoa muwowif giowf. Rox rangf laf xoasy nuwocs ddax cuoons trooi ddi chieecs ruwowng cux kyx saafn suif.",
+                "Xooong nooif lerng xerng. Cais muoongx, chieecs xooong, quar buwowir, boong hoa muwowif giowf. Rox rangf laf xoasy nuwocs ddax cuoons trooi ddi chieecs ruwowng cux kyx saafn suif.",
                 "Kinhs guwir Ban Giams ddoocs, tooi xin pheps baos caos tieens ddooj coong vieecj trong tuaanf qua. Heej thoongs phaafn meemf ddax xuwr lys dduwowcj 99% khoois luwowngj duwx lieeuj khoongr loof. Tuy nhieen, vaanx cofn mootj vaif khieems khuyeets nhor veef mawtj giao dieenj nguwowif dungf caanf tieeps tucj khawcs phucj."
             };
 
@@ -2072,10 +2072,6 @@ namespace ModernKey.Core
                 {
                     string expected = pExpected[i];
                     string input = mInputs[i];
-                    if ((method == InputMethod.Telex || method == InputMethod.SimpleTelex) && i == 3)
-                    {
-                        expected = expected.Replace("Xoong", "Xông").Replace("xoong", "xông");
-                    }
                     string actual = SimulateTypingSentence(engine, input);
                     if (actual == expected) {
                         sb.AppendLine($"  PASS {method} Doan {i+1}");

@@ -2910,31 +2910,73 @@ namespace ModernKey.Core
                         }
                     }
                     // aa -> â (chỉ khi không phải từ đa âm tiết ngoại lai)
-                    if (!isMultiSyllabic && lower == 'a' && sb.Length > 0 && char.ToLower(sb[sb.Length - 1]) == 'a')
+                    if (!isMultiSyllabic && lower == 'a' && sb.Length > 0)
                     {
-                        bool isUpper = char.IsUpper(sb[sb.Length - 1]) || char.IsUpper(c) || IsCapsLockActive();
-                        sb.Remove(sb.Length - 1, 1);
-                        sb.Append(isUpper ? 'Â' : 'â');
-                        modified = true;
-                        continue;
+                        char prev = sb[sb.Length - 1];
+                        if (char.ToLower(prev) == 'a')
+                        {
+                            bool isUpper = char.IsUpper(prev) || char.IsUpper(c) || IsCapsLockActive();
+                            sb.Remove(sb.Length - 1, 1);
+                            sb.Append(isUpper ? 'Â' : 'â');
+                            modified = true;
+                            continue;
+                        }
+                        else if (char.ToLower(prev) == 'â')
+                        {
+                            bool isUpperPrev = prev == 'Â' || IsCapsLockActive();
+                            bool isUpperCurr = char.IsUpper(c) || IsCapsLockActive();
+                            sb.Remove(sb.Length - 1, 1);
+                            sb.Append(isUpperPrev ? 'A' : 'a');
+                            sb.Append(isUpperCurr ? 'A' : 'a');
+                            modified = true;
+                            continue;
+                        }
                     }
                     // ee -> ê
-                    if (!isMultiSyllabic && lower == 'e' && sb.Length > 0 && char.ToLower(sb[sb.Length - 1]) == 'e')
+                    if (!isMultiSyllabic && lower == 'e' && sb.Length > 0)
                     {
-                        bool isUpper = char.IsUpper(sb[sb.Length - 1]) || char.IsUpper(c) || IsCapsLockActive();
-                        sb.Remove(sb.Length - 1, 1);
-                        sb.Append(isUpper ? 'Ê' : 'ê');
-                        modified = true;
-                        continue;
+                        char prev = sb[sb.Length - 1];
+                        if (char.ToLower(prev) == 'e')
+                        {
+                            bool isUpper = char.IsUpper(prev) || char.IsUpper(c) || IsCapsLockActive();
+                            sb.Remove(sb.Length - 1, 1);
+                            sb.Append(isUpper ? 'Ê' : 'ê');
+                            modified = true;
+                            continue;
+                        }
+                        else if (char.ToLower(prev) == 'ê')
+                        {
+                            bool isUpperPrev = prev == 'Ê' || IsCapsLockActive();
+                            bool isUpperCurr = char.IsUpper(c) || IsCapsLockActive();
+                            sb.Remove(sb.Length - 1, 1);
+                            sb.Append(isUpperPrev ? 'E' : 'e');
+                            sb.Append(isUpperCurr ? 'E' : 'e');
+                            modified = true;
+                            continue;
+                        }
                     }
                     // oo -> ô
-                    if (!isMultiSyllabic && lower == 'o' && sb.Length > 0 && char.ToLower(sb[sb.Length - 1]) == 'o')
+                    if (!isMultiSyllabic && lower == 'o' && sb.Length > 0)
                     {
-                        bool isUpper = char.IsUpper(sb[sb.Length - 1]) || char.IsUpper(c) || IsCapsLockActive();
-                        sb.Remove(sb.Length - 1, 1);
-                        sb.Append(isUpper ? 'Ô' : 'ô');
-                        modified = true;
-                        continue;
+                        char prev = sb[sb.Length - 1];
+                        if (char.ToLower(prev) == 'o')
+                        {
+                            bool isUpper = char.IsUpper(prev) || char.IsUpper(c) || IsCapsLockActive();
+                            sb.Remove(sb.Length - 1, 1);
+                            sb.Append(isUpper ? 'Ô' : 'ô');
+                            modified = true;
+                            continue;
+                        }
+                        else if (char.ToLower(prev) == 'ô')
+                        {
+                            bool isUpperPrev = prev == 'Ô' || IsCapsLockActive();
+                            bool isUpperCurr = char.IsUpper(c) || IsCapsLockActive();
+                            sb.Remove(sb.Length - 1, 1);
+                            sb.Append(isUpperPrev ? 'O' : 'o');
+                            sb.Append(isUpperCurr ? 'O' : 'o');
+                            modified = true;
+                            continue;
+                        }
                     }
                     // w -> ư / aw -> ă / ow -> ơ / uo+w -> ươ
                     if (lower == 'w')
