@@ -45,6 +45,13 @@ namespace ModernKey
             InitializeControls();
             RefreshState();
 
+            try
+            {
+                var buildTime = System.IO.File.GetLastWriteTime(System.Reflection.Assembly.GetExecutingAssembly().Location);
+                TxtBuildTime.Text = buildTime.ToString("yyyy-MM-dd hh.mm.ss tt dddd", new System.Globalization.CultureInfo("en-US"));
+            }
+            catch { }
+
             _statsTimer = new System.Windows.Threading.DispatcherTimer
             {
                 Interval = TimeSpan.FromSeconds(1)
