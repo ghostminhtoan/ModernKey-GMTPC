@@ -1312,7 +1312,7 @@ namespace ModernKey
 
         private void LstClipboard_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (e.ChangedButton == MouseButton.Middle && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+            if (e.ChangedButton == MouseButton.Middle && ((Keyboard.Modifiers & ModifierKeys.Control) != 0 || Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl)))
             {
                 var element = e.OriginalSource as DependencyObject;
                 while (element != null && !(element is ListBoxItem) && element != LstClipboard)
@@ -1320,7 +1320,17 @@ namespace ModernKey
                     element = VisualTreeHelper.GetParent(element);
                 }
 
-                if (element is ListBoxItem lbi && lbi.DataContext is ClipboardItem item)
+                ClipboardItem item = null;
+                if (element is ListBoxItem lbi)
+                {
+                    item = lbi.DataContext as ClipboardItem;
+                }
+                if (item == null)
+                {
+                    item = LstClipboard?.SelectedItem as ClipboardItem;
+                }
+
+                if (item != null)
                 {
                     e.Handled = true;
                     OpenClipboardItemFile(item);
@@ -1333,45 +1343,67 @@ namespace ModernKey
             if (item == null) return;
             try
             {
-                if (item.ContentType == ClipboardContentType.Image && !string.IsNullOrEmpty(item.ImagePath) && File.Exists(item.ImagePath))
+                if (item.ContentType == ClipboardContentType.Image)
                 {
-                    Process.Start(new ProcessStartInfo(item.ImagePath) { UseShellExecute = true });
+                    string resolved = ClipboardItem.ResolvePath(item.ImagePath);
+                    if (!string.IsNullOrEmpty(resolved) && File.Exists(resolved))
+                    {
+                        Process.Start(new ProcessStartInfo(resolved) { UseShellExecute = true });
+                        if (TxtStatus != null) TxtStatus.Text = $"✓ Đã mở ảnh bằng ứng dụng mặc định: {Path.GetFileName(resolved)}";
+                        return;
+                    }
                 }
                 else if (item.ContentType == ClipboardContentType.Files && item.FilePaths != null && item.FilePaths.Count > 0)
                 {
                     foreach (var p in item.FilePaths)
                     {
-                        if (File.Exists(p) || Directory.Exists(p))
+                        string resolved = ClipboardItem.ResolvePath(p);
+                        if (File.Exists(resolved) || Directory.Exists(resolved))
                         {
-                            Process.Start(new ProcessStartInfo(p) { UseShellExecute = true });
+                            Process.Start(new ProcessStartInfo(resolved) { UseShellExecute = true });
+                            if (TxtStatus != null) TxtStatus.Text = $"✓ Đã mở tệp bằng ứng dụng mặc định: {Path.GetFileName(resolved)}";
                         }
                     }
+                    return;
                 }
-                else
+
+                string txt = item.TextContent ?? string.Empty;
+                string trimmed = txt.Trim();
+                string resolvedTxtPath = ClipboardItem.ResolvePath(trimmed);
+
+                if (!string.IsNullOrWhiteSpace(trimmed) && (File.Exists(resolvedTxtPath) || Directory.Exists(resolvedTxtPath)))
                 {
-                    string txt = item.TextContent ?? string.Empty;
-                    string trimmed = txt.Trim();
-                    if (!string.IsNullOrWhiteSpace(trimmed) && (File.Exists(trimmed) || Directory.Exists(trimmed)))
-                    {
-                        Process.Start(new ProcessStartInfo(trimmed) { UseShellExecute = true });
-                    }
-                    else if (Uri.TryCreate(trimmed, UriKind.Absolute, out Uri uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps))
-                    {
-                        Process.Start(new ProcessStartInfo(uriResult.AbsoluteUri) { UseShellExecute = true });
-                    }
-                    else
-                    {
-                        string tempDir = Path.Combine(Path.GetTempPath(), "ModernKey");
-                        if (!Directory.Exists(tempDir)) Directory.CreateDirectory(tempDir);
-                        string tempFile = Path.Combine(tempDir, $"clip_{item.Id ?? Guid.NewGuid().ToString("N")}.txt");
-                        File.WriteAllText(tempFile, txt, Encoding.UTF8);
-                        Process.Start(new ProcessStartInfo(tempFile) { UseShellExecute = true });
-                    }
+                    Process.Start(new ProcessStartInfo(resolvedTxtPath) { UseShellExecute = true });
+                    if (TxtStatus != null) TxtStatus.Text = $"✓ Đã mở tệp bằng ứng dụng mặc định: {Path.GetFileName(resolvedTxtPath)}";
+                }
+                else if (Uri.TryCreate(trimmed, UriKind.Absolute, out Uri uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps))
+                {
+                    Process.Start(new ProcessStartInfo(uriResult.AbsoluteUri) { UseShellExecute = true });
+                    if (TxtStatus != null) TxtStatus.Text = $"✓ Đã mở liên kết qua trình duyệt: {uriResult.Host}";
+                }
+                else if (!string.IsNullOrWhiteSpace(txt))
+                {
+                    string tempDir = Path.Combine(Path.GetTempPath(), "ModernKey");
+                    if (!Directory.Exists(tempDir)) Directory.CreateDirectory(tempDir);
+                    string tempFile = Path.Combine(tempDir, $"clip_{item.Id ?? Guid.NewGuid().ToString("N")}.txt");
+                    File.WriteAllText(tempFile, txt, Encoding.UTF8);
+                    Process.Start(new ProcessStartInfo(tempFile) { UseShellExecute = true });
+                    if (TxtStatus != null) TxtStatus.Text = $"✓ Đã mở văn bản bằng ứng dụng mặc định: {Path.GetFileName(tempFile)}";
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine("Error opening clipboard item file: " + ex.Message);
+                if (TxtStatus != null) TxtStatus.Text = "❌ Lỗi khi mở tệp: " + ex.Message;
+            }
+        }
+
+        private void CtxMenuOpenFile_Click(object sender, RoutedEventArgs e)
+        {
+            var selected = LstClipboard?.SelectedItem as ClipboardItem;
+            if (selected != null)
+            {
+                OpenClipboardItemFile(selected);
             }
         }
 

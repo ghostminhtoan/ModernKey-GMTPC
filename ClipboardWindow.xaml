@@ -494,6 +494,7 @@
                         <ListBox.ContextMenu>
                             <ContextMenu Style="{StaticResource CyberContextMenu}" Opened="ContextMenu_Opened">
                                 <MenuItem Header="Dán (Paste)" InputGestureText="Enter / Ins" Click="CtxMenuPaste_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem Header="📂 Mở tệp/ảnh gốc bằng ứng dụng mặc định" InputGestureText="Ctrl+MClick" Click="CtxMenuOpenFile_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="📌 Ghim ra cửa sổ nổi (Sticky Note)..." Click="CtxMenuStickyNote_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="⭐ Thêm / Chọn Group Yêu thích..." InputGestureText="Ctrl+D" Click="CtxMenuToggleFav_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="Bỏ khỏi Yêu thích" Click="CtxMenuRemoveFav_Click" Style="{StaticResource CyberMenuItem}" />
