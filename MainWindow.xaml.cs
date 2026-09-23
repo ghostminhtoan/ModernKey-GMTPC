@@ -1009,6 +1009,68 @@ namespace ModernKey
             (Application.Current as App)?.ExitApplication();
         }
 
+        private void BtnAutoUpdate_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string url = "https://github.com/ghostminhtoan/ModernKey-GMTPC/releases/download/Release/ModernKey.exe";
+                string tempExe = "ModernKey_update.exe";
+                string batScript = "update_modernkey.bat";
+                
+                BtnAutoUpdate.Content = "ĐANG TẢI...";
+                BtnAutoUpdate.IsEnabled = false;
+
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    try
+                    {
+                        // Enable TLS 1.2
+                        System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
+                        using (var client = new System.Net.WebClient())
+                        {
+                            client.DownloadFile(url, tempExe);
+                        }
+
+                        string batContent = $@"@echo off
+timeout /t 2 /nobreak > NUL
+move /Y ""{tempExe}"" ""{System.AppDomain.CurrentDomain.FriendlyName}""
+start """" ""{System.AppDomain.CurrentDomain.FriendlyName}""
+del ""%~f0""
+";
+                        System.IO.File.WriteAllText(batScript, batContent);
+                        Process.Start(new ProcessStartInfo()
+                        {
+                            FileName = batScript,
+                            UseShellExecute = true,
+                            CreateNoWindow = true,
+                            WindowStyle = ProcessWindowStyle.Hidden
+                        });
+
+                        Dispatcher.Invoke(() =>
+                        {
+                            _isRealExit = true;
+                            (Application.Current as App)?.ExitApplication();
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            MessageBox.Show("Lỗi khi tải bản cập nhật: " + ex.Message, "Lỗi Update", MessageBoxButton.OK, MessageBoxImage.Error);
+                            BtnAutoUpdate.IsEnabled = true;
+                            BtnAutoUpdate.Content = "AUTO UPDATE";
+                        });
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi: " + ex.Message);
+                BtnAutoUpdate.IsEnabled = true;
+                BtnAutoUpdate.Content = "AUTO UPDATE";
+            }
+        }
+
         public void ApplyCompactModeUi(bool isCompact)
         {
             if (isCompact)

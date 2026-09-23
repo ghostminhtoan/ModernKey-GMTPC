@@ -802,7 +802,10 @@
         <Border x:Name="MainFooter" Grid.Row="2" Background="{StaticResource CyberDark}" CornerRadius="2" Padding="12,10" Margin="0,12,0,0"
                 BorderBrush="{StaticResource CyberBorderDim}" BorderThickness="1">
             <Grid>
-                <TextBlock x:Name="TxtBuildTime" HorizontalAlignment="Left" VerticalAlignment="Center" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource CyberTextSecondary}" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <TextBlock x:Name="TxtBuildTime" VerticalAlignment="Center" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource CyberTextSecondary}" Margin="0,0,10,0" />
+                    <Button x:Name="BtnAutoUpdate" Content="AUTO UPDATE" Click="BtnAutoUpdate_Click" Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" Padding="8,2" FontSize="10" FontWeight="Bold" ToolTip="Tự động tải bản mới và khởi động lại" />
+                </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button Content="ĐÓNG VỀ KHAY" Click="BtnCloseToTray_Click" Margin="0,0,8,0" />
                     <Button Content="LƯU CẤU HÌNH" Click="BtnSaveSettings_Click" Margin="0,0,8,0" />
