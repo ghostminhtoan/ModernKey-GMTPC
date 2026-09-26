@@ -2277,46 +2277,117 @@ namespace ModernKey
             if (item == null) return;
             try
             {
-                // 1. Tìm đường dẫn file ảnh gốc không có đuôi _t.png
-                string filePath = ClipboardItem.GetFullImagePath(item);
-                if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+                // 1. Định vị đường dẫn file ảnh gốc chất lượng cao (không có hậu tố _t.png)
+                string sourceFilePath = ClipboardItem.GetFullImagePath(item);
+                if (string.IsNullOrEmpty(sourceFilePath) || !File.Exists(sourceFilePath))
                 {
-                    filePath = ClipboardItem.ResolvePath(item.ImagePath);
+                    sourceFilePath = ClipboardItem.ResolvePath(item.ImagePath);
                 }
 
-                // Đảm bảo không bao giờ mở file thumbnail _t.png nếu có file gốc .png
-                if (!string.IsNullOrEmpty(filePath) && filePath.EndsWith("_t.png", StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrEmpty(sourceFilePath) && sourceFilePath.EndsWith("_t.png", StringComparison.OrdinalIgnoreCase))
                 {
-                    string nonThumb = filePath.Substring(0, filePath.Length - 6) + ".png";
+                    string nonThumb = sourceFilePath.Substring(0, sourceFilePath.Length - 6) + ".png";
                     if (File.Exists(nonThumb))
                     {
-                        filePath = nonThumb;
+                        sourceFilePath = nonThumb;
                     }
                 }
 
-                if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+                // 2. BƯỚC TRUNG GIAN (Intermediate Step):
+                // Sao chép hoặc xuất ảnh gốc ra một thư mục tạm chuẩn (%TEMP%\ModernKey_ImageViewer)
+                // Điều này giải quyết triệt để lỗi của Windows Photos App và các app UWP không thể truy cập
+                // file nằm trong thư mục ẩn .portable hoặc đường dẫn NTFS Symlink.
+                string tempDir = Path.Combine(Path.GetTempPath(), "ModernKey_ImageViewer");
+                if (!Directory.Exists(tempDir)) Directory.CreateDirectory(tempDir);
+
+                string destFileName = !string.IsNullOrEmpty(sourceFilePath) && File.Exists(sourceFilePath)
+                    ? Path.GetFileName(sourceFilePath)
+                    : $"image_{DateTime.Now:yyyyMMdd_HHmmss}.png";
+
+                if (destFileName.EndsWith("_t.png", StringComparison.OrdinalIgnoreCase))
                 {
-                    Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true });
-                    if (TxtStatus != null) TxtStatus.Text = $"✓ Đã mở ảnh bằng ứng dụng mặc định: {Path.GetFileName(filePath)}";
-                    return;
+                    destFileName = destFileName.Substring(0, destFileName.Length - 6) + ".png";
                 }
 
-                // 2. Dự phòng: Nếu file ảnh không có sẵn trên đĩa thì xuất ra file PNG tạm thời rồi mở
-                var fullBmp = item.FullImageSource ?? item.ImageSource;
-                if (fullBmp is BitmapSource bs)
-                {
-                    string tempDir = Path.Combine(Path.GetTempPath(), "ModernKey");
-                    if (!Directory.Exists(tempDir)) Directory.CreateDirectory(tempDir);
-                    string tempFile = Path.Combine(tempDir, $"preview_{DateTime.Now:yyyyMMdd_HHmmss}_{Guid.NewGuid().ToString("N").Substring(0, 6)}.png");
+                string targetTempFile = Path.Combine(tempDir, destFileName);
 
-                    var encoder = new PngBitmapEncoder();
-                    encoder.Frames.Add(BitmapFrame.Create(bs));
-                    using (var fs = new FileStream(tempFile, FileMode.Create, FileAccess.Write))
+                if (!string.IsNullOrEmpty(sourceFilePath) && File.Exists(sourceFilePath))
+                {
+                    File.Copy(sourceFilePath, targetTempFile, true);
+                    try
                     {
-                        encoder.Save(fs);
+                        File.SetAttributes(targetTempFile, FileAttributes.Normal);
                     }
-                    Process.Start(new ProcessStartInfo(tempFile) { UseShellExecute = true });
-                    if (TxtStatus != null) TxtStatus.Text = $"✓ Đã mở ảnh bằng ứng dụng mặc định: {Path.GetFileName(tempFile)}";
+                    catch { }
+                }
+                else
+                {
+                    // Dự phòng: Nếu file không tồn tại trên đĩa, xuất trực tiếp từ Bitmap gốc trong RAM
+                    var fullBmp = item.FullImageSource ?? item.ImageSource;
+                    if (fullBmp is BitmapSource bs)
+                    {
+                        var encoder = new PngBitmapEncoder();
+                        encoder.Frames.Add(BitmapFrame.Create(bs));
+                        using (var fs = new FileStream(targetTempFile, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
+                        {
+                            encoder.Save(fs);
+                        }
+                    }
+                }
+
+                if (File.Exists(targetTempFile))
+                {
+                    bool launched = false;
+                    try
+                    {
+                        var psi = new ProcessStartInfo
+                        {
+                            FileName = targetTempFile,
+                            UseShellExecute = true
+                        };
+                        Process.Start(psi);
+                        launched = true;
+                    }
+                    catch (Exception exLaunch)
+                    {
+                        Debug.WriteLine("Process.Start failed, trying fallback: " + exLaunch.Message);
+                    }
+
+                    // Fallback 1: Thử mở qua explorer.exe
+                    if (!launched)
+                    {
+                        try
+                        {
+                            Process.Start("explorer.exe", $"\"{targetTempFile}\"");
+                            launched = true;
+                        }
+                        catch { }
+                    }
+
+                    // Fallback 2: Thử mở qua cmd start
+                    if (!launched)
+                    {
+                        try
+                        {
+                            var psiCmd = new ProcessStartInfo
+                            {
+                                FileName = "cmd.exe",
+                                Arguments = $"/c start \"\" \"{targetTempFile}\"",
+                                CreateNoWindow = true,
+                                WindowStyle = ProcessWindowStyle.Hidden,
+                                UseShellExecute = false
+                            };
+                            Process.Start(psiCmd);
+                            launched = true;
+                        }
+                        catch { }
+                    }
+
+                    if (TxtStatus != null)
+                    {
+                        TxtStatus.Text = $"✓ Đã mở ảnh gốc qua trình xem ảnh mặc định: {Path.GetFileName(targetTempFile)}";
+                    }
+                    return;
                 }
             }
             catch (Exception ex)
@@ -2392,7 +2463,14 @@ namespace ModernKey
                 {
                     ImgQuickLookBody.Visibility = Visibility.Visible;
                     // Sử dụng FullImageSource để hiển thị ảnh gốc độ phân giải đầy đủ, không bị mờ 480px
-                    ImgQuickLookBody.Source = item.FullImageSource ?? item.ImageSource;
+                    var fullSource = item.FullImageSource ?? item.ImageSource;
+                    ImgQuickLookBody.Source = fullSource;
+
+                    if (fullSource != null && TxtQuickLookTitle != null)
+                    {
+                        string sizeInfo = item.ByteSize > 0 ? $" • {item.ByteSize / 1024} KB" : "";
+                        TxtQuickLookTitle.Text = $"[ẢNH {fullSource.PixelWidth}x{fullSource.PixelHeight}{sizeInfo}] - Nhấn F hoặc click ảnh để mở trình xem ngoài";
+                    }
                 }
                 if (BtnQuickLookOpenExternal != null) BtnQuickLookOpenExternal.Visibility = Visibility.Visible;
             }
