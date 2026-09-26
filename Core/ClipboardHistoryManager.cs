@@ -211,12 +211,31 @@ namespace ModernKey.Core
                 string cfgDir = SettingsManager.GetConfigDirectory();
                 string clipDir = GetClipboardDirectory();
 
-                // 1. Tự động chuyển file clipboard_history.json cũ vào folder clipboard\ mới
+                // 1. Tự động chuyển file clipboard_history.json & clipboard_favorites.json cũ vào folder clipboard\ mới
                 string oldHist = Path.Combine(cfgDir, "clipboard_history.json");
                 string newHist = Path.Combine(clipDir, "clipboard_history.json");
                 if (File.Exists(oldHist) && !File.Exists(newHist))
                 {
                     try { File.Move(oldHist, newHist); } catch { }
+                }
+
+                string oldFav = Path.Combine(cfgDir, "clipboard_favorites.json");
+                string newFav = Path.Combine(clipDir, "clipboard_favorites.json");
+                if (File.Exists(oldFav) && !File.Exists(newFav))
+                {
+                    try { File.Move(oldFav, newFav); } catch { }
+                }
+
+                string oldLegacyFav = Path.Combine(cfgDir, "favorites.json");
+                if (File.Exists(oldLegacyFav) && !File.Exists(newFav))
+                {
+                    try { File.Move(oldLegacyFav, newFav); } catch { }
+                }
+
+                string clipLegacyFav = Path.Combine(clipDir, "favorites.json");
+                if (File.Exists(clipLegacyFav) && !File.Exists(newFav))
+                {
+                    try { File.Move(clipLegacyFav, newFav); } catch { }
                 }
 
                 // 2. Tự động chuyển folder clipboard_cache cũ vào folder clipboard\clipboard_cache mới
@@ -1185,6 +1204,21 @@ namespace ModernKey.Core
                 });
                 string json = SerializeItemsToJson(snapshot);
                 File.WriteAllText(path, json, Encoding.UTF8);
+
+                // Đồng bộ ngay sang project root .portable nếu đang chạy trong thư mục build \bin\
+                try
+                {
+                    string appDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? AppDomain.CurrentDomain.BaseDirectory;
+                    if (appDir.IndexOf(@"\bin\", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        string projectRoot = Path.GetFullPath(Path.Combine(appDir, @"..\..\.."));
+                        string rootPortableHist = Path.Combine(projectRoot, ".portable", "clipboard", "clipboard_history.json");
+                        string rootClipDir = Path.GetDirectoryName(rootPortableHist);
+                        if (!Directory.Exists(rootClipDir)) Directory.CreateDirectory(rootClipDir);
+                        File.WriteAllText(rootPortableHist, json, Encoding.UTF8);
+                    }
+                }
+                catch { }
             }
             catch (Exception ex)
             {
@@ -1204,6 +1238,21 @@ namespace ModernKey.Core
                 });
                 string json = SerializeItemsToJson(snapshot);
                 File.WriteAllText(path, json, Encoding.UTF8);
+
+                // Đồng bộ ngay sang project root .portable nếu đang chạy trong thư mục build \bin\
+                try
+                {
+                    string appDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? AppDomain.CurrentDomain.BaseDirectory;
+                    if (appDir.IndexOf(@"\bin\", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        string projectRoot = Path.GetFullPath(Path.Combine(appDir, @"..\..\.."));
+                        string rootPortableFav = Path.Combine(projectRoot, ".portable", "clipboard", "clipboard_favorites.json");
+                        string rootClipDir = Path.GetDirectoryName(rootPortableFav);
+                        if (!Directory.Exists(rootClipDir)) Directory.CreateDirectory(rootClipDir);
+                        File.WriteAllText(rootPortableFav, json, Encoding.UTF8);
+                    }
+                }
+                catch { }
             }
             catch (Exception ex)
             {
@@ -1315,14 +1364,64 @@ namespace ModernKey.Core
         public void LoadFavorites()
         {
             string path = GetFavoritesFilePath();
-            if (!File.Exists(path)) return;
+            string content = null;
+
+            if (File.Exists(path))
+            {
+                try { content = File.ReadAllText(path, Encoding.UTF8); } catch { }
+            }
+
+            // Nếu file chính rỗng hoặc chưa có, tìm ở các vị trí fallback / root .portable
+            if (string.IsNullOrWhiteSpace(content) || content.Trim() == "[]")
+            {
+                string cfgDir = SettingsManager.GetConfigDirectory();
+                string appDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? AppDomain.CurrentDomain.BaseDirectory;
+                string projectRoot = Path.GetFullPath(Path.Combine(appDir, @"..\..\.."));
+
+                string[] fallbackPaths = new[]
+                {
+                    Path.Combine(GetClipboardDirectory(), "favorites.json"),
+                    Path.Combine(cfgDir, "clipboard_favorites.json"),
+                    Path.Combine(cfgDir, "favorites.json"),
+                    Path.Combine(projectRoot, ".portable", "clipboard", "clipboard_favorites.json"),
+                    Path.Combine(projectRoot, ".portable", "clipboard_favorites.json"),
+                    Path.Combine(projectRoot, ".portable", "clipboard", "favorites.json"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ModernKey", "clipboard", "clipboard_favorites.json"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ModernKey", "clipboard_favorites.json")
+                };
+
+                foreach (var fb in fallbackPaths)
+                {
+                    try
+                    {
+                        if (File.Exists(fb))
+                        {
+                            string fbContent = File.ReadAllText(fb, Encoding.UTF8);
+                            if (!string.IsNullOrWhiteSpace(fbContent) && fbContent.Trim() != "[]")
+                            {
+                                content = fbContent;
+                                try
+                                {
+                                    string dir = Path.GetDirectoryName(path);
+                                    if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                                    File.WriteAllText(path, content, Encoding.UTF8);
+                                }
+                                catch { }
+                                break;
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(content)) return;
 
             try
             {
-                string content = File.ReadAllText(path, Encoding.UTF8);
-                if (string.IsNullOrWhiteSpace(content)) return;
-
                 var list = ParseJsonItems(content);
+                if (list == null || list.Count == 0) return;
+
                 DispatchSafe(() =>
                 {
                     FavoriteItems.Clear();

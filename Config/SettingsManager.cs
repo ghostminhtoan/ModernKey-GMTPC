@@ -40,7 +40,8 @@ namespace ModernKey.Config
                 catch { }
             }
 
-            // Môi trường Dev/IDE (chạy từ bin\Debug\net472): đồng bộ tự động dữ liệu từ .portable gốc dự án nếu chưa có
+            // Môi trường Dev/IDE (chạy từ bin\Release\net472 hoặc bin\Debug\net472):
+            // Đồng bộ 2 chiều thông minh (giữ bản mới nhất) giữa .portable cục bộ và .portable gốc dự án
             try
             {
                 if (appDir.IndexOf(@"\bin\", StringComparison.OrdinalIgnoreCase) >= 0)
@@ -49,27 +50,133 @@ namespace ModernKey.Config
                     string rootPortable = Path.Combine(projectRoot, ".portable");
                     if (Directory.Exists(rootPortable))
                     {
-                        string rootClipJson = Path.Combine(rootPortable, "clipboard", "clipboard_history.json");
-                        string localClipJson = Path.Combine(portableDir, "clipboard", "clipboard_history.json");
-                        if (File.Exists(rootClipJson) && !File.Exists(localClipJson))
-                        {
-                            string localClipFolder = Path.Combine(portableDir, "clipboard");
-                            if (!Directory.Exists(localClipFolder)) Directory.CreateDirectory(localClipFolder);
-                            File.Copy(rootClipJson, localClipJson, true);
-                        }
-
-                        string rootIni = Path.Combine(rootPortable, "settings.ini");
-                        string localIni = Path.Combine(portableDir, "settings.ini");
-                        if (File.Exists(rootIni) && !File.Exists(localIni))
-                        {
-                            File.Copy(rootIni, localIni, true);
-                        }
+                        SyncPortableFiles(rootPortable, portableDir);
+                    }
+                    else if (Directory.Exists(portableDir))
+                    {
+                        Directory.CreateDirectory(rootPortable);
+                        SyncPortableFiles(portableDir, rootPortable);
                     }
                 }
             }
             catch { }
 
             return Directory.Exists(portableDir) ? portableDir : appDir;
+        }
+
+        public static void SyncPortableFiles(string dirA, string dirB)
+        {
+            if (!Directory.Exists(dirA) || !Directory.Exists(dirB)) return;
+
+            string[] relFiles = new[]
+            {
+                Path.Combine("clipboard", "clipboard_favorites.json"),
+                Path.Combine("clipboard", "clipboard_history.json"),
+                Path.Combine("clipboard", "favorites.json"),
+                Path.Combine("clipboard", "history.json"),
+                "clipboard_favorites.json",
+                "clipboard_history.json",
+                "favorites.json",
+                "history.json",
+                "settings.ini",
+                "modernkey.ini",
+                "macro.txt",
+                "openkeymacro wpf.txt",
+                "typing_stats.json",
+                "spelling_correction.txt"
+            };
+
+            foreach (var rel in relFiles)
+            {
+                string pathA = Path.Combine(dirA, rel);
+                string pathB = Path.Combine(dirB, rel);
+
+                bool existsA = File.Exists(pathA);
+                bool existsB = File.Exists(pathB);
+
+                if (existsA && !existsB)
+                {
+                    string folderB = Path.GetDirectoryName(pathB);
+                    if (!Directory.Exists(folderB)) Directory.CreateDirectory(folderB);
+                    try { File.Copy(pathA, pathB, true); } catch { }
+                }
+                else if (!existsA && existsB)
+                {
+                    string folderA = Path.GetDirectoryName(pathA);
+                    if (!Directory.Exists(folderA)) Directory.CreateDirectory(folderA);
+                    try { File.Copy(pathB, pathA, true); } catch { }
+                }
+                else if (existsA && existsB)
+                {
+                    var fiA = new FileInfo(pathA);
+                    var fiB = new FileInfo(pathB);
+
+                    // Ưu tiên file có nội dung (> 2 byte) hơn file rỗng (<= 2 byte như "[]")
+                    if (fiA.Length > 2 && fiB.Length <= 2)
+                    {
+                        try { File.Copy(pathA, pathB, true); } catch { }
+                    }
+                    else if (fiB.Length > 2 && fiA.Length <= 2)
+                    {
+                        try { File.Copy(pathB, pathA, true); } catch { }
+                    }
+                    else if (fiA.LastWriteTime > fiB.LastWriteTime && fiA.Length > 0)
+                    {
+                        try { File.Copy(pathA, pathB, true); } catch { }
+                    }
+                    else if (fiB.LastWriteTime > fiA.LastWriteTime && fiB.Length > 0)
+                    {
+                        try { File.Copy(pathB, pathA, true); } catch { }
+                    }
+                }
+            }
+
+            // Đồng bộ toàn bộ thư mục cache (history, favorites, icons) 2 chiều
+            SyncCacheFolderBidirectional(Path.Combine(dirA, "clipboard", "clipboard_cache"), Path.Combine(dirB, "clipboard", "clipboard_cache"));
+            SyncCacheFolderBidirectional(Path.Combine(dirA, "clipboard_cache"), Path.Combine(dirB, "clipboard_cache"));
+        }
+
+        private static void SyncCacheFolderBidirectional(string cacheA, string cacheB)
+        {
+            try
+            {
+                if (!Directory.Exists(cacheA) && !Directory.Exists(cacheB)) return;
+                if (!Directory.Exists(cacheA)) Directory.CreateDirectory(cacheA);
+                if (!Directory.Exists(cacheB)) Directory.CreateDirectory(cacheB);
+
+                foreach (var sub in new[] { "history", "favorites", "icons" })
+                {
+                    string subA = Path.Combine(cacheA, sub);
+                    string subB = Path.Combine(cacheB, sub);
+
+                    if (Directory.Exists(subA))
+                    {
+                        if (!Directory.Exists(subB)) Directory.CreateDirectory(subB);
+                        foreach (var f in Directory.GetFiles(subA))
+                        {
+                            string target = Path.Combine(subB, Path.GetFileName(f));
+                            if (!File.Exists(target))
+                            {
+                                try { File.Copy(f, target, true); } catch { }
+                            }
+                        }
+                    }
+
+                    if (Directory.Exists(subB))
+                    {
+                        if (!Directory.Exists(subA)) Directory.CreateDirectory(subA);
+                        foreach (var f in Directory.GetFiles(subB))
+                        {
+                            string target = Path.Combine(subA, Path.GetFileName(f));
+                            if (!File.Exists(target))
+                            {
+                                try { File.Copy(f, target, true); } catch { }
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
         }
 
         public static string CustomSyncDirectory { get; set; } = null;
