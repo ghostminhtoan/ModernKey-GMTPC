@@ -604,11 +604,93 @@ namespace ModernKey.Models
             };
         }
 
+        /// <summary>
+        /// Lấy đường dẫn file ảnh gốc chất lượng cao (KHÔNG CÓ hậu tố _t.png).
+        /// Tự động tìm kiếm file .png tương ứng trong cache/thư mục lưu trữ.
+        /// </summary>
+        public static string GetFullImagePath(ClipboardItem item)
+        {
+            if (item == null) return string.Empty;
+
+            // 1. Thử lấy từ ImagePath trước
+            if (!string.IsNullOrWhiteSpace(item.ImagePath))
+            {
+                string path = GetFullImagePath(item.ImagePath);
+                if (!string.IsNullOrEmpty(path) && File.Exists(path)) return path;
+            }
+
+            // 2. Thử lấy từ ThumbPath nếu ImagePath không hợp lệ hoặc thiếu
+            if (!string.IsNullOrWhiteSpace(item.ThumbPath))
+            {
+                string path = GetFullImagePath(item.ThumbPath);
+                if (!string.IsNullOrEmpty(path) && File.Exists(path)) return path;
+            }
+
+            return string.Empty;
+        }
+
+        /// <summary>
+        /// Chuyển đổi đường dẫn ảnh bất kỳ (kể cả có _t.png) thành đường dẫn ảnh gốc không có _t.png
+        /// </summary>
+        public static string GetFullImagePath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return string.Empty;
+            path = path.Replace("\r", "r").Replace("\n", "n").Trim();
+
+            // 1. Tạo candidate không có _t.png
+            string nonThumbCandidate = path;
+            if (nonThumbCandidate.EndsWith("_t.png", StringComparison.OrdinalIgnoreCase))
+            {
+                nonThumbCandidate = nonThumbCandidate.Substring(0, nonThumbCandidate.Length - 6) + ".png";
+            }
+            else if (nonThumbCandidate.EndsWith("_t.jpg", StringComparison.OrdinalIgnoreCase))
+            {
+                nonThumbCandidate = nonThumbCandidate.Substring(0, nonThumbCandidate.Length - 6) + ".jpg";
+            }
+            else if (nonThumbCandidate.EndsWith("_t.jpeg", StringComparison.OrdinalIgnoreCase))
+            {
+                nonThumbCandidate = nonThumbCandidate.Substring(0, nonThumbCandidate.Length - 7) + ".jpeg";
+            }
+
+            // Thử resolve nonThumbCandidate trước
+            string resolvedNonThumb = ResolvePath(nonThumbCandidate);
+            if (!string.IsNullOrEmpty(resolvedNonThumb) && File.Exists(resolvedNonThumb))
+            {
+                return resolvedNonThumb;
+            }
+
+            // 2. Thử resolve đường dẫn gốc ban đầu
+            string resolvedOrig = ResolvePath(path);
+            if (!string.IsNullOrEmpty(resolvedOrig) && File.Exists(resolvedOrig))
+            {
+                // Nếu file resolved vẫn có _t.png, kiểm tra xem file bỏ _t.png có cạnh nó không
+                if (resolvedOrig.EndsWith("_t.png", StringComparison.OrdinalIgnoreCase))
+                {
+                    string siblingNonThumb = resolvedOrig.Substring(0, resolvedOrig.Length - 6) + ".png";
+                    if (File.Exists(siblingNonThumb))
+                    {
+                        return siblingNonThumb;
+                    }
+                }
+                else if (resolvedOrig.EndsWith("_t.jpg", StringComparison.OrdinalIgnoreCase))
+                {
+                    string siblingNonThumb = resolvedOrig.Substring(0, resolvedOrig.Length - 6) + ".jpg";
+                    if (File.Exists(siblingNonThumb))
+                    {
+                        return siblingNonThumb;
+                    }
+                }
+                return resolvedOrig;
+            }
+
+            return resolvedNonThumb ?? resolvedOrig ?? path;
+        }
+
         public static string ResolvePath(string path)
         {
             if (string.IsNullOrEmpty(path)) return string.Empty;
-            path = path.Replace("\r", "r").Replace("\n", "n");
-            if (File.Exists(path)) return path;
+            path = path.Replace("\r", "r").Replace("\n", "n").Trim();
+            if (File.Exists(path) || Directory.Exists(path)) return path;
 
             try
             {
@@ -644,6 +726,23 @@ namespace ModernKey.Models
 
                     string candOldIcon = Path.Combine(oldCacheDir, "icons", fn);
                     if (File.Exists(candOldIcon)) return candOldIcon;
+
+                    // 3. Thư mục .portable tại AppDomain.CurrentDomain.BaseDirectory
+                    string baseAppDir = AppDomain.CurrentDomain.BaseDirectory;
+                    if (!string.IsNullOrEmpty(baseAppDir))
+                    {
+                        string candBaseHist = Path.Combine(baseAppDir, ".portable", "clipboard", "clipboard_cache", "history", fn);
+                        if (File.Exists(candBaseHist)) return candBaseHist;
+
+                        string candBaseFav = Path.Combine(baseAppDir, ".portable", "clipboard", "clipboard_cache", "favorites", fn);
+                        if (File.Exists(candBaseFav)) return candBaseFav;
+
+                        string candBaseOldHist = Path.Combine(baseAppDir, ".portable", "clipboard_cache", "history", fn);
+                        if (File.Exists(candBaseOldHist)) return candBaseOldHist;
+
+                        string candBaseOldFav = Path.Combine(baseAppDir, ".portable", "clipboard_cache", "favorites", fn);
+                        if (File.Exists(candBaseOldFav)) return candBaseOldFav;
+                    }
                 }
             }
             catch { }
@@ -725,7 +824,9 @@ namespace ModernKey.Models
             {
                 if (_imageSource == null && IsImage)
                 {
-                    _imageSource = LoadBitmapSafe(ImagePath, 480);
+                    string fullPath = GetFullImagePath(this);
+                    string target = !string.IsNullOrEmpty(fullPath) ? fullPath : ImagePath;
+                    _imageSource = LoadBitmapSafe(target, 480);
                 }
                 return _imageSource;
             }
@@ -743,7 +844,15 @@ namespace ModernKey.Models
             {
                 if (_fullImageSource == null && IsImage)
                 {
-                    _fullImageSource = LoadBitmapSafe(ImagePath, 0); // 0 = Full original resolution
+                    string fullPath = GetFullImagePath(this);
+                    if (!string.IsNullOrEmpty(fullPath) && File.Exists(fullPath))
+                    {
+                        _fullImageSource = LoadBitmapSafe(fullPath, 0); // 0 = Full original resolution
+                    }
+                    if (_fullImageSource == null && !string.IsNullOrEmpty(ImagePath))
+                    {
+                        _fullImageSource = LoadBitmapSafe(ImagePath, 0);
+                    }
                 }
                 return _fullImageSource ?? ImageSource;
             }

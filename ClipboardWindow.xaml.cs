@@ -1351,13 +1351,8 @@ namespace ModernKey
             {
                 if (item.ContentType == ClipboardContentType.Image)
                 {
-                    string resolved = ClipboardItem.ResolvePath(item.ImagePath);
-                    if (!string.IsNullOrEmpty(resolved) && File.Exists(resolved))
-                    {
-                        Process.Start(new ProcessStartInfo(resolved) { UseShellExecute = true });
-                        if (TxtStatus != null) TxtStatus.Text = $"✓ Đã mở ảnh bằng ứng dụng mặc định: {Path.GetFileName(resolved)}";
-                        return;
-                    }
+                    OpenImageInDefaultViewer(item);
+                    return;
                 }
                 else if (item.ContentType == ClipboardContentType.Files && item.FilePaths != null && item.FilePaths.Count > 0)
                 {
@@ -1719,16 +1714,17 @@ namespace ModernKey
                         try
                         {
                             KeySender.SuppressClipboardMonitoring = true;
-                            if (!string.IsNullOrEmpty(item.ImagePath) && System.IO.File.Exists(item.ImagePath))
+                            string fullImgPath = ClipboardItem.GetFullImagePath(item);
+                            if (!string.IsNullOrEmpty(fullImgPath) && System.IO.File.Exists(fullImgPath))
                             {
-                                using (var fullImg = System.Drawing.Image.FromFile(item.ImagePath))
+                                using (var fullImg = System.Drawing.Image.FromFile(fullImgPath))
                                 {
                                     System.Windows.Forms.Clipboard.SetImage(fullImg);
                                 }
                             }
-                            else if (item.ImageSource != null)
+                            else if (item.FullImageSource != null || item.ImageSource != null)
                             {
-                                Clipboard.SetImage(item.ImageSource);
+                                Clipboard.SetImage(item.FullImageSource ?? item.ImageSource);
                             }
                         }
                         catch (Exception ex)
@@ -2281,7 +2277,23 @@ namespace ModernKey
             if (item == null) return;
             try
             {
-                string filePath = ClipboardItem.ResolvePath(item.ImagePath);
+                // 1. Tìm đường dẫn file ảnh gốc không có đuôi _t.png
+                string filePath = ClipboardItem.GetFullImagePath(item);
+                if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+                {
+                    filePath = ClipboardItem.ResolvePath(item.ImagePath);
+                }
+
+                // Đảm bảo không bao giờ mở file thumbnail _t.png nếu có file gốc .png
+                if (!string.IsNullOrEmpty(filePath) && filePath.EndsWith("_t.png", StringComparison.OrdinalIgnoreCase))
+                {
+                    string nonThumb = filePath.Substring(0, filePath.Length - 6) + ".png";
+                    if (File.Exists(nonThumb))
+                    {
+                        filePath = nonThumb;
+                    }
+                }
+
                 if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
                 {
                     Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true });
@@ -2289,6 +2301,7 @@ namespace ModernKey
                     return;
                 }
 
+                // 2. Dự phòng: Nếu file ảnh không có sẵn trên đĩa thì xuất ra file PNG tạm thời rồi mở
                 var fullBmp = item.FullImageSource ?? item.ImageSource;
                 if (fullBmp is BitmapSource bs)
                 {
@@ -2303,7 +2316,7 @@ namespace ModernKey
                         encoder.Save(fs);
                     }
                     Process.Start(new ProcessStartInfo(tempFile) { UseShellExecute = true });
-                    if (TxtStatus != null) TxtStatus.Text = $"✓ Đã mở ảnh bằng ứng dụng mặc định!";
+                    if (TxtStatus != null) TxtStatus.Text = $"✓ Đã mở ảnh bằng ứng dụng mặc định: {Path.GetFileName(tempFile)}";
                 }
             }
             catch (Exception ex)
@@ -2634,7 +2647,7 @@ namespace ModernKey
                     }
                     else if (ext == ".png" && selected.Count == 1 && selected[0].ContentType == ClipboardContentType.Image)
                     {
-                        string imgPath = selected[0].ImagePath;
+                        string imgPath = ClipboardItem.GetFullImagePath(selected[0]);
                         if (!string.IsNullOrEmpty(imgPath) && File.Exists(imgPath))
                         {
                             File.Copy(imgPath, sfd.FileName, true);
@@ -3431,9 +3444,19 @@ namespace ModernKey
                 ExecutePasteSelected(false, false);
                 e.Handled = true;
             }
-            else if (e.Key == Key.Space && (TxtSearch == null || !TxtSearch.IsFocused) && (TxtPreview == null || !TxtPreview.IsFocused))
+            else if (e.Key == Key.F && (TxtSearch == null || !TxtSearch.IsFocused))
             {
-                // Phím Space: Xem trước (Ảnh mở bằng app mặc định, văn bản mở Quick Look)
+                // Phím F: Mở ảnh full bằng ứng dụng xem ảnh mặc định
+                if (LstClipboard?.SelectedItem is ClipboardItem item && item.ContentType == ClipboardContentType.Image)
+                {
+                    OpenImageInDefaultViewer(item);
+                    e.Handled = true;
+                    return;
+                }
+            }
+            else if (e.Key == Key.Space && (TxtSearch == null || !TxtSearch.IsFocused))
+            {
+                // Phím Space: Xem trước (Mở Quick Look với ảnh full nét hoặc văn bản chi tiết)
                 if (LstClipboard?.SelectedItem is ClipboardItem item)
                 {
                     ExecutePreviewItem(item);
