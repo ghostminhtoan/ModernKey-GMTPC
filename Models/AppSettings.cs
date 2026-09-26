@@ -82,7 +82,7 @@ namespace ModernKey.Models
         // Quản lý Clipboard (Lịch sử, phím tắt, lọc trùng, tự ẩn)
         public bool EnableClipboardHistory { get; set; } = true;
         public bool ClipboardAutoHide { get; set; } = true;
-        public bool ClipboardAlwaysOnTop { get; set; } = true;
+        public bool ClipboardAlwaysOnTop { get; set; } = false;
         public bool ClipboardIgnoreDuplicates { get; set; } = true;
         public bool ClipboardPasteAsPlainText { get; set; } = false;
         public int ClipboardMaxItems { get; set; } = 200;

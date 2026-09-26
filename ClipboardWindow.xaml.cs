@@ -256,6 +256,7 @@ namespace ModernKey
             EnsureAppropriateSelection();
             UpdateSlotNumbers();
             ApplyBlurModeUI();
+            UpdatePinAlwaysOnTopUI();
         }
 
         private void ClipboardWindow_Deactivated(object sender, EventArgs e)
@@ -289,6 +290,7 @@ namespace ModernKey
                 : GetForegroundWindow();
 
             Topmost = _settings != null && _settings.ClipboardAlwaysOnTop;
+            UpdatePinAlwaysOnTopUI();
             UpdateMergeOptionsButtonLabel();
             ApplyBlurModeUI();
 
@@ -604,6 +606,8 @@ namespace ModernKey
             int txtCount = targetItems.Count(x => x.ContentType == ClipboardContentType.Text);
             int imgCount = targetItems.Count(x => x.ContentType == ClipboardContentType.Image);
             int filesCount = targetItems.Count(x => x.ContentType == ClipboardContentType.Files);
+            int urlCount = targetItems.Count(x => x.IsUrl);
+            int codeCount = targetItems.Count(x => x.IsCode);
 
             var cm = new ContextMenu { Style = (Style)FindResource("CyberContextMenu") };
 
@@ -644,8 +648,10 @@ namespace ModernKey
 
             // 2. Nhóm định dạng (Chuẩn Comfort Keys Pro)
             AddFilterItem("Văn bản (Text)", "TXT", txtCount, "• ");
-            AddFilterItem("Hình ảnh (Picture)", "IMG", imgCount, "• ");
             AddFilterItem("Tệp tin & Thư mục (Files)", "FILES", filesCount, "• ");
+            AddFilterItem("Hình ảnh (Picture)", "IMG", imgCount, "• ");
+            AddFilterItem("Đường dẫn web (URL)", "URL", urlCount, "• ");
+            AddFilterItem("Mã lập trình (Code)", "CODE", codeCount, "• ");
 
             cm.PlacementTarget = BtnFilterMenu;
             cm.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
@@ -1545,6 +1551,11 @@ namespace ModernKey
                         var allFiles = fileItems.SelectMany(x => x.FilePaths).Distinct().ToList();
                         int effect = fileItems[0].DropEffect;
                         SetClipboardDataForFiles(allFiles, effect);
+                        if (fileItems.Count > 1)
+                        {
+                            _historyManager?.AddFiles(allFiles, effect, "ModernKey Gộp Tệp", null);
+                            _itemsView?.Refresh();
+                        }
                     }
                     else
                     {
@@ -2006,6 +2017,42 @@ namespace ModernKey
             }
         }
 
+        public void UpdatePinAlwaysOnTopUI()
+        {
+            if (BtnPinAlwaysOnTop == null || TxtPinIcon == null) return;
+            bool isPinned = _settings != null && _settings.ClipboardAlwaysOnTop;
+            Topmost = isPinned;
+            if (isPinned)
+            {
+                BtnPinAlwaysOnTop.Background = (Brush)new BrushConverter().ConvertFromString("#142B3E");
+                BtnPinAlwaysOnTop.BorderBrush = (Brush)FindResource("CyberNeonCyan");
+                TxtPinIcon.Foreground = (Brush)FindResource("CyberNeonCyan");
+                BtnPinAlwaysOnTop.ToolTip = "Ghim cửa sổ luôn nổi trên cùng (Always on top): ĐANG BẬT";
+            }
+            else
+            {
+                BtnPinAlwaysOnTop.Background = (Brush)new BrushConverter().ConvertFromString("#15212C");
+                BtnPinAlwaysOnTop.BorderBrush = (Brush)FindResource("CyberBorderDim");
+                TxtPinIcon.Foreground = (Brush)FindResource("CyberTextSecondary");
+                BtnPinAlwaysOnTop.ToolTip = "Ghim cửa sổ luôn nổi trên cùng (Always on top): ĐANG TẮT";
+            }
+        }
+
+        private void BtnPinAlwaysOnTop_Click(object sender, RoutedEventArgs e)
+        {
+            if (_settings != null)
+            {
+                _settings.ClipboardAlwaysOnTop = !_settings.ClipboardAlwaysOnTop;
+                Config.SettingsManager.SaveSettings(_settings);
+            }
+            UpdatePinAlwaysOnTopUI();
+            if (TxtStatus != null)
+            {
+                bool isPinned = _settings != null && _settings.ClipboardAlwaysOnTop;
+                TxtStatus.Text = isPinned ? "✓ Đã BẬT chế độ Ghim luôn nổi trên cùng (Always On Top)!" : "✓ Đã TẮT chế độ Ghim luôn nổi trên cùng (Always On Top)!";
+            }
+        }
+
         private void BtnMinimize_Click(object sender, RoutedEventArgs e)
         {
             WindowState = WindowState.Minimized;
@@ -2194,7 +2241,7 @@ namespace ModernKey
 
         private void HighlightActiveTab(string activeTag)
         {
-            var tabs = new[] { BtnTabAll, BtnTabFav, BtnTabImg, BtnTabUrl, BtnTabCode, BtnTabFiles };
+            var tabs = new[] { BtnTabAll, BtnTabFav, BtnTabTxt, BtnTabFiles, BtnTabImg, BtnTabUrl, BtnTabCode };
             foreach (var t in tabs)
             {
                 if (t == null) continue;
@@ -2267,15 +2314,7 @@ namespace ModernKey
         public void ExecutePreviewItem(ClipboardItem item)
         {
             if (item == null) return;
-
-            if (item.ContentType == ClipboardContentType.Image)
-            {
-                OpenImageInDefaultViewer(item);
-            }
-            else
-            {
-                OpenQuickLook(item);
-            }
+            OpenQuickLook(item);
         }
 
         private void ImgPreview_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -2312,7 +2351,7 @@ namespace ModernKey
             {
                 if (LstClipboard?.SelectedItem is ClipboardItem item)
                 {
-                    ExecutePreviewItem(item);
+                    OpenQuickLook(item);
                 }
             }
         }
@@ -2324,7 +2363,7 @@ namespace ModernKey
             if (TxtQuickLookTitle != null)
             {
                 string typeLabel = item.TypeBadge;
-                string sub = item.HasCustomTitle ? item.CustomTitle : (item.ContentType == ClipboardContentType.Image ? "[ẢNH]" : $"{item.CharCount} ký tự");
+                string sub = item.HasCustomTitle ? item.CustomTitle : (item.ContentType == ClipboardContentType.Image ? "[ẢNH]" : (item.ContentType == ClipboardContentType.Files ? $"[{item.CharCount} tệp/thư mục]" : $"{item.CharCount} ký tự"));
                 TxtQuickLookTitle.Text = $"{typeLabel} - {sub}";
             }
 
@@ -2341,11 +2380,32 @@ namespace ModernKey
             else
             {
                 if (BtnQuickLookOpenExternal != null) BtnQuickLookOpenExternal.Visibility = Visibility.Collapsed;
-                if (ImgQuickLookBody != null) ImgQuickLookBody.Visibility = Visibility.Collapsed;
+                if (ImgQuickLookBody != null)
+                {
+                    ImgQuickLookBody.Visibility = Visibility.Collapsed;
+                    ImgQuickLookBody.Source = null;
+                }
                 if (TxtQuickLookBody != null)
                 {
                     TxtQuickLookBody.Visibility = Visibility.Visible;
-                    TxtQuickLookBody.Text = item.TextContent ?? string.Empty;
+                    if (item.ContentType == ClipboardContentType.Files)
+                    {
+                        var sb = new StringBuilder();
+                        string mode = item.DropEffect == 2 ? "CUT (Di chuyển)" : "COPY (Sao chép)";
+                        sb.AppendLine($"=== DANH SÁCH TỆP / THƯ MỤC ({item.CharCount} mục - {mode}) ===");
+                        sb.AppendLine();
+                        var paths = item.FilePaths;
+                        for (int i = 0; i < paths.Count; i++)
+                        {
+                            string p = paths[i];
+                            sb.AppendLine($"[{i + 1}] {p}");
+                        }
+                        TxtQuickLookBody.Text = sb.ToString();
+                    }
+                    else
+                    {
+                        TxtQuickLookBody.Text = item.TextContent ?? string.Empty;
+                    }
                 }
             }
 
@@ -2603,23 +2663,52 @@ namespace ModernKey
         private void CtxMenuMerge_Click(object sender, RoutedEventArgs e)
         {
             var selected = LstClipboard?.SelectedItems?.Cast<ClipboardItem>().ToList();
+            if (selected == null || selected.Count < 2)
+            {
+                MessageBox.Show("Vui lòng chọn từ 2 mục trở lên để gộp.", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var fileItems = selected.Where(x => x.ContentType == ClipboardContentType.Files).ToList();
+            if (fileItems.Count > 0 && selected.All(x => x.ContentType == ClipboardContentType.Files))
+            {
+                CtxMenuMergeFiles_Click(sender, e);
+                return;
+            }
+
+            var textParts = selected.Where(x => x.ContentType == ClipboardContentType.Text && !string.IsNullOrEmpty(x.TextContent))
+                                    .Select(x => x.TextContent)
+                                    .ToList();
+            if (textParts.Count > 0)
+            {
+                string merged = FormatMergedText(textParts);
+                _historyManager?.AddText(merged, "ModernKey Gộp", null);
+                _itemsView?.Refresh();
+                EnsureAppropriateSelection();
+                if (TxtStatus != null) TxtStatus.Text = $"✓ Đã gộp {textParts.Count} đoạn văn bản ({GetMergeFormatSummary()}) thành 1 mục mới!";
+            }
+        }
+
+        private void CtxMenuMergeFiles_Click(object sender, RoutedEventArgs e)
+        {
+            var selected = LstClipboard?.SelectedItems?.Cast<ClipboardItem>().ToList();
             if (selected != null && selected.Count > 1)
             {
-                var textParts = selected.Where(x => x.ContentType == ClipboardContentType.Text && !string.IsNullOrEmpty(x.TextContent))
-                                        .Select(x => x.TextContent)
-                                        .ToList();
-                if (textParts.Count > 0)
+                var fileItems = selected.Where(x => x.ContentType == ClipboardContentType.Files).ToList();
+                if (fileItems.Count > 0)
                 {
-                    string merged = FormatMergedText(textParts);
-                    _historyManager?.AddText(merged, "ModernKey Gộp", null);
+                    var allFiles = fileItems.SelectMany(x => x.FilePaths).Distinct().ToList();
+                    int effect = fileItems[0].DropEffect;
+                    SetClipboardDataForFiles(allFiles, effect);
+                    _historyManager?.AddFiles(allFiles, effect, "ModernKey Gộp Tệp", null);
                     _itemsView?.Refresh();
                     EnsureAppropriateSelection();
-                    if (TxtStatus != null) TxtStatus.Text = $"✓ Đã gộp {textParts.Count} đoạn văn bản ({GetMergeFormatSummary()}) thành 1 mục mới!";
+                    if (TxtStatus != null) TxtStatus.Text = $"✓ Đã gộp {fileItems.Count} mục tệp ({allFiles.Count} đường dẫn) thành 1 mục tệp mới!";
                 }
             }
             else
             {
-                MessageBox.Show("Vui lòng chọn từ 2 mục văn bản trở lên để gộp.", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("Vui lòng chọn từ 2 mục tệp trở lên để gộp.", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
@@ -3806,6 +3895,13 @@ namespace ModernKey
             if (CtxMenuWebAi != null)
             {
                 CtxMenuWebAi.IsEnabled = isImage;
+            }
+
+            int fileSelCount = selectedList.Count(x => x.ContentType == ClipboardContentType.Files);
+            if (CtxMenuMergeFiles != null)
+            {
+                CtxMenuMergeFiles.IsEnabled = fileSelCount >= 2;
+                CtxMenuMergeFiles.Visibility = fileSelCount >= 1 ? Visibility.Visible : Visibility.Collapsed;
             }
 
             _isSyncingBlurSliders = true;

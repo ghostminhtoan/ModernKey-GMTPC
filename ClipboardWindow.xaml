@@ -317,6 +317,14 @@
                                 <TextBlock x:Name="TxtCompactLabel" Text="☰ GỌN" FontSize="10" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" />
                             </Button>
 
+                            <!-- Nút Ghim luôn nổi trên cùng (Always on top) bên trái nút Minimize -->
+                            <Button x:Name="BtnPinAlwaysOnTop" Click="BtnPinAlwaysOnTop_Click" Width="28" Height="24" Padding="0" Margin="0,0,3,0"
+                                    Background="#15212C" BorderBrush="{StaticResource CyberBorderDim}" Foreground="{StaticResource CyberTextSecondary}"
+                                    ToolTip="Ghim cửa sổ luôn nổi trên cùng (Always on top): TẮT">
+                                <TextBlock x:Name="TxtPinIcon" Text="📌" FontSize="11" Foreground="{StaticResource CyberTextSecondary}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-1,0,0" FontFamily="Segoe UI Emoji, Segoe UI, Consolas" />
+                            </Button>
+
                             <!-- Nút Thu nhỏ (Minimize) -->
                             <Button x:Name="BtnMinimize" Click="BtnMinimize_Click" Width="28" Height="24" Padding="0" Margin="0,0,3,0"
                                     Background="#15212C" BorderBrush="{StaticResource CyberBorderDim}" Foreground="{StaticResource CyberNeonCyan}"
@@ -456,10 +464,11 @@
                         <TextBlock Text="LỌC NHANH:" FontSize="10" FontFamily="Consolas" FontWeight="Bold" Foreground="{StaticResource CyberTextSecondary}" VerticalAlignment="Center" Margin="0,0,8,0" />
                         <Button x:Name="BtnTabAll" Content="TẤT CẢ" Click="FilterTab_Click" Tag="ALL" Padding="8,3" Margin="0,0,4,0" Background="#142B3E" BorderBrush="{StaticResource CyberNeonCyan}" Foreground="{StaticResource CyberNeonCyan}" FontFamily="Consolas" FontSize="10" FontWeight="Bold" Cursor="Hand" ToolTip="Hiển thị tất cả nội dung" />
                         <Button x:Name="BtnTabFav" Content="★ YÊU THÍCH" Click="FilterTab_Click" Tag="FAV" Padding="8,3" Margin="0,0,4,0" Background="#10141E" BorderBrush="{StaticResource CyberBorderDim}" Foreground="{StaticResource CyberNeonYellow}" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" Cursor="Hand" ToolTip="Chỉ hiển thị các mục đã ghim/yêu thích" />
+                        <Button x:Name="BtnTabTxt" Content="📝 VĂN BẢN" Click="FilterTab_Click" Tag="TXT" Padding="8,3" Margin="0,0,4,0" Background="#10141E" BorderBrush="{StaticResource CyberBorderDim}" Foreground="{StaticResource CyberNeonCyan}" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" Cursor="Hand" ToolTip="Chỉ hiển thị nội dung văn bản thuần túy (Text)" />
+                        <Button x:Name="BtnTabFiles" Content="📁 TỆP" Click="FilterTab_Click" Tag="FILES" Padding="8,3" Margin="0,0,4,0" Background="#10141E" BorderBrush="{StaticResource CyberBorderDim}" Foreground="#00FF66" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" Cursor="Hand" ToolTip="Chỉ hiển thị tệp tin và thư mục (Files &amp; Folders)" />
                         <Button x:Name="BtnTabImg" Content="🖼 ẢNH" Click="FilterTab_Click" Tag="IMG" Padding="8,3" Margin="0,0,4,0" Background="#10141E" BorderBrush="{StaticResource CyberBorderDim}" Foreground="#FF80BF" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" Cursor="Hand" ToolTip="Chỉ hiển thị ảnh / ảnh chụp màn hình" />
                         <Button x:Name="BtnTabUrl" Content="🔗 LINK" Click="FilterTab_Click" Tag="URL" Padding="8,3" Margin="0,0,4,0" Background="#10141E" BorderBrush="{StaticResource CyberBorderDim}" Foreground="#80DEEA" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" Cursor="Hand" ToolTip="Chỉ hiển thị đường dẫn web (URL)" />
                         <Button x:Name="BtnTabCode" Content="💻 CODE" Click="FilterTab_Click" Tag="CODE" Padding="8,3" Margin="0,0,4,0" Background="#10141E" BorderBrush="{StaticResource CyberBorderDim}" Foreground="#FFB300" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" Cursor="Hand" ToolTip="Chỉ hiển thị đoạn mã lập trình / cú pháp code" />
-                        <Button x:Name="BtnTabFiles" Content="📁 TỆP" Click="FilterTab_Click" Tag="FILES" Padding="8,3" Margin="0,0,4,0" Background="#10141E" BorderBrush="{StaticResource CyberBorderDim}" Foreground="#00FF66" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" Cursor="Hand" ToolTip="Chỉ hiển thị tệp tin và thư mục" />
                     </StackPanel>
 
                     <TextBlock Grid.Column="1" Text="💡 1-9 = Dán slot | Shift+Enter = Dán thô | Space = Xem to"
@@ -545,6 +554,7 @@
                                 <Separator Style="{StaticResource CyberMenuSeparator}" />
                                 <MenuItem Header="Sao chép vào Clipboard" InputGestureText="Ctrl+C" Click="CtxMenuCopy_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="Gộp các đoạn văn bản đã chọn" Click="CtxMenuMerge_Click" Style="{StaticResource CyberMenuItem}" />
+                                <MenuItem x:Name="CtxMenuMergeFiles" Header="📁 Gộp các tệp đã chọn thành 1 danh sách" Click="CtxMenuMergeFiles_Click" Style="{StaticResource CyberMenuItem}" />
                                 <MenuItem Header="Tùy chọn định dạng gộp..." Click="BtnMergeOptionsMenu_Click" Style="{StaticResource CyberMenuItem}" />
                                 <Separator Style="{StaticResource CyberMenuSeparator}" />
                                 <MenuItem x:Name="CtxMenuMergeImagesVertical" Header="Gộp ảnh đã chọn: Ghép dọc (↕ Trên - Dưới)" Click="CtxMenuMergeImagesVertical_Click" Style="{StaticResource CyberMenuItem}" />
