@@ -91,7 +91,7 @@ namespace ModernKey
         private double _textZoom = 1.0;
         private volatile bool _isBatchUpdating = false;
         private readonly DateTime _sessionStartTime = DateTime.Now;
-
+        private ClipboardItem _quickLookItem = null;
         private DateTime _showTime = DateTime.MinValue;
 
         public ClipboardWindow(ClipboardHistoryManager historyManager, AppSettings settings)
@@ -2281,7 +2281,7 @@ namespace ModernKey
             if (item == null) return;
             try
             {
-                string filePath = item.ImagePath;
+                string filePath = ClipboardItem.ResolvePath(item.ImagePath);
                 if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
                 {
                     Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true });
@@ -2289,7 +2289,8 @@ namespace ModernKey
                     return;
                 }
 
-                if (item.ImageSource is BitmapSource bs)
+                var fullBmp = item.FullImageSource ?? item.ImageSource;
+                if (fullBmp is BitmapSource bs)
                 {
                     string tempDir = Path.Combine(Path.GetTempPath(), "ModernKey");
                     if (!Directory.Exists(tempDir)) Directory.CreateDirectory(tempDir);
@@ -2319,7 +2320,8 @@ namespace ModernKey
 
         private void ImgPreview_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
-            if (LstClipboard?.SelectedItem is ClipboardItem item && item.ContentType == ClipboardContentType.Image)
+            var item = _quickLookItem ?? LstClipboard?.SelectedItem as ClipboardItem;
+            if (item != null && item.ContentType == ClipboardContentType.Image)
             {
                 OpenImageInDefaultViewer(item);
             }
@@ -2327,7 +2329,8 @@ namespace ModernKey
 
         private void ImgQuickLookBody_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
-            if (LstClipboard?.SelectedItem is ClipboardItem item && item.ContentType == ClipboardContentType.Image)
+            var item = _quickLookItem ?? LstClipboard?.SelectedItem as ClipboardItem;
+            if (item != null && item.ContentType == ClipboardContentType.Image)
             {
                 OpenImageInDefaultViewer(item);
             }
@@ -2335,7 +2338,8 @@ namespace ModernKey
 
         private void BtnQuickLookOpenExternal_Click(object sender, RoutedEventArgs e)
         {
-            if (LstClipboard?.SelectedItem is ClipboardItem item && item.ContentType == ClipboardContentType.Image)
+            var item = _quickLookItem ?? LstClipboard?.SelectedItem as ClipboardItem;
+            if (item != null && item.ContentType == ClipboardContentType.Image)
             {
                 OpenImageInDefaultViewer(item);
             }
@@ -2359,6 +2363,7 @@ namespace ModernKey
         public void OpenQuickLook(ClipboardItem item)
         {
             if (item == null || PnlQuickLook == null) return;
+            _quickLookItem = item;
 
             if (TxtQuickLookTitle != null)
             {
@@ -2373,7 +2378,8 @@ namespace ModernKey
                 if (ImgQuickLookBody != null)
                 {
                     ImgQuickLookBody.Visibility = Visibility.Visible;
-                    ImgQuickLookBody.Source = item.ImageSource;
+                    // Sử dụng FullImageSource để hiển thị ảnh gốc độ phân giải đầy đủ, không bị mờ 480px
+                    ImgQuickLookBody.Source = item.FullImageSource ?? item.ImageSource;
                 }
                 if (BtnQuickLookOpenExternal != null) BtnQuickLookOpenExternal.Visibility = Visibility.Visible;
             }
@@ -2418,6 +2424,11 @@ namespace ModernKey
             {
                 PnlQuickLook.Visibility = Visibility.Collapsed;
                 if (ImgQuickLookBody != null) ImgQuickLookBody.Source = null;
+            }
+            if (_quickLookItem != null)
+            {
+                _quickLookItem.ReleaseVisualResources();
+                _quickLookItem = null;
             }
         }
 
@@ -3374,11 +3385,15 @@ namespace ModernKey
                     e.Handled = true;
                     return;
                 }
-                if (e.Key == Key.F && LstClipboard?.SelectedItem is ClipboardItem quickImg && quickImg.ContentType == ClipboardContentType.Image)
+                if (e.Key == Key.F)
                 {
-                    OpenImageInDefaultViewer(quickImg);
-                    e.Handled = true;
-                    return;
+                    var quickImg = _quickLookItem ?? LstClipboard?.SelectedItem as ClipboardItem;
+                    if (quickImg != null && quickImg.ContentType == ClipboardContentType.Image)
+                    {
+                        OpenImageInDefaultViewer(quickImg);
+                        e.Handled = true;
+                        return;
+                    }
                 }
                 if (e.Key == Key.Enter)
                 {

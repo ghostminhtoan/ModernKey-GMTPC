@@ -736,10 +736,29 @@ namespace ModernKey.Models
             }
         }
 
+        private BitmapSource _fullImageSource = null;
+        public BitmapSource FullImageSource
+        {
+            get
+            {
+                if (_fullImageSource == null && IsImage)
+                {
+                    _fullImageSource = LoadBitmapSafe(ImagePath, 0); // 0 = Full original resolution
+                }
+                return _fullImageSource ?? ImageSource;
+            }
+            set
+            {
+                _fullImageSource = value;
+                OnPropertyChanged(nameof(FullImageSource));
+            }
+        }
+
         public void ReleaseVisualResources()
         {
             _thumbSource = null;
             _imageSource = null;
+            _fullImageSource = null;
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
