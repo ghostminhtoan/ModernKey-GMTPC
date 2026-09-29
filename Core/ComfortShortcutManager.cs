@@ -780,6 +780,7 @@ namespace ModernKey.Core
             if (string.Equals(mainKey, "Break", StringComparison.OrdinalIgnoreCase)) mainKey = "Pause";
             if (string.Equals(mainKey, "Menu", StringComparison.OrdinalIgnoreCase)) mainKey = "Apps";
             if (string.Equals(mainKey, "PrintScreen", StringComparison.OrdinalIgnoreCase) || string.Equals(mainKey, "Print", StringComparison.OrdinalIgnoreCase)) mainKey = "PrtSc";
+            if (string.Equals(mainKey, "CapsLock", StringComparison.OrdinalIgnoreCase) || string.Equals(mainKey, "Capital", StringComparison.OrdinalIgnoreCase)) mainKey = "Caps";
 
             if (mods.Count == 0) return mainKey;
             return string.Join("+", mods) + "+" + mainKey;
@@ -1852,7 +1853,7 @@ namespace ModernKey.Core
                 case "TAB": return 0x09;
                 case "SPACE": return 0x20;
                 case "ESC": return 0x1B;
-                case "CAPS": return 0x14;
+                case "CAPS": case "CAPSLOCK": case "CAPITAL": return 0x14;
                 case "DEL": case "DELETE": return 0x2E;
                 case "INS": case "INSERT": return 0x2D;
                 case "HOME": return 0x24;

@@ -727,6 +727,32 @@ namespace ModernKey.Hook
                     // 5. Phím CapsLock
                     if (vkCode == 0x14)
                     {
+                        ComfortShortcutManager.Instance.GetActiveRemappedModifiers(out remCtrl, out remAlt, out remShift, out remWin);
+                        isComfortCtrl = (_modifierFlag & MASK_CTRL) != 0 || _ctrlDown || remCtrl || ((GetAsyncKeyState(0x11) & 0x8000) != 0);
+                        isComfortAlt = (_modifierFlag & MASK_ALT) != 0 || _altDown || remAlt || ((GetAsyncKeyState(0x12) & 0x8000) != 0);
+                        isComfortShift = (_modifierFlag & MASK_SHIFT) != 0 || _shiftDown || remShift || ((GetAsyncKeyState(0x10) & 0x8000) != 0);
+                        isComfortWin = (_modifierFlag & MASK_WIN) != 0 || _winDown || remWin || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0;
+
+                        // 5.1. Phím tắt mở/toggle nhanh Phím tắt Comfort: Windows + CapsLock
+                        if (isComfortWin || (_modifierFlag & MASK_WIN) != 0 || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0)
+                        {
+                            KeySender.SuppressAltMenuActivation();
+                            _engine.Reset();
+                            OpenComfortShortcutsRequested?.Invoke();
+                            return (IntPtr)1;
+                        }
+
+                        // 5.2. Kiểm tra nếu CapsLock nằm trong bảng phím tắt Comfort Shortcuts tùy chỉnh (Ctrl+Caps, Alt+Caps, Shift+Caps...)
+                        if (isComfortCtrl || isComfortAlt || isComfortShift)
+                        {
+                            if (ComfortShortcutManager.Instance.TryExecuteMatchingShortcut(vkCode, isComfortCtrl, isComfortAlt, isComfortShift, isComfortWin))
+                            {
+                                KeySender.SuppressAltMenuActivation();
+                                _engine.Reset();
+                                return (IntPtr)1;
+                            }
+                        }
+
                         _engine.Reset();
                         return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
                     }
@@ -765,9 +791,9 @@ namespace ModernKey.Hook
                         return (IntPtr)1;
                     }
 
-                    // 6.5b. Phím tắt mở/toggle nhanh Phím tắt Comfort: Windows + Space
+                    // 6.5b. Phím tắt mở/toggle nhanh Phím tắt Comfort: Windows + Space hoặc Windows + CapsLock
                     if ((isComfortWin || (_modifierFlag & MASK_WIN) != 0 || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0) &&
-                        vkCode == 0x20)
+                        (vkCode == 0x20 || vkCode == 0x14))
                     {
                         KeySender.SuppressAltMenuActivation();
                         _engine.Reset();
@@ -1076,6 +1102,12 @@ namespace ModernKey.Hook
 
                     // Nhả phím bị Block hoặc phím đích được Replace
                     if (ComfortShortcutManager.Instance.TryHandleBlockOrReplaceKeyUp(vkCode))
+                    {
+                        return (IntPtr)1;
+                    }
+
+                    // Nhả phím CapsLock khi đang giữ Win (nuốt sự kiện nhả phím sau Win+CapsLock)
+                    if (vkCode == 0x14 && ((_modifierFlag & MASK_WIN) != 0 || _winDown || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0))
                     {
                         return (IntPtr)1;
                     }
