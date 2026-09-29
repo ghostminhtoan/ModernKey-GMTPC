@@ -72,7 +72,13 @@
 
                     <!-- 5. Phím điều khiển thông dụng -->
                     <TextBlock Text="5. Phím điều khiển / Điều hướng:" FontFamily="Consolas" FontSize="11" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,4" />
-                    <WrapPanel x:Name="PnlSpecialKeys">
+                    <WrapPanel x:Name="PnlSpecialKeys" Margin="0,0,0,8">
+                        <!-- Populated by code -->
+                    </WrapPanel>
+
+                    <!-- 6. Phím Multimedia & Trình duyệt -->
+                    <TextBlock Text="6. Phím Multimedia &amp; Trình duyệt (Media &amp; Browser):" FontFamily="Consolas" FontSize="11" FontWeight="Bold" Foreground="{StaticResource CyberNeonCyan}" Margin="0,0,0,4" />
+                    <WrapPanel x:Name="PnlMediaKeys">
                         <!-- Populated by code -->
                     </WrapPanel>
                 </StackPanel>

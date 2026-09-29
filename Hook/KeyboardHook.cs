@@ -304,7 +304,7 @@ namespace ModernKey.Hook
         public event Action OpenClipboardFavoriteRequested;
         public Func<int, uint, bool> CheckClipboardShortcutRequested;
         public event Action OpenTextTransformRequested;
-        public event Action<string> OpenMacroQuickListRequested;
+        public event Action OpenComfortShortcutsRequested;
         public static event Action<InputMethod> InputMethodChanged;
         public static event Action<bool> GameModeChanged;
 
@@ -657,26 +657,6 @@ namespace ModernKey.Hook
                         return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
                     }
 
-                    // 0.1. Chặn phím Media Volume phần cứng để hiện OSD đáy màn hình (chuẩn Comfort Keys Pro), không kích hoạt System Flyout Windows
-                    if (vkCode == 0xAF) // VK_VOLUME_UP
-                    {
-                        ThreadPool.QueueUserWorkItem(_ => ComfortShortcutManager.Instance.AdjustVolume(2));
-                        _engine?.Reset();
-                        return (IntPtr)1;
-                    }
-                    else if (vkCode == 0xAE) // VK_VOLUME_DOWN
-                    {
-                        ThreadPool.QueueUserWorkItem(_ => ComfortShortcutManager.Instance.AdjustVolume(-2));
-                        _engine?.Reset();
-                        return (IntPtr)1;
-                    }
-                    else if (vkCode == 0xAD) // VK_VOLUME_MUTE
-                    {
-                        ThreadPool.QueueUserWorkItem(_ => ComfortShortcutManager.Instance.ToggleMute());
-                        _engine?.Reset();
-                        return (IntPtr)1;
-                    }
-
                     // 17. Phát âm thanh click phím cơ Cyberpunk nếu được bật (non-blocking)
                     if (_settings.EnableKeySound)
                     {
@@ -684,10 +664,11 @@ namespace ModernKey.Hook
                     }
 
                     // 18. Phím bị Block hoặc Replace theo Comfort Keys Pro (Bắt trước modifier để chặn/thay thế cả phím đơn như LeftWin, Apps, Pause...)
-                    bool isComfortCtrl = (_modifierFlag & MASK_CTRL) != 0 || _ctrlDown;
-                    bool isComfortAlt = (_modifierFlag & MASK_ALT) != 0 || _altDown;
-                    bool isComfortShift = (_modifierFlag & MASK_SHIFT) != 0 || _shiftDown;
-                    bool isComfortWin = (_modifierFlag & MASK_WIN) != 0 || _winDown;
+                    ComfortShortcutManager.Instance.GetActiveRemappedModifiers(out bool remCtrl, out bool remAlt, out bool remShift, out bool remWin);
+                    bool isComfortCtrl = (_modifierFlag & MASK_CTRL) != 0 || _ctrlDown || remCtrl || ((GetAsyncKeyState(0x11) & 0x8000) != 0);
+                    bool isComfortAlt = (_modifierFlag & MASK_ALT) != 0 || _altDown || remAlt || ((GetAsyncKeyState(0x12) & 0x8000) != 0);
+                    bool isComfortShift = (_modifierFlag & MASK_SHIFT) != 0 || _shiftDown || remShift || ((GetAsyncKeyState(0x10) & 0x8000) != 0);
+                    bool isComfortWin = (_modifierFlag & MASK_WIN) != 0 || _winDown || remWin || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0;
 
                     if (ComfortShortcutManager.Instance.TryHandleBlockOrReplaceKeyDown(vkCode, isComfortCtrl, isComfortAlt, isComfortShift, isComfortWin))
                     {
@@ -751,10 +732,11 @@ namespace ModernKey.Hook
                     }
 
                     // 6.0. Phím tắt toàn cục Comfort Keys Pro (Đợt 1 đến Đợt 5: Run program, Open URL, Paste text, Macro, Audio, Monitor, Window control)
-                    isComfortCtrl = (_modifierFlag & MASK_CTRL) != 0 || _ctrlDown;
-                    isComfortAlt = (_modifierFlag & MASK_ALT) != 0 || _altDown;
-                    isComfortShift = (_modifierFlag & MASK_SHIFT) != 0 || _shiftDown;
-                    isComfortWin = (_modifierFlag & MASK_WIN) != 0 || _winDown || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0;
+                    ComfortShortcutManager.Instance.GetActiveRemappedModifiers(out remCtrl, out remAlt, out remShift, out remWin);
+                    isComfortCtrl = (_modifierFlag & MASK_CTRL) != 0 || _ctrlDown || remCtrl || ((GetAsyncKeyState(0x11) & 0x8000) != 0);
+                    isComfortAlt = (_modifierFlag & MASK_ALT) != 0 || _altDown || remAlt || ((GetAsyncKeyState(0x12) & 0x8000) != 0);
+                    isComfortShift = (_modifierFlag & MASK_SHIFT) != 0 || _shiftDown || remShift || ((GetAsyncKeyState(0x10) & 0x8000) != 0);
+                    isComfortWin = (_modifierFlag & MASK_WIN) != 0 || _winDown || remWin || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0;
 
                     if (isComfortCtrl || isComfortAlt || isComfortWin || isComfortShift || (vkCode >= 0x70 && vkCode <= 0x7B))
                     {
@@ -774,7 +756,7 @@ namespace ModernKey.Hook
                     }
 
                     // 6.5. Phím tắt mở/toggle nhanh Clipboard History HUD: Win+Ins (chuẩn Comfort Keys) hoặc Ctrl+Alt+V
-                    if (((_modifierFlag & MASK_WIN) != 0 && vkCode == 0x2D) ||
+                    if (((isComfortWin || (_modifierFlag & MASK_WIN) != 0) && vkCode == 0x2D) ||
                         (((_modifierFlag & (MASK_CTRL | MASK_ALT)) == (MASK_CTRL | MASK_ALT)) && vkCode == 0x56))
                     {
                         KeySender.SuppressAltMenuActivation();
@@ -783,15 +765,13 @@ namespace ModernKey.Hook
                         return (IntPtr)1;
                     }
 
-                    // 6.5b. Phím tắt mở/toggle nhanh Quick-List Macro: Win+Space (chuẩn Comfort Keys Pro)
-                    if (_settings.MacroQuickListWinSpace &&
-                        ((_modifierFlag & MASK_WIN) != 0 || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0) &&
+                    // 6.5b. Phím tắt mở/toggle nhanh Phím tắt Comfort: Windows + Space
+                    if ((isComfortWin || (_modifierFlag & MASK_WIN) != 0 || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0) &&
                         vkCode == 0x20)
                     {
                         KeySender.SuppressAltMenuActivation();
-                        string pendingWord = _engine != null ? _engine.GetCurrentBufferWord() : string.Empty;
                         _engine.Reset();
-                        OpenMacroQuickListRequested?.Invoke(pendingWord);
+                        OpenComfortShortcutsRequested?.Invoke();
                         return (IntPtr)1;
                     }
 
@@ -1093,11 +1073,6 @@ namespace ModernKey.Hook
                 else if (msg == WM_KEYUP || msg == WM_SYSKEYUP)
                 {
                     uint vkCode = hookStruct.vkCode;
-
-                    if (vkCode == 0xAF || vkCode == 0xAE || vkCode == 0xAD)
-                    {
-                        return (IntPtr)1; // Nuốt sự kiện nhả phím media volume
-                    }
 
                     // Nhả phím bị Block hoặc phím đích được Replace
                     if (ComfortShortcutManager.Instance.TryHandleBlockOrReplaceKeyUp(vkCode))

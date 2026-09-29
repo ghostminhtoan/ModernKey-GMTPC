@@ -326,12 +326,12 @@ namespace ModernKey
                 }));
             };
 
-            // Phím tắt Quick-List Macro (Win+Space chuẩn Comfort Keys Pro)
-            _keyboardHook.OpenMacroQuickListRequested += (pendingWord) =>
+            // Phím tắt mở nhanh Phím tắt Comfort (Windows + Space)
+            _keyboardHook.OpenComfortShortcutsRequested += () =>
             {
                 Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
                 {
-                    ToggleMacroQuickList(pendingWord);
+                    ShowComfortShortcutsWindow();
                 }));
             };
 

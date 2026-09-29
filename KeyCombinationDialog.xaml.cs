@@ -114,6 +114,17 @@ namespace ModernKey
             {
                 PnlSpecialKeys.Children.Add(CreatePaletteButton(s, 50, 24));
             }
+
+            // 6. Media & Browser Keys (Chuẩn ảnh 3)
+            string[] mediaKeys = {
+                "Play/Pause", "Prev Track", "Next Track", "Media Stop",
+                "Vol +", "Vol -", "Mute", "Mail", "Media",
+                "Browser Back", "Browser Forward", "Browser Refresh", "Browser Stop", "Browser Search", "Browser Favorites", "Browser Home"
+            };
+            foreach (var m in mediaKeys)
+            {
+                PnlMediaKeys.Children.Add(CreatePaletteButton(m, 72, 24));
+            }
         }
 
         private Button CreatePaletteButton(string text, double width, double height)
@@ -324,6 +335,27 @@ namespace ModernKey
                 case Key.Multiply: return "Nm *";
                 case Key.Divide: return "Nm /";
                 case Key.Decimal: return "Nm .";
+
+                // Media & Browser Keys (Chuẩn ảnh 3)
+                case Key.MediaPlayPause: return "Play/Pause";
+                case Key.MediaPreviousTrack: return "Prev Track";
+                case Key.MediaNextTrack: return "Next Track";
+                case Key.MediaStop: return "Media Stop";
+                case Key.VolumeUp: return "Vol +";
+                case Key.VolumeDown: return "Vol -";
+                case Key.VolumeMute: return "Mute";
+                case Key.BrowserBack: return "Browser Back";
+                case Key.BrowserForward: return "Browser Forward";
+                case Key.BrowserRefresh: return "Browser Refresh";
+                case Key.BrowserStop: return "Browser Stop";
+                case Key.BrowserSearch: return "Browser Search";
+                case Key.BrowserFavorites: return "Browser Favorites";
+                case Key.BrowserHome: return "Browser Home";
+                case Key.LaunchMail: return "Mail";
+                case Key.SelectMedia: return "Media";
+                case Key.LaunchApplication1: return "App1";
+                case Key.LaunchApplication2: return "App2";
+
                 default: return key.ToString();
             }
         }

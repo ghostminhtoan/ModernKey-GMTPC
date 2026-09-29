@@ -161,7 +161,8 @@ namespace ModernKey.Core
                    vk == 0x25 || vk == 0x26 || vk == 0x27 || vk == 0x28 || // Left, Up, Right, Down
                    vk == 0x2D || vk == 0x2E || // Ins, Del
                    vk == 0x6F || // Num /
-                   vk == 0x90;   // NumLock
+                   vk == 0x90 || // NumLock
+                   (vk >= 0xA6 && vk <= 0xB7); // Browser, Volume, Media, Launch keys
         }
 
         public static void SendSingleKeyEvent(uint vk, bool isKeyUp)
@@ -610,12 +611,48 @@ namespace ModernKey.Core
         private readonly HashSet<uint> _currentlyBlockedKeys = new HashSet<uint>();
         private readonly Dictionary<uint, ActiveKeyReplacement> _activeReplacements = new Dictionary<uint, ActiveKeyReplacement>();
 
+        public void GetActiveRemappedModifiers(out bool remappedCtrl, out bool remappedAlt, out bool remappedShift, out bool remappedWin)
+        {
+            remappedCtrl = false;
+            remappedAlt = false;
+            remappedShift = false;
+            remappedWin = false;
+
+            lock (_lockObj)
+            {
+                foreach (var act in _activeReplacements.Values)
+                {
+                    if (act.Ctrl || act.TargetVk == 0x11 || act.TargetVk == 0xA2 || act.TargetVk == 0xA3) remappedCtrl = true;
+                    if (act.Alt || act.TargetVk == 0x12 || act.TargetVk == 0xA4 || act.TargetVk == 0xA5) remappedAlt = true;
+                    if (act.Shift || act.TargetVk == 0x10 || act.TargetVk == 0xA0 || act.TargetVk == 0xA1) remappedShift = true;
+                    if (act.Win || act.TargetVk == 0x5B || act.TargetVk == 0x5C) remappedWin = true;
+                }
+            }
+        }
+
         public bool TryHandleBlockOrReplaceKeyDown(uint vk, bool ctrl, bool alt, bool shift, bool win)
         {
             string combo = BuildCombinationString(vk, ctrl, alt, shift, win);
-            if (string.IsNullOrEmpty(combo)) return false;
+            ComfortShortcutItem match = null;
 
-            var match = FindShortcut(combo);
+            if (!string.IsNullOrEmpty(combo))
+            {
+                match = FindShortcut(combo);
+            }
+
+            // Nếu không tìm thấy match với tổ hợp đầy đủ modifier (ví dụ người dùng đang giữ Ctrl mà nhấn Apps)
+            // thì kiểm tra xem chính phím này có rule ReplaceKey hoặc BlockKey độc lập không
+            if (match == null)
+            {
+                string singleKeyName = GetKeyFriendlyName(vk);
+                if (!string.IsNullOrEmpty(singleKeyName))
+                {
+                    match = Shortcuts.FirstOrDefault(s => s.IsEnabled &&
+                                                          (s.ActionType == ShortcutActionType.ReplaceKey || s.ActionType == ShortcutActionType.BlockKey) &&
+                                                          string.Equals(s.KeyCombination, singleKeyName, StringComparison.OrdinalIgnoreCase));
+                }
+            }
+
             if (match == null) return false;
 
             if (!match.IsEnabled) return false;
@@ -707,11 +744,57 @@ namespace ModernKey.Core
             return false;
         }
 
+        private static string NormalizeShortcutTokens(string combo)
+        {
+            if (string.IsNullOrWhiteSpace(combo)) return string.Empty;
+            var parts = combo.Split(new[] { '+' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0) return string.Empty;
+
+            var mods = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+            string mainKey = parts[parts.Length - 1].Trim();
+
+            for (int i = 0; i < parts.Length - 1; i++)
+            {
+                string p = parts[i].Trim();
+                if (string.Equals(p, "Win", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(p, "LeftWin", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(p, "RightWin", StringComparison.OrdinalIgnoreCase))
+                    mods.Add("Win");
+                else if (string.Equals(p, "Ctrl", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(p, "LeftCtrl", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(p, "RightCtrl", StringComparison.OrdinalIgnoreCase))
+                    mods.Add("Ctrl");
+                else if (string.Equals(p, "Alt", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(p, "LeftAlt", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(p, "RightAlt", StringComparison.OrdinalIgnoreCase))
+                    mods.Add("Alt");
+                else if (string.Equals(p, "Shift", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(p, "LeftShift", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(p, "RightShift", StringComparison.OrdinalIgnoreCase))
+                    mods.Add("Shift");
+                else
+                    mods.Add(p);
+            }
+
+            mainKey = mainKey.Replace("Num ", "Nm ").Replace("Numpad ", "Nm ");
+            if (string.Equals(mainKey, "Break", StringComparison.OrdinalIgnoreCase)) mainKey = "Pause";
+            if (string.Equals(mainKey, "Menu", StringComparison.OrdinalIgnoreCase)) mainKey = "Apps";
+            if (string.Equals(mainKey, "PrintScreen", StringComparison.OrdinalIgnoreCase) || string.Equals(mainKey, "Print", StringComparison.OrdinalIgnoreCase)) mainKey = "PrtSc";
+
+            if (mods.Count == 0) return mainKey;
+            return string.Join("+", mods) + "+" + mainKey;
+        }
+
         public ComfortShortcutItem FindShortcut(string combo)
         {
             if (string.IsNullOrEmpty(combo)) return null;
 
             var match = Shortcuts.FirstOrDefault(s => string.Equals(s.KeyCombination, combo, StringComparison.OrdinalIgnoreCase));
+            if (match != null) return match;
+
+            // So sánh chuẩn hóa không phân biệt thứ tự modifier (Ctrl+Win+Left == Win+Ctrl+Left)
+            string normalizedTarget = NormalizeShortcutTokens(combo);
+            match = Shortcuts.FirstOrDefault(s => string.Equals(NormalizeShortcutTokens(s.KeyCombination), normalizedTarget, StringComparison.OrdinalIgnoreCase));
             if (match != null) return match;
 
             // Thử các biến thể tương thích (Num <-> Nm, Menu <-> Apps, Pause <-> Break)
@@ -1791,6 +1874,27 @@ namespace ModernKey.Core
                 case "RIGHTALT": return 0xA5;
                 case "SHIFT": case "LEFTSHIFT": return 0x10;
                 case "RIGHTSHIFT": return 0xA1;
+
+                // Media & Browser Keys (Chuẩn ảnh 3)
+                case "BROWSER BACK": case "BROWSERBACK": return 0xA6;
+                case "BROWSER FORWARD": case "BROWSERFORWARD": case "FWD": return 0xA7;
+                case "BROWSER REFRESH": case "BROWSERREFRESH": case "REFRESH": return 0xA8;
+                case "BROWSER STOP": case "BROWSERSTOP": return 0xA9;
+                case "BROWSER SEARCH": case "BROWSERSEARCH": case "SEARCH": return 0xAA;
+                case "BROWSER FAVORITES": case "BROWSERFAVORITES": case "FAV": return 0xAB;
+                case "BROWSER HOME": case "BROWSERHOME": return 0xAC;
+                case "MUTE": case "VOLUME MUTE": case "VOL MUTE": return 0xAD;
+                case "VOL -": case "VOLUME DOWN": case "VOLDOWN": return 0xAE;
+                case "VOL +": case "VOLUME UP": case "VOLUP": return 0xAF;
+                case "NEXT TRACK": case "NEXTTRACK": case "NEXT": return 0xB0;
+                case "PREV TRACK": case "PREVTRACK": case "PREV": return 0xB1;
+                case "MEDIA STOP": case "MEDIASTOP": return 0xB2;
+                case "PLAY/PAUSE": case "PLAYPAUSE": case "PLAY": case "PAUSE/PLAY": return 0xB3;
+                case "MAIL": case "LAUNCH MAIL": return 0xB4;
+                case "MEDIA": case "MEDIA SELECT": case "LAUNCH MEDIA": return 0xB5;
+                case "APP1": case "APP 1": case "LAUNCH APP1": return 0xB6;
+                case "APP2": case "APP 2": case "LAUNCH APP2": return 0xB7;
+
                 default: return 0;
             }
         }
@@ -1869,6 +1973,27 @@ namespace ModernKey.Core
                 case 0x6D: return "-";
                 case 0x6E: return ".";
                 case 0x6F: return "/";
+
+                // Media, Browser & Launch Keys (Chuẩn ảnh 3)
+                case 0xA6: return "Browser Back";
+                case 0xA7: return "Browser Forward";
+                case 0xA8: return "Browser Refresh";
+                case 0xA9: return "Browser Stop";
+                case 0xAA: return "Browser Search";
+                case 0xAB: return "Browser Favorites";
+                case 0xAC: return "Browser Home";
+                case 0xAD: return "Mute";
+                case 0xAE: return "Vol -";
+                case 0xAF: return "Vol +";
+                case 0xB0: return "Next Track";
+                case 0xB1: return "Prev Track";
+                case 0xB2: return "Media Stop";
+                case 0xB3: return "Play/Pause";
+                case 0xB4: return "Mail";
+                case 0xB5: return "Media";
+                case 0xB6: return "App1";
+                case 0xB7: return "App2";
+
                 default: return string.Empty;
             }
         }

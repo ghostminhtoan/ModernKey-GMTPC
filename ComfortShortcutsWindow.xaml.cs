@@ -53,22 +53,43 @@ namespace ModernKey
 
         private static readonly string[] StandardReplaceKeys = new string[]
         {
+            // Modifier Keys
+            "5B - Win", "5C - RightWin", "5D - Apps",
+            "A0 - LeftShift", "A1 - RightShift", "A2 - LeftCtrl", "A3 - RightCtrl", "A4 - LeftAlt", "A5 - RightAlt",
+
+            // Media & Volume Keys (Chuẩn ảnh 3)
+            "B3 - Play/Pause", "B1 - Prev Track", "B0 - Next Track", "B2 - Media Stop",
+            "AF - Vol +", "AE - Vol -", "AD - Mute",
+            "B4 - Mail", "B5 - Media Select", "B6 - App 1", "B7 - App 2",
+
+            // Browser & Web Keys (Chuẩn ảnh 3)
+            "A6 - Browser Back", "A7 - Browser Forward", "A8 - Browser Refresh", "A9 - Browser Stop",
+            "AA - Browser Search", "AB - Browser Favorites", "AC - Browser Home",
+
+            // Standard Editing & Nav Keys
             "08 - Backspace", "09 - Tab", "0C - Clear", "0D - Enter", "13 - Pause", "14 - Caps",
             "1B - Esc", "20 - Space", "21 - PgUp", "22 - PgDn", "23 - End", "24 - Home",
             "25 - Left", "26 - Up", "27 - Right", "28 - Down", "2C - PrtSc", "2D - Ins", "2E - Del",
+
+            // Digits
             "30 - 0", "31 - 1", "32 - 2", "33 - 3", "34 - 4", "35 - 5", "36 - 6", "37 - 7", "38 - 8", "39 - 9",
+
+            // Letters A-Z
             "41 - A", "42 - B", "43 - C", "44 - D", "45 - E", "46 - F", "47 - G", "48 - H", "49 - I", "4A - J",
             "4B - K", "4C - L", "4D - M", "4E - N", "4F - O", "50 - P", "51 - Q", "52 - R", "53 - S", "54 - T",
             "55 - U", "56 - V", "57 - W", "58 - X", "59 - Y", "5A - Z",
-            "5B - Win", "5C - RightWin", "5D - Apps",
+
+            // Numpad Keys
             "60 - Num 0", "61 - Num 1", "62 - Num 2", "63 - Num 3", "64 - Num 4",
             "65 - Num 5", "66 - Num 6", "67 - Num 7", "68 - Num 8", "69 - Num 9",
             "6A - Num *", "6B - Num +", "6D - Num -", "6E - Num .", "6F - Num /",
+
+            // Function Keys
             "70 - F1", "71 - F2", "72 - F3", "73 - F4", "74 - F5", "75 - F6",
             "76 - F7", "77 - F8", "78 - F9", "79 - F10", "7A - F11", "7B - F12",
             "90 - NumLock", "91 - ScrollLock",
-            "A0 - LeftShift", "A1 - RightShift", "A2 - LeftCtrl", "A3 - RightCtrl", "A4 - LeftAlt", "A5 - RightAlt",
-            "AD - Mute", "AE - Vol -", "AF - Vol +", "B0 - Next Track", "B1 - Prev Track", "B2 - Stop", "B3 - Play/Pause",
+
+            // Symbols
             "BA - ;", "BB - =", "BC - ,", "BD - -", "BE - .", "BF - /", "C0 - ~",
             "DB - [", "DC - \\", "DD - ]", "DE - '"
         };
