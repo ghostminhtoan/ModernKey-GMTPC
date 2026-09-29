@@ -326,7 +326,7 @@ namespace ModernKey
                 }));
             };
 
-            // Phím tắt mở nhanh Phím tắt Comfort (Windows + Space)
+            // Phím tắt mở nhanh Phím tắt Comfort (Windows + CapsLock)
             _keyboardHook.OpenComfortShortcutsRequested += () =>
             {
                 Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>

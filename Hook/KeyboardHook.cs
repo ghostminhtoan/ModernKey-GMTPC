@@ -781,8 +781,8 @@ namespace ModernKey.Hook
                         return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
                     }
 
-                    // 6.5. Phím tắt mở/toggle nhanh Clipboard History HUD: Win+Ins (chuẩn Comfort Keys) hoặc Ctrl+Alt+V
-                    if (((isComfortWin || (_modifierFlag & MASK_WIN) != 0) && vkCode == 0x2D) ||
+                    // 6.5. Phím tắt mở/toggle nhanh Clipboard History HUD: Win+Space (Quick Clipboard), Win+Ins (chuẩn Comfort Keys) hoặc Ctrl+Alt+V
+                    if (((isComfortWin || (_modifierFlag & MASK_WIN) != 0 || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0) && (vkCode == 0x20 || vkCode == 0x2D)) ||
                         (((_modifierFlag & (MASK_CTRL | MASK_ALT)) == (MASK_CTRL | MASK_ALT)) && vkCode == 0x56))
                     {
                         KeySender.SuppressAltMenuActivation();
@@ -791,9 +791,9 @@ namespace ModernKey.Hook
                         return (IntPtr)1;
                     }
 
-                    // 6.5b. Phím tắt mở/toggle nhanh Phím tắt Comfort: Windows + Space hoặc Windows + CapsLock
+                    // 6.5b. Phím tắt mở/toggle nhanh Phím tắt Comfort: Windows + CapsLock
                     if ((isComfortWin || (_modifierFlag & MASK_WIN) != 0 || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0) &&
-                        (vkCode == 0x20 || vkCode == 0x14))
+                        vkCode == 0x14)
                     {
                         KeySender.SuppressAltMenuActivation();
                         _engine.Reset();
@@ -1106,8 +1106,8 @@ namespace ModernKey.Hook
                         return (IntPtr)1;
                     }
 
-                    // Nhả phím CapsLock khi đang giữ Win (nuốt sự kiện nhả phím sau Win+CapsLock)
-                    if (vkCode == 0x14 && ((_modifierFlag & MASK_WIN) != 0 || _winDown || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0))
+                    // Nhả phím CapsLock hoặc Space khi đang giữ Win (nuốt sự kiện nhả phím sau Win+CapsLock / Win+Space)
+                    if ((vkCode == 0x14 || vkCode == 0x20) && ((_modifierFlag & MASK_WIN) != 0 || _winDown || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0))
                     {
                         return (IntPtr)1;
                     }
