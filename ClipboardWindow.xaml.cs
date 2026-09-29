@@ -1851,6 +1851,13 @@ namespace ModernKey
             try
             {
                 _isBatchUpdating = true;
+                // 1. Giải phóng Image Preview và visual resources trước khi xóa để file lock không bị giữ
+                ClearPreview();
+                foreach (var it in selected)
+                {
+                    it?.ReleaseVisualResources();
+                }
+
                 // Bỏ chọn tất cả trước để WPF ListBox không phải tính toán lại Selection sau mỗi mục xóa
                 LstClipboard?.UnselectAll();
 
@@ -1895,6 +1902,14 @@ namespace ModernKey
                     try
                     {
                         _isBatchUpdating = true;
+                        ClearPreview();
+                        if (LstClipboard?.Items != null)
+                        {
+                            foreach (var it in LstClipboard.Items.OfType<ClipboardItem>())
+                            {
+                                it?.ReleaseVisualResources();
+                            }
+                        }
                         LstClipboard?.UnselectAll();
                         _historyManager?.ClearFavorites();
                     }
@@ -1916,6 +1931,14 @@ namespace ModernKey
                     try
                     {
                         _isBatchUpdating = true;
+                        ClearPreview();
+                        if (LstClipboard?.Items != null)
+                        {
+                            foreach (var it in LstClipboard.Items.OfType<ClipboardItem>())
+                            {
+                                it?.ReleaseVisualResources();
+                            }
+                        }
                         LstClipboard?.UnselectAll();
                         _historyManager?.ClearHistory();
                     }
@@ -2645,6 +2668,11 @@ namespace ModernKey
                 try
                 {
                     _isBatchUpdating = true;
+                    ClearPreview();
+                    foreach (var it in selected)
+                    {
+                        it?.ReleaseVisualResources();
+                    }
                     LstClipboard?.UnselectAll();
                     _historyManager?.RemoveFromFavorites(selected);
                 }

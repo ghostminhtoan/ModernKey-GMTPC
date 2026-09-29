@@ -154,7 +154,7 @@ namespace ModernKey.Config
                     if (File.Exists(histJsonPathA)) histContent = File.ReadAllText(histJsonPathA, Encoding.UTF8);
                     else if (File.Exists(histJsonPathB)) histContent = File.ReadAllText(histJsonPathB, Encoding.UTF8);
 
-                    if (!string.IsNullOrWhiteSpace(histContent))
+                    if (histContent != null)
                     {
                         validHistoryFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                         var matches = System.Text.RegularExpressions.Regex.Matches(histContent, @"\""(?:ImagePath|ThumbPath)\""\s*:\s*\""(?<p>[^\""]+)\""");
@@ -168,12 +168,37 @@ namespace ModernKey.Config
                 }
                 catch { }
 
+                // Đọc danh sách file ảnh favorites hợp lệ từ clipboard_favorites.json
+                HashSet<string> validFavoriteFiles = null;
+                try
+                {
+                    string favJsonPathA = Path.Combine(Path.GetDirectoryName(cacheA) ?? "", "clipboard_favorites.json");
+                    string favJsonPathB = Path.Combine(Path.GetDirectoryName(cacheB) ?? "", "clipboard_favorites.json");
+                    string favContent = null;
+                    if (File.Exists(favJsonPathA)) favContent = File.ReadAllText(favJsonPathA, Encoding.UTF8);
+                    else if (File.Exists(favJsonPathB)) favContent = File.ReadAllText(favJsonPathB, Encoding.UTF8);
+
+                    if (favContent != null)
+                    {
+                        validFavoriteFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        var matches = System.Text.RegularExpressions.Regex.Matches(favContent, @"\""(?:ImagePath|ThumbPath)\""\s*:\s*\""(?<p>[^\""]+)\""");
+                        foreach (System.Text.RegularExpressions.Match m in matches)
+                        {
+                            string p = m.Groups["p"].Value;
+                            string fn = Path.GetFileName(p);
+                            if (!string.IsNullOrEmpty(fn)) validFavoriteFiles.Add(fn);
+                        }
+                    }
+                }
+                catch { }
+
                 foreach (var sub in new[] { "history", "favorites", "icons" })
                 {
                     string subA = Path.Combine(cacheA, sub);
                     string subB = Path.Combine(cacheB, sub);
 
                     bool isHistory = string.Equals(sub, "history", StringComparison.OrdinalIgnoreCase);
+                    bool isFavorites = string.Equals(sub, "favorites", StringComparison.OrdinalIgnoreCase);
 
                     if (Directory.Exists(subA))
                     {
@@ -183,7 +208,13 @@ namespace ModernKey.Config
                             string fn = Path.GetFileName(f);
                             if (isHistory && validHistoryFiles != null && !validHistoryFiles.Contains(fn))
                             {
-                                // File ảnh lịch sử mồ côi đã bị xóa trong history -> Xóa khỏi subA
+                                // File ảnh lịch sử mồ côi đã bị xóa -> Xóa khỏi subA
+                                try { File.Delete(f); } catch { }
+                                continue;
+                            }
+                            if (isFavorites && validFavoriteFiles != null && !validFavoriteFiles.Contains(fn))
+                            {
+                                // File ảnh yêu thích mồ côi đã bị xóa -> Xóa khỏi subA
                                 try { File.Delete(f); } catch { }
                                 continue;
                             }
@@ -204,7 +235,13 @@ namespace ModernKey.Config
                             string fn = Path.GetFileName(f);
                             if (isHistory && validHistoryFiles != null && !validHistoryFiles.Contains(fn))
                             {
-                                // File ảnh lịch sử mồ côi đã bị xóa trong history -> Xóa khỏi subB
+                                // File ảnh lịch sử mồ côi đã bị xóa -> Xóa khỏi subB
+                                try { File.Delete(f); } catch { }
+                                continue;
+                            }
+                            if (isFavorites && validFavoriteFiles != null && !validFavoriteFiles.Contains(fn))
+                            {
+                                // File ảnh yêu thích mồ côi đã bị xóa -> Xóa khỏi subB
                                 try { File.Delete(f); } catch { }
                                 continue;
                             }

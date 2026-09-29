@@ -304,8 +304,8 @@ namespace ModernKey.Hook
         public event Action OpenClipboardFavoriteRequested;
         public Func<int, uint, bool> CheckClipboardShortcutRequested;
         public event Action OpenTextTransformRequested;
-        public event Action OpenComfortShortcutsRequested;
         public event Action<string> OpenMacroQuickListRequested;
+        public event Action OpenComfortShortcutsRequested;
         public static event Action<InputMethod> InputMethodChanged;
         public static event Action<bool> GameModeChanged;
 
@@ -782,29 +782,24 @@ namespace ModernKey.Hook
                         return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
                     }
 
-                    // 6.5. Phím tắt mở/toggle nhanh Clipboard History HUD: Win+Ins (chuẩn Comfort Keys) hoặc Ctrl+Alt+V
-                    if (((isComfortWin || (_modifierFlag & MASK_WIN) != 0 || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0) && vkCode == 0x2D) ||
+                    // 6.5. Phím tắt mở/toggle nhanh Clipboard History HUD: Win+Space (Quick-List), Win+Ins (Clipboard HUD) hoặc Ctrl+Alt+V
+                    if (((isComfortWin || (_modifierFlag & MASK_WIN) != 0 || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0) && (vkCode == 0x20 || vkCode == 0x2D)) ||
                         (((_modifierFlag & (MASK_CTRL | MASK_ALT)) == (MASK_CTRL | MASK_ALT)) && vkCode == 0x56))
                     {
                         KeySender.SuppressAltMenuActivation();
                         _engine.Reset();
-                        OpenClipboardRequested?.Invoke();
+                        if (vkCode == 0x20)
+                        {
+                            OpenMacroQuickListRequested?.Invoke(string.Empty);
+                        }
+                        else
+                        {
+                            OpenClipboardRequested?.Invoke();
+                        }
                         return (IntPtr)1;
                     }
 
-                    // 6.5b. Phím tắt mở/toggle nhanh Quick-List Macro / Bảng clipboard nhanh khi đang gõ (nút Paste, Sequence, Add, Edit): Win+Space
-                    if (_settings.MacroQuickListWinSpace &&
-                        (isComfortWin || (_modifierFlag & MASK_WIN) != 0 || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0) &&
-                        vkCode == 0x20)
-                    {
-                        KeySender.SuppressAltMenuActivation();
-                        string pendingWord = _engine != null ? _engine.GetCurrentBufferWord() : string.Empty;
-                        _engine.Reset();
-                        OpenMacroQuickListRequested?.Invoke(pendingWord);
-                        return (IntPtr)1;
-                    }
-
-                    // 6.5c. Phím tắt mở/toggle nhanh Phím tắt Comfort: Windows + CapsLock
+                    // 6.5b. Phím tắt mở/toggle nhanh Phím tắt Comfort: Windows + CapsLock
                     if ((isComfortWin || (_modifierFlag & MASK_WIN) != 0 || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0) &&
                         vkCode == 0x14)
                     {

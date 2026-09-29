@@ -41,8 +41,8 @@ namespace ModernKey.Core
             System.Threading.ThreadPool.QueueUserWorkItem(_ =>
             {
                 EnsureDirectoriesAndMigrate();
-                LoadFavorites();
                 LoadHistory();
+                LoadFavorites();
             });
         }
 
@@ -338,13 +338,6 @@ namespace ModernKey.Core
                 };
 
                 item.DetectMetadata();
-                var matchFav = FindMatchingItem(FavoriteItems, item);
-                if (matchFav != null)
-                {
-                    item.IsFavorite = true;
-                    item.GroupName = matchFav.GroupName;
-                    if (!string.IsNullOrEmpty(matchFav.CustomTitle)) item.CustomTitle = matchFav.CustomTitle;
-                }
                 InsertItem(item);
             }
         }
@@ -425,14 +418,7 @@ namespace ModernKey.Core
                     BlurRadius = 0.0,
                     PixelateSize = 0.0
                 };
-                item.DetectMetadata();
-                var matchFav = FindMatchingItem(FavoriteItems, item);
-                if (matchFav != null)
-                {
-                    item.IsFavorite = true;
-                    item.GroupName = matchFav.GroupName;
-                    if (!string.IsNullOrEmpty(matchFav.CustomTitle)) item.CustomTitle = matchFav.CustomTitle;
-                }
+
                 InsertItem(item);
             }
         }
@@ -526,14 +512,6 @@ namespace ModernKey.Core
                     PixelateSize = 0.0
                 };
 
-                var matchFav = FindMatchingItem(FavoriteItems, item);
-                if (matchFav != null)
-                {
-                    item.IsFavorite = true;
-                    item.GroupName = matchFav.GroupName;
-                    if (!string.IsNullOrEmpty(matchFav.CustomTitle)) item.CustomTitle = matchFav.CustomTitle;
-                }
-
                 InsertItem(item);
                 return item;
             }
@@ -591,34 +569,26 @@ namespace ModernKey.Core
         private void TrimLimit()
         {
             int max = (_settings.ClipboardMaxItems >= 5 && _settings.ClipboardMaxItems <= 99999) ? _settings.ClipboardMaxItems : 200;
+            if (Items.Count <= max) return;
 
-            // Chỉ đếm và giới hạn các mục Lịch sử thông thường (History).
-            // Các mục Yêu thích (Favorites) luôn lưu trữ KHÔNG GIỚI HẠN và KHÔNG BAO GIỜ bị TrimLimit xóa!
-            int nonFavCount = Items.Count(x => !x.IsFavorite && FindMatchingItem(FavoriteItems, x) == null);
-            if (nonFavCount <= max) return;
-
-            var deletedItems = new List<ClipboardItem>();
-
-            // Xóa các mục thường cũ nhất từ cuối danh sách History
-            for (int i = Items.Count - 1; i >= 0 && nonFavCount > max; i--)
+            var itemsForCacheDeletion = new List<ClipboardItem>();
+            // Xóa các mục cũ nhất từ cuối danh sách History
+            for (int i = Items.Count - 1; i >= max; i--)
             {
                 var it = Items[i];
-                if (!it.IsFavorite && FindMatchingItem(FavoriteItems, it) == null)
+                // Chỉ xóa cache nếu mục này không tồn tại trong danh sách Yêu thích
+                if (FindMatchingItem(FavoriteItems, it) == null)
                 {
-                    deletedItems.Add(it);
-                    Items.RemoveAt(i);
-                    nonFavCount--;
+                    itemsForCacheDeletion.Add(it);
                 }
+                Items.RemoveAt(i);
             }
 
-            if (deletedItems.Count > 0)
+            foreach (var it in itemsForCacheDeletion)
             {
-                foreach (var it in deletedItems)
-                {
-                    DeleteCacheFile(it);
-                }
-                PurgeOrphanedHistoryCacheFiles();
+                DeleteCacheFile(it);
             }
+            PurgeOrphanedHistoryCacheFiles();
         }
 
         public void ApplyMaxLimit()
@@ -812,6 +782,212 @@ namespace ModernKey.Core
             }
         }
 
+        public static List<string> GetAllCacheDirectories()
+        {
+            var dirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                // 1. Thư mục cấu hình hiện tại
+                string cfgDir = SettingsManager.GetConfigDirectory();
+                if (!string.IsNullOrEmpty(cfgDir))
+                {
+                    dirs.Add(Path.Combine(cfgDir, "clipboard", "clipboard_cache", "history"));
+                    dirs.Add(Path.Combine(cfgDir, "clipboard", "clipboard_cache", "favorites"));
+                    dirs.Add(Path.Combine(cfgDir, "clipboard", "clipboard_cache"));
+                    dirs.Add(Path.Combine(cfgDir, "clipboard_cache", "history"));
+                    dirs.Add(Path.Combine(cfgDir, "clipboard_cache", "favorites"));
+                    dirs.Add(Path.Combine(cfgDir, "clipboard_cache"));
+                }
+
+                // 2. Thư mục AppDomain BaseDirectory
+                string appDir = AppDomain.CurrentDomain.BaseDirectory;
+                if (!string.IsNullOrEmpty(appDir))
+                {
+                    dirs.Add(Path.Combine(appDir, ".portable", "clipboard", "clipboard_cache", "history"));
+                    dirs.Add(Path.Combine(appDir, ".portable", "clipboard", "clipboard_cache", "favorites"));
+                    dirs.Add(Path.Combine(appDir, ".portable", "clipboard", "clipboard_cache"));
+                    dirs.Add(Path.Combine(appDir, ".portable", "clipboard_cache", "history"));
+                    dirs.Add(Path.Combine(appDir, ".portable", "clipboard_cache", "favorites"));
+                    dirs.Add(Path.Combine(appDir, ".portable", "clipboard_cache"));
+                    dirs.Add(Path.Combine(appDir, "clipboard", "clipboard_cache", "history"));
+                    dirs.Add(Path.Combine(appDir, "clipboard", "clipboard_cache", "favorites"));
+                    dirs.Add(Path.Combine(appDir, "clipboard", "clipboard_cache"));
+
+                    // 3. Project root .portable nếu đang chạy trong \bin\
+                    if (appDir.IndexOf(@"\bin\", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        string projectRoot = Path.GetFullPath(Path.Combine(appDir, @"..\..\.."));
+                        dirs.Add(Path.Combine(projectRoot, ".portable", "clipboard", "clipboard_cache", "history"));
+                        dirs.Add(Path.Combine(projectRoot, ".portable", "clipboard", "clipboard_cache", "favorites"));
+                        dirs.Add(Path.Combine(projectRoot, ".portable", "clipboard", "clipboard_cache"));
+                        dirs.Add(Path.Combine(projectRoot, ".portable", "clipboard_cache", "history"));
+                        dirs.Add(Path.Combine(projectRoot, ".portable", "clipboard_cache", "favorites"));
+                        dirs.Add(Path.Combine(projectRoot, ".portable", "clipboard_cache"));
+
+                        string projRoot2 = Path.GetFullPath(Path.Combine(appDir, @"..\.."));
+                        dirs.Add(Path.Combine(projRoot2, ".portable", "clipboard", "clipboard_cache", "history"));
+                        dirs.Add(Path.Combine(projRoot2, ".portable", "clipboard", "clipboard_cache", "favorites"));
+                    }
+                }
+
+                // 4. Custom sync directory nếu có
+                if (!string.IsNullOrEmpty(SettingsManager.CustomSyncDirectory))
+                {
+                    dirs.Add(Path.Combine(SettingsManager.CustomSyncDirectory, "clipboard", "clipboard_cache", "history"));
+                    dirs.Add(Path.Combine(SettingsManager.CustomSyncDirectory, "clipboard", "clipboard_cache", "favorites"));
+                    dirs.Add(Path.Combine(SettingsManager.CustomSyncDirectory, "clipboard", "clipboard_cache"));
+                }
+            }
+            catch { }
+
+            return dirs.Where(d => Directory.Exists(d)).ToList();
+        }
+
+        private static void TryDeleteFileWithRetry(string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath)) return;
+            try
+            {
+                if (File.Exists(filePath))
+                {
+                    File.SetAttributes(filePath, FileAttributes.Normal);
+                    File.Delete(filePath);
+                }
+            }
+            catch (IOException)
+            {
+                // UI hoặc tiến trình khác đang mở -> Thử lại trong thread pool sau một khoảng ngắn
+                System.Threading.ThreadPool.QueueUserWorkItem(_ =>
+                {
+                    for (int i = 0; i < 3; i++)
+                    {
+                        System.Threading.Thread.Sleep(50 * (i + 1));
+                        try
+                        {
+                            if (File.Exists(filePath))
+                            {
+                                File.SetAttributes(filePath, FileAttributes.Normal);
+                                File.Delete(filePath);
+                                break;
+                            }
+                        }
+                        catch { }
+                    }
+                });
+            }
+            catch { }
+        }
+
+        public static void DeleteImageFileAtAllLocations(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return;
+            try
+            {
+                string fn = Path.GetFileName(path);
+                if (string.IsNullOrEmpty(fn)) return;
+
+                string thumbFn = fn.EndsWith("_t.png", StringComparison.OrdinalIgnoreCase)
+                    ? fn
+                    : Path.GetFileNameWithoutExtension(fn) + "_t.png";
+
+                // 1. Xóa trực tiếp theo đường dẫn truyền vào
+                TryDeleteFileWithRetry(path);
+
+                // 2. Xóa thumbnail tại cùng thư mục
+                if (!string.Equals(fn, thumbFn, StringComparison.OrdinalIgnoreCase))
+                {
+                    string dir = Path.GetDirectoryName(path);
+                    if (!string.IsNullOrEmpty(dir))
+                    {
+                        TryDeleteFileWithRetry(Path.Combine(dir, thumbFn));
+                    }
+                }
+
+                // 3. Quét xóa tại tất cả các thư mục cache đã biết
+                var cacheDirs = GetAllCacheDirectories();
+                foreach (var dir in cacheDirs)
+                {
+                    TryDeleteFileWithRetry(Path.Combine(dir, fn));
+                    TryDeleteFileWithRetry(Path.Combine(dir, thumbFn));
+                }
+            }
+            catch { }
+        }
+
+        public void DeleteCacheFile(ClipboardItem item)
+        {
+            if (item == null) return;
+            try
+            {
+                item.ReleaseVisualResources();
+                if (item.IsImage)
+                {
+                    if (!string.IsNullOrEmpty(item.ImagePath))
+                    {
+                        DeleteImageFileAtAllLocations(item.ImagePath);
+                    }
+                    if (!string.IsNullOrEmpty(item.ThumbPath))
+                    {
+                        DeleteImageFileAtAllLocations(item.ThumbPath);
+                    }
+                }
+            }
+            catch { }
+        }
+
+        public void PurgeOrphanedHistoryCacheFiles()
+        {
+            try
+            {
+                // Tập hợp tất cả các tên file ảnh và thumbnail đang được tham chiếu bởi History và Favorites
+                var validFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                lock (_lock)
+                {
+                    foreach (var it in Items)
+                    {
+                        if (it != null && it.IsImage)
+                        {
+                            if (!string.IsNullOrEmpty(it.ImagePath)) validFiles.Add(Path.GetFileName(it.ImagePath));
+                            if (!string.IsNullOrEmpty(it.ThumbPath)) validFiles.Add(Path.GetFileName(it.ThumbPath));
+                        }
+                    }
+                    foreach (var it in FavoriteItems)
+                    {
+                        if (it != null && it.IsImage)
+                        {
+                            if (!string.IsNullOrEmpty(it.ImagePath)) validFiles.Add(Path.GetFileName(it.ImagePath));
+                            if (!string.IsNullOrEmpty(it.ThumbPath)) validFiles.Add(Path.GetFileName(it.ThumbPath));
+                        }
+                    }
+                }
+
+                var cacheDirs = GetAllCacheDirectories();
+                foreach (var dir in cacheDirs)
+                {
+                    try
+                    {
+                        if (!Directory.Exists(dir)) continue;
+                        var files = Directory.GetFiles(dir, "*.png", SearchOption.TopDirectoryOnly);
+                        foreach (var file in files)
+                        {
+                            string fn = Path.GetFileName(file);
+                            if (!validFiles.Contains(fn))
+                            {
+                                string dirName = Path.GetFileName(dir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                                if (string.Equals(dirName, "history", StringComparison.OrdinalIgnoreCase) ||
+                                    string.Equals(dirName, "clipboard_cache", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    TryDeleteFileWithRetry(file);
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+        }
+
         public void RemoveFromFavorites(ClipboardItem item)
         {
             if (item == null) return;
@@ -836,6 +1012,7 @@ namespace ModernKey.Core
                     matchHist.IsFavorite = false;
                 }
 
+                PurgeOrphanedHistoryCacheFiles();
                 SaveHistoryAsync();
                 SaveFavoritesAsync();
             }
@@ -855,17 +1032,28 @@ namespace ModernKey.Core
 
             var targetIds = new HashSet<string>(list.Where(x => !string.IsNullOrEmpty(x.Id)).Select(x => x.Id), StringComparer.OrdinalIgnoreCase);
             var targetItems = new HashSet<ClipboardItem>(list);
+            var itemsForCacheDeletion = new List<ClipboardItem>();
 
             lock (_lock)
             {
                 DispatchSafe(() =>
                 {
+                    var histIds = new HashSet<string>(Items.Where(h => !string.IsNullOrEmpty(h.Id)).Select(h => h.Id), StringComparer.OrdinalIgnoreCase);
+                    var histPaths = new HashSet<string>(Items.Where(h => h.IsImage && !string.IsNullOrEmpty(h.ImagePath)).Select(h => Path.GetFileName(h.ImagePath)), StringComparer.OrdinalIgnoreCase);
+
                     for (int i = FavoriteItems.Count - 1; i >= 0; i--)
                     {
                         var it = FavoriteItems[i];
                         if (targetItems.Contains(it) || (!string.IsNullOrEmpty(it.Id) && targetIds.Contains(it.Id)))
                         {
                             it.IsFavorite = false;
+                            string fn = (it.IsImage && !string.IsNullOrEmpty(it.ImagePath)) ? Path.GetFileName(it.ImagePath) : null;
+                            bool inHist = (!string.IsNullOrEmpty(it.Id) && histIds.Contains(it.Id)) ||
+                                          (fn != null && histPaths.Contains(fn));
+                            if (!inHist && it.IsImage)
+                            {
+                                itemsForCacheDeletion.Add(it);
+                            }
                             FavoriteItems.RemoveAt(i);
                         }
                     }
@@ -879,6 +1067,12 @@ namespace ModernKey.Core
                     }
                 });
 
+                foreach (var it in itemsForCacheDeletion)
+                {
+                    DeleteCacheFile(it);
+                }
+
+                PurgeOrphanedHistoryCacheFiles();
                 SaveHistoryAsync();
                 SaveFavoritesAsync();
             }
@@ -905,6 +1099,7 @@ namespace ModernKey.Core
             if (item == null) return;
             lock (_lock)
             {
+                bool shouldDeleteCache = false;
                 DispatchSafe(() =>
                 {
                     if (isFavoriteView)
@@ -912,21 +1107,28 @@ namespace ModernKey.Core
                         FavoriteItems.Remove(item);
                         var matchHist = FindMatchingItem(Items, item);
                         if (matchHist != null) matchHist.IsFavorite = false;
-                        if (matchHist == null || !string.Equals(matchHist.ImagePath, item.ImagePath, StringComparison.OrdinalIgnoreCase))
+                        if (matchHist == null || !string.Equals(Path.GetFileName(matchHist.ImagePath), Path.GetFileName(item.ImagePath), StringComparison.OrdinalIgnoreCase))
                         {
-                            DeleteCacheFile(item);
+                            shouldDeleteCache = true;
                         }
                     }
                     else
                     {
                         Items.Remove(item);
                         var matchFav = FindMatchingItem(FavoriteItems, item);
-                        if (matchFav == null || !string.Equals(matchFav.ImagePath, item.ImagePath, StringComparison.OrdinalIgnoreCase))
+                        if (matchFav == null || !string.Equals(Path.GetFileName(matchFav.ImagePath), Path.GetFileName(item.ImagePath), StringComparison.OrdinalIgnoreCase))
                         {
-                            DeleteCacheFile(item);
+                            shouldDeleteCache = true;
                         }
                     }
                 });
+
+                if (shouldDeleteCache)
+                {
+                    DeleteCacheFile(item);
+                }
+
+                PurgeOrphanedHistoryCacheFiles();
                 SaveHistoryAsync();
                 SaveFavoritesAsync();
             }
@@ -946,7 +1148,7 @@ namespace ModernKey.Core
 
             var targetIds = new HashSet<string>(list.Where(x => !string.IsNullOrEmpty(x.Id)).Select(x => x.Id), StringComparer.OrdinalIgnoreCase);
             var targetItems = new HashSet<ClipboardItem>(list);
-            var filesToDelete = new List<string>();
+            var itemsForCacheDeletion = new List<ClipboardItem>();
 
             lock (_lock)
             {
@@ -955,19 +1157,19 @@ namespace ModernKey.Core
                     if (isFavoriteView)
                     {
                         var histIds = new HashSet<string>(Items.Where(h => !string.IsNullOrEmpty(h.Id)).Select(h => h.Id), StringComparer.OrdinalIgnoreCase);
-                        var histPaths = new HashSet<string>(Items.Where(h => h.IsImage && !string.IsNullOrEmpty(h.ImagePath)).Select(h => h.ImagePath), StringComparer.OrdinalIgnoreCase);
+                        var histPaths = new HashSet<string>(Items.Where(h => h.IsImage && !string.IsNullOrEmpty(h.ImagePath)).Select(h => Path.GetFileName(h.ImagePath)), StringComparer.OrdinalIgnoreCase);
 
                         for (int i = FavoriteItems.Count - 1; i >= 0; i--)
                         {
                             var it = FavoriteItems[i];
                             if (targetItems.Contains(it) || (!string.IsNullOrEmpty(it.Id) && targetIds.Contains(it.Id)))
                             {
+                                string fn = (it.IsImage && !string.IsNullOrEmpty(it.ImagePath)) ? Path.GetFileName(it.ImagePath) : null;
                                 bool existsInHistory = (!string.IsNullOrEmpty(it.Id) && histIds.Contains(it.Id)) ||
-                                                       (it.IsImage && !string.IsNullOrEmpty(it.ImagePath) && histPaths.Contains(it.ImagePath));
+                                                       (fn != null && histPaths.Contains(fn));
                                 if (!existsInHistory && it.IsImage)
                                 {
-                                    if (!string.IsNullOrEmpty(it.ImagePath)) filesToDelete.Add(it.ImagePath);
-                                    if (!string.IsNullOrEmpty(it.ThumbPath)) filesToDelete.Add(it.ThumbPath);
+                                    itemsForCacheDeletion.Add(it);
                                 }
                                 FavoriteItems.RemoveAt(i);
                             }
@@ -984,19 +1186,19 @@ namespace ModernKey.Core
                     else
                     {
                         var favIds = new HashSet<string>(FavoriteItems.Where(f => !string.IsNullOrEmpty(f.Id)).Select(f => f.Id), StringComparer.OrdinalIgnoreCase);
-                        var favPaths = new HashSet<string>(FavoriteItems.Where(f => f.IsImage && !string.IsNullOrEmpty(f.ImagePath)).Select(f => f.ImagePath), StringComparer.OrdinalIgnoreCase);
+                        var favPaths = new HashSet<string>(FavoriteItems.Where(f => f.IsImage && !string.IsNullOrEmpty(f.ImagePath)).Select(f => Path.GetFileName(f.ImagePath)), StringComparer.OrdinalIgnoreCase);
 
                         for (int i = Items.Count - 1; i >= 0; i--)
                         {
                             var it = Items[i];
                             if (targetItems.Contains(it) || (!string.IsNullOrEmpty(it.Id) && targetIds.Contains(it.Id)))
                             {
+                                string fn = (it.IsImage && !string.IsNullOrEmpty(it.ImagePath)) ? Path.GetFileName(it.ImagePath) : null;
                                 bool inFav = (!string.IsNullOrEmpty(it.Id) && favIds.Contains(it.Id)) ||
-                                             (it.IsImage && !string.IsNullOrEmpty(it.ImagePath) && favPaths.Contains(it.ImagePath));
+                                             (fn != null && favPaths.Contains(fn));
                                 if (!inFav && it.IsImage)
                                 {
-                                    if (!string.IsNullOrEmpty(it.ImagePath)) filesToDelete.Add(it.ImagePath);
-                                    if (!string.IsNullOrEmpty(it.ThumbPath)) filesToDelete.Add(it.ThumbPath);
+                                    itemsForCacheDeletion.Add(it);
                                 }
                                 Items.RemoveAt(i);
                             }
@@ -1004,17 +1206,12 @@ namespace ModernKey.Core
                     }
                 });
 
-                if (filesToDelete.Count > 0)
+                foreach (var it in itemsForCacheDeletion)
                 {
-                    System.Threading.ThreadPool.QueueUserWorkItem(_ =>
-                    {
-                        foreach (var path in filesToDelete)
-                        {
-                            try { if (File.Exists(path)) File.Delete(path); } catch { }
-                        }
-                    });
+                    DeleteCacheFile(it);
                 }
 
+                PurgeOrphanedHistoryCacheFiles();
                 SaveHistoryAsync();
                 if (isFavoriteView) SaveFavoritesAsync();
             }
@@ -1024,36 +1221,32 @@ namespace ModernKey.Core
         {
             lock (_lock)
             {
-                var filesToDelete = new List<string>();
+                var itemsForCacheDeletion = new List<ClipboardItem>();
                 DispatchSafe(() =>
                 {
                     var favIds = new HashSet<string>(FavoriteItems.Where(f => !string.IsNullOrEmpty(f.Id)).Select(f => f.Id), StringComparer.OrdinalIgnoreCase);
-                    var favPaths = new HashSet<string>(FavoriteItems.Where(f => f.IsImage && !string.IsNullOrEmpty(f.ImagePath)).Select(f => f.ImagePath), StringComparer.OrdinalIgnoreCase);
+                    var favPaths = new HashSet<string>(FavoriteItems.Where(f => f.IsImage && !string.IsNullOrEmpty(f.ImagePath)).Select(f => Path.GetFileName(f.ImagePath)), StringComparer.OrdinalIgnoreCase);
 
                     for (int i = Items.Count - 1; i >= 0; i--)
                     {
                         var it = Items[i];
+                        string fn = (it.IsImage && !string.IsNullOrEmpty(it.ImagePath)) ? Path.GetFileName(it.ImagePath) : null;
                         bool inFav = (!string.IsNullOrEmpty(it.Id) && favIds.Contains(it.Id)) ||
-                                     (it.IsImage && !string.IsNullOrEmpty(it.ImagePath) && favPaths.Contains(it.ImagePath));
+                                     (fn != null && favPaths.Contains(fn));
                         if (!inFav && it.IsImage)
                         {
-                            if (!string.IsNullOrEmpty(it.ImagePath)) filesToDelete.Add(it.ImagePath);
-                            if (!string.IsNullOrEmpty(it.ThumbPath)) filesToDelete.Add(it.ThumbPath);
+                            itemsForCacheDeletion.Add(it);
                         }
                     }
                     Items.Clear();
                 });
 
-                if (filesToDelete.Count > 0)
+                foreach (var it in itemsForCacheDeletion)
                 {
-                    System.Threading.ThreadPool.QueueUserWorkItem(_ =>
-                    {
-                        foreach (var path in filesToDelete)
-                        {
-                            try { if (File.Exists(path)) File.Delete(path); } catch { }
-                        }
-                    });
+                    DeleteCacheFile(it);
                 }
+
+                PurgeOrphanedHistoryCacheFiles();
                 SaveHistoryAsync();
             }
         }
@@ -1062,21 +1255,21 @@ namespace ModernKey.Core
         {
             lock (_lock)
             {
-                var filesToDelete = new List<string>();
+                var itemsForCacheDeletion = new List<ClipboardItem>();
                 DispatchSafe(() =>
                 {
                     var histIds = new HashSet<string>(Items.Where(h => !string.IsNullOrEmpty(h.Id)).Select(h => h.Id), StringComparer.OrdinalIgnoreCase);
-                    var histPaths = new HashSet<string>(Items.Where(h => h.IsImage && !string.IsNullOrEmpty(h.ImagePath)).Select(h => h.ImagePath), StringComparer.OrdinalIgnoreCase);
+                    var histPaths = new HashSet<string>(Items.Where(h => h.IsImage && !string.IsNullOrEmpty(h.ImagePath)).Select(h => Path.GetFileName(h.ImagePath)), StringComparer.OrdinalIgnoreCase);
 
                     for (int i = FavoriteItems.Count - 1; i >= 0; i--)
                     {
                         var it = FavoriteItems[i];
+                        string fn = (it.IsImage && !string.IsNullOrEmpty(it.ImagePath)) ? Path.GetFileName(it.ImagePath) : null;
                         bool inHist = (!string.IsNullOrEmpty(it.Id) && histIds.Contains(it.Id)) ||
-                                      (it.IsImage && !string.IsNullOrEmpty(it.ImagePath) && histPaths.Contains(it.ImagePath));
+                                      (fn != null && histPaths.Contains(fn));
                         if (!inHist && it.IsImage)
                         {
-                            if (!string.IsNullOrEmpty(it.ImagePath)) filesToDelete.Add(it.ImagePath);
-                            if (!string.IsNullOrEmpty(it.ThumbPath)) filesToDelete.Add(it.ThumbPath);
+                            itemsForCacheDeletion.Add(it);
                         }
                     }
                     foreach (var histItem in Items)
@@ -1086,16 +1279,12 @@ namespace ModernKey.Core
                     FavoriteItems.Clear();
                 });
 
-                if (filesToDelete.Count > 0)
+                foreach (var it in itemsForCacheDeletion)
                 {
-                    System.Threading.ThreadPool.QueueUserWorkItem(_ =>
-                    {
-                        foreach (var path in filesToDelete)
-                        {
-                            try { if (File.Exists(path)) File.Delete(path); } catch { }
-                        }
-                    });
+                    DeleteCacheFile(it);
                 }
+
+                PurgeOrphanedHistoryCacheFiles();
                 SaveFavoritesAsync();
                 SaveHistoryAsync();
             }
@@ -1108,165 +1297,6 @@ namespace ModernKey.Core
             {
                 ClearFavorites();
             }
-        }
-
-        private void DeleteCacheFile(ClipboardItem item)
-        {
-            if (item != null && item.IsImage)
-            {
-                try
-                {
-                    string imgPath = item.ImagePath;
-                    string thumbPath = item.ThumbPath;
-                    string imgName = !string.IsNullOrEmpty(imgPath) ? Path.GetFileName(imgPath) : null;
-                    string thumbName = !string.IsNullOrEmpty(thumbPath) ? Path.GetFileName(thumbPath) : null;
-
-                    bool isUsedInFav = false;
-                    lock (_lock)
-                    {
-                        foreach (var fav in FavoriteItems)
-                        {
-                            if (fav.IsImage)
-                            {
-                                if (!string.IsNullOrEmpty(imgName) && string.Equals(Path.GetFileName(fav.ImagePath), imgName, StringComparison.OrdinalIgnoreCase))
-                                {
-                                    isUsedInFav = true;
-                                    break;
-                                }
-                                if (!string.IsNullOrEmpty(thumbName) && string.Equals(Path.GetFileName(fav.ThumbPath), thumbName, StringComparison.OrdinalIgnoreCase))
-                                {
-                                    isUsedInFav = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    if (isUsedInFav)
-                    {
-                        // Tuyệt đối không xóa file ảnh vì mục Yêu thích vẫn đang sử dụng!
-                        return;
-                    }
-
-                    DeleteImageFileAtAllLocations(imgName);
-                    DeleteImageFileAtAllLocations(thumbName);
-
-                    if (!string.IsNullOrEmpty(imgPath))
-                    {
-                        string res = ClipboardItem.ResolvePath(imgPath);
-                        if (File.Exists(res)) { try { File.Delete(res); } catch { } }
-                    }
-                    if (!string.IsNullOrEmpty(thumbPath))
-                    {
-                        string resThumb = ClipboardItem.ResolvePath(thumbPath);
-                        if (File.Exists(resThumb)) { try { File.Delete(resThumb); } catch { } }
-                    }
-                }
-                catch { }
-            }
-        }
-
-        private void DeleteImageFileAtAllLocations(string fileName)
-        {
-            if (string.IsNullOrEmpty(fileName)) return;
-
-            var targetFolders = new List<string>
-            {
-                GetHistoryCacheDirectory(),
-                GetCacheDirectory()
-            };
-
-            try
-            {
-                string appDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? AppDomain.CurrentDomain.BaseDirectory;
-                if (appDir.IndexOf(@"\bin\", StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    string projectRoot = Path.GetFullPath(Path.Combine(appDir, @"..\..\.."));
-                    targetFolders.Add(Path.Combine(projectRoot, ".portable", "clipboard", "clipboard_cache", "history"));
-                    targetFolders.Add(Path.Combine(projectRoot, ".portable", "clipboard_cache", "history"));
-                    targetFolders.Add(Path.Combine(projectRoot, ".portable", "clipboard", "clipboard_cache"));
-                }
-            }
-            catch { }
-
-            foreach (var dir in targetFolders)
-            {
-                try
-                {
-                    if (Directory.Exists(dir))
-                    {
-                        string f = Path.Combine(dir, fileName);
-                        if (File.Exists(f))
-                        {
-                            File.Delete(f);
-                        }
-                    }
-                }
-                catch { }
-            }
-        }
-
-        public void PurgeOrphanedHistoryCacheFiles()
-        {
-            try
-            {
-                var referencedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                lock (_lock)
-                {
-                    foreach (var item in Items)
-                    {
-                        if (item.IsImage)
-                        {
-                            if (!string.IsNullOrEmpty(item.ImagePath)) referencedFiles.Add(Path.GetFileName(item.ImagePath));
-                            if (!string.IsNullOrEmpty(item.ThumbPath)) referencedFiles.Add(Path.GetFileName(item.ThumbPath));
-                        }
-                    }
-                    foreach (var item in FavoriteItems)
-                    {
-                        if (item.IsImage)
-                        {
-                            if (!string.IsNullOrEmpty(item.ImagePath)) referencedFiles.Add(Path.GetFileName(item.ImagePath));
-                            if (!string.IsNullOrEmpty(item.ThumbPath)) referencedFiles.Add(Path.GetFileName(item.ThumbPath));
-                        }
-                    }
-                }
-
-                var historyDirs = new List<string>
-                {
-                    GetHistoryCacheDirectory()
-                };
-
-                try
-                {
-                    string appDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? AppDomain.CurrentDomain.BaseDirectory;
-                    if (appDir.IndexOf(@"\bin\", StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        string projectRoot = Path.GetFullPath(Path.Combine(appDir, @"..\..\.."));
-                        historyDirs.Add(Path.Combine(projectRoot, ".portable", "clipboard", "clipboard_cache", "history"));
-                        historyDirs.Add(Path.Combine(projectRoot, ".portable", "clipboard_cache", "history"));
-                    }
-                }
-                catch { }
-
-                foreach (var dir in historyDirs)
-                {
-                    if (!Directory.Exists(dir)) continue;
-                    try
-                    {
-                        var files = Directory.GetFiles(dir, "*.png", SearchOption.TopDirectoryOnly);
-                        foreach (var file in files)
-                        {
-                            string fn = Path.GetFileName(file);
-                            if (!referencedFiles.Contains(fn))
-                            {
-                                try { File.Delete(file); } catch { }
-                            }
-                        }
-                    }
-                    catch { }
-                }
-            }
-            catch { }
         }
 
         private bool _saveHistPending = false;
@@ -1370,11 +1400,11 @@ namespace ModernKey.Core
             try
             {
                 string path = GetHistoryFilePath();
-                List<ClipboardItem> snapshot;
-                lock (_lock)
+                List<ClipboardItem> snapshot = null;
+                DispatchSafe(() =>
                 {
                     snapshot = new List<ClipboardItem>(Items);
-                }
+                });
                 string json = SerializeItemsToJson(snapshot);
                 File.WriteAllText(path, json, Encoding.UTF8);
 
@@ -1404,11 +1434,11 @@ namespace ModernKey.Core
             try
             {
                 string path = GetFavoritesFilePath();
-                List<ClipboardItem> snapshot;
-                lock (_lock)
+                List<ClipboardItem> snapshot = null;
+                DispatchSafe(() =>
                 {
                     snapshot = new List<ClipboardItem>(FavoriteItems);
-                }
+                });
                 string json = SerializeItemsToJson(snapshot);
                 File.WriteAllText(path, json, Encoding.UTF8);
 
@@ -1436,6 +1466,7 @@ namespace ModernKey.Core
         public void LoadHistory()
         {
             string path = GetHistoryFilePath();
+            bool jsonExistsAndLoaded = false;
             if (File.Exists(path))
             {
                 try
@@ -1444,37 +1475,20 @@ namespace ModernKey.Core
                     if (!string.IsNullOrWhiteSpace(content))
                     {
                         var list = ParseJsonItems(content);
-                        lock (_lock)
+                        DispatchSafe(() =>
                         {
-                            DispatchSafe(() =>
+                            Items.Clear();
+                            foreach (var item in list)
                             {
-                                Items.Clear();
-                                foreach (var item in list)
+                                item.DetectMetadata();
+                                if (item.IsImage)
                                 {
-                                    item.DetectMetadata();
-                                    if (FindMatchingItem(FavoriteItems, item) != null)
-                                    {
-                                        item.IsFavorite = true;
-                                    }
-                                    if (item.IsImage)
-                                    {
-                                        EnsureHistoryImageInHistoryFolder(item);
-                                    }
-                                    Items.Add(item);
+                                    EnsureHistoryImageInHistoryFolder(item);
                                 }
-
-                                // Đảm bảo toàn bộ các mục trong FavoriteItems nếu chưa có trong Items thì đưa vào Items
-                                foreach (var fav in FavoriteItems)
-                                {
-                                    if (FindMatchingItem(Items, fav) == null)
-                                    {
-                                        var favClone = fav.Clone();
-                                        favClone.IsFavorite = true;
-                                        Items.Add(favClone);
-                                    }
-                                }
-                            });
-                        }
+                                Items.Add(item);
+                            }
+                        });
+                        jsonExistsAndLoaded = (list != null && list.Count > 0);
                     }
                 }
                 catch (Exception ex)
@@ -1482,34 +1496,78 @@ namespace ModernKey.Core
                     Debug.WriteLine("Error loading clipboard history: " + ex.Message);
                 }
             }
-            else
+
+            DispatchSafe(() =>
             {
-                // Nếu chưa có file lịch sử nhưng có FavoriteItems: nạp FavoriteItems vào Items
-                lock (_lock)
+                if (!jsonExistsAndLoaded && (!File.Exists(path) || new FileInfo(path).Length <= 2))
                 {
-                    DispatchSafe(() =>
+                    AutoRecoverOrphanedCacheImages();
+                }
+                TrimLimit();
+                PurgeOrphanedHistoryCacheFiles();
+            });
+        }
+
+        private void AutoRecoverOrphanedCacheImages()
+        {
+            try
+            {
+                string histCacheDir = GetHistoryCacheDirectory();
+                if (!Directory.Exists(histCacheDir)) return;
+
+                var existingImageFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var item in Items)
+                {
+                    if (item.IsImage)
                     {
-                        foreach (var fav in FavoriteItems)
+                        if (!string.IsNullOrEmpty(item.ImagePath)) existingImageFiles.Add(Path.GetFileName(item.ImagePath));
+                        if (!string.IsNullOrEmpty(item.ThumbPath)) existingImageFiles.Add(Path.GetFileName(item.ThumbPath));
+                    }
+                }
+
+                var pngFiles = Directory.GetFiles(histCacheDir, "*.png", SearchOption.TopDirectoryOnly);
+                bool recoveredAny = false;
+
+                foreach (var png in pngFiles)
+                {
+                    string fileName = Path.GetFileName(png);
+                    if (fileName.EndsWith("_t.png", StringComparison.OrdinalIgnoreCase)) continue;
+                    if (existingImageFiles.Contains(fileName)) continue;
+
+                    try
+                    {
+                        var fi = new FileInfo(png);
+                        string thumbPath = Path.Combine(histCacheDir, Path.GetFileNameWithoutExtension(fileName) + "_t.png");
+                        if (!File.Exists(thumbPath)) thumbPath = png;
+
+                        var item = new ClipboardItem
                         {
-                            if (FindMatchingItem(Items, fav) == null)
-                            {
-                                var favClone = fav.Clone();
-                                favClone.IsFavorite = true;
-                                Items.Add(favClone);
-                            }
-                        }
-                    });
+                            Id = Guid.NewGuid().ToString("N"),
+                            ContentType = ClipboardContentType.Image,
+                            ImagePath = png,
+                            ThumbPath = thumbPath,
+                            PreviewText = $"[Hình ảnh] {fi.Name}",
+                            Timestamp = fi.LastWriteTime,
+                            ByteSize = fi.Length,
+                            IsFavorite = false
+                        };
+
+                        item.DetectMetadata();
+                        Items.Add(item);
+                        recoveredAny = true;
+                    }
+                    catch { }
+                }
+
+                if (recoveredAny)
+                {
+                    var sorted = Items.OrderByDescending(x => x.Timestamp).ToList();
+                    Items.Clear();
+                    foreach (var it in sorted) Items.Add(it);
+                    SaveHistoryAsync();
                 }
             }
-
-            lock (_lock)
-            {
-                DispatchSafe(() =>
-                {
-                    TrimLimit();
-                    PurgeOrphanedHistoryCacheFiles();
-                });
-            }
+            catch { }
         }
 
         public void LoadFavorites()
@@ -1566,32 +1624,13 @@ namespace ModernKey.Core
                 }
             }
 
-            var list = !string.IsNullOrWhiteSpace(content) ? ParseJsonItems(content) : new List<ClipboardItem>();
+            if (string.IsNullOrWhiteSpace(content)) return;
 
-            // Tự động phục hồi (Self-healing): quét từ clipboard_history.json nếu có mục nào IsFavorite == true mà chưa có trong list
             try
             {
-                string histPath = GetHistoryFilePath();
-                if (File.Exists(histPath))
-                {
-                    string histContent = File.ReadAllText(histPath, Encoding.UTF8);
-                    if (!string.IsNullOrWhiteSpace(histContent))
-                    {
-                        var histItems = ParseJsonItems(histContent);
-                        foreach (var hItem in histItems)
-                        {
-                            if (hItem.IsFavorite && FindMatchingItem(list, hItem) == null)
-                            {
-                                list.Add(hItem);
-                            }
-                        }
-                    }
-                }
-            }
-            catch { }
+                var list = ParseJsonItems(content);
+                if (list == null || list.Count == 0) return;
 
-            lock (_lock)
-            {
                 DispatchSafe(() =>
                 {
                     FavoriteItems.Clear();
@@ -1615,10 +1654,9 @@ namespace ModernKey.Core
                     }
                 });
             }
-
-            if (FavoriteItems.Count > 0)
+            catch (Exception ex)
             {
-                SaveFavoritesInternal();
+                Debug.WriteLine("Error loading clipboard favorites: " + ex.Message);
             }
         }
 
@@ -1889,101 +1927,41 @@ namespace ModernKey.Core
         public List<ClipboardItem> ParseJsonItems(string json)
         {
             var result = new List<ClipboardItem>();
-            if (string.IsNullOrWhiteSpace(json)) return result;
-
-            var objectBlocks = SplitJsonObjects(json);
-            foreach (var block in objectBlocks)
+            // Tách từng object {...}
+            var matches = Regex.Matches(json, @"\{(?<obj>.*?)\}(?=\s*,\s*\{|\s*\])", RegexOptions.Singleline);
+            foreach (Match m in matches)
             {
-                try
+                string block = m.Groups["obj"].Value;
+                var item = new ClipboardItem();
+
+                item.Id = ExtractJsonString(block, "Id") ?? Guid.NewGuid().ToString("N");
+                item.ContentType = (ClipboardContentType)ExtractJsonInt(block, "ContentType", 0);
+                item.DropEffect = ExtractJsonInt(block, "DropEffect", 1);
+                item.CharCount = ExtractJsonInt(block, "CharCount", 0);
+                item.ByteSize = ExtractJsonLong(block, "ByteSize", 0);
+                item.IsFavorite = ExtractJsonBool(block, "IsFavorite", false);
+                item.IsBlurred = ExtractJsonBool(block, "IsBlurred", false);
+                item.BlurMode = ExtractJsonString(block, "BlurMode") ?? "None";
+                item.BlurRadius = ExtractJsonDouble(block, "BlurRadius", 0.0);
+                item.PixelateSize = ExtractJsonDouble(block, "PixelateSize", 0.0);
+                item.GroupName = ExtractJsonString(block, "GroupName") ?? string.Empty;
+                item.ImagePath = ResolveCachePath(ExtractJsonString(block, "ImagePath"));
+                item.ThumbPath = ResolveCachePath(ExtractJsonString(block, "ThumbPath"));
+                item.SourceApp = ExtractJsonString(block, "SourceApp");
+                item.SourceIconPath = ResolveCachePath(ExtractJsonString(block, "SourceIconPath"));
+                item.PreviewText = ExtractJsonString(block, "PreviewText");
+                item.TextContent = ExtractJsonString(block, "TextContent");
+
+                string timeStr = ExtractJsonString(block, "Timestamp");
+                if (!string.IsNullOrEmpty(timeStr) && DateTime.TryParse(timeStr, out var dt))
                 {
-                    var item = new ClipboardItem();
-
-                    item.Id = ExtractJsonString(block, "Id") ?? Guid.NewGuid().ToString("N");
-                    item.ContentType = (ClipboardContentType)ExtractJsonInt(block, "ContentType", 0);
-                    item.DropEffect = ExtractJsonInt(block, "DropEffect", 1);
-                    item.CharCount = ExtractJsonInt(block, "CharCount", 0);
-                    item.ByteSize = ExtractJsonLong(block, "ByteSize", 0);
-                    item.IsFavorite = ExtractJsonBool(block, "IsFavorite", false);
-                    item.IsBlurred = ExtractJsonBool(block, "IsBlurred", false);
-                    item.BlurMode = ExtractJsonString(block, "BlurMode") ?? "None";
-                    item.BlurRadius = ExtractJsonDouble(block, "BlurRadius", 0.0);
-                    item.PixelateSize = ExtractJsonDouble(block, "PixelateSize", 0.0);
-                    item.GroupName = ExtractJsonString(block, "GroupName") ?? string.Empty;
-                    item.ImagePath = ResolveCachePath(ExtractJsonString(block, "ImagePath"));
-                    item.ThumbPath = ResolveCachePath(ExtractJsonString(block, "ThumbPath"));
-                    item.SourceApp = ExtractJsonString(block, "SourceApp");
-                    item.SourceIconPath = ResolveCachePath(ExtractJsonString(block, "SourceIconPath"));
-                    item.PreviewText = ExtractJsonString(block, "PreviewText");
-                    item.TextContent = ExtractJsonString(block, "TextContent");
-
-                    string timeStr = ExtractJsonString(block, "Timestamp");
-                    if (!string.IsNullOrEmpty(timeStr) && DateTime.TryParse(timeStr, out var dt))
-                    {
-                        item.Timestamp = dt;
-                    }
-
-                    result.Add(item);
+                    item.Timestamp = dt;
                 }
-                catch { }
+
+                result.Add(item);
             }
 
             return result;
-        }
-
-        public static List<string> SplitJsonObjects(string json)
-        {
-            var list = new List<string>();
-            if (string.IsNullOrWhiteSpace(json)) return list;
-
-            bool inString = false;
-            bool isEscaped = false;
-            int depth = 0;
-            int startIndex = -1;
-
-            for (int i = 0; i < json.Length; i++)
-            {
-                char c = json[i];
-
-                if (isEscaped)
-                {
-                    isEscaped = false;
-                    continue;
-                }
-
-                if (c == '\\' && inString)
-                {
-                    isEscaped = true;
-                    continue;
-                }
-
-                if (c == '"')
-                {
-                    inString = !inString;
-                    continue;
-                }
-
-                if (!inString)
-                {
-                    if (c == '{')
-                    {
-                        if (depth == 0)
-                        {
-                            startIndex = i;
-                        }
-                        depth++;
-                    }
-                    else if (c == '}')
-                    {
-                        depth--;
-                        if (depth == 0 && startIndex >= 0)
-                        {
-                            list.Add(json.Substring(startIndex, i - startIndex + 1));
-                            startIndex = -1;
-                        }
-                    }
-                }
-            }
-            return list;
         }
 
         private static double ExtractJsonDouble(string block, string key, double defVal)
@@ -1998,55 +1976,12 @@ namespace ModernKey.Core
 
         private static string ExtractJsonString(string block, string key)
         {
-            string search = $"\"{key}\": \"";
-            int idx = block.IndexOf(search, StringComparison.Ordinal);
-            if (idx < 0)
+            var match = Regex.Match(block, $"\"{Regex.Escape(key)}\"\\s*:\\s*\"(?<val>(?:\\\\\"|[^\"])*)\"");
+            if (match.Success)
             {
-                search = $"\"{key}\":\"";
-                idx = block.IndexOf(search, StringComparison.Ordinal);
+                return Unescape(match.Groups["val"].Value);
             }
-            if (idx < 0)
-            {
-                search = $"\"{key}\": null";
-                if (block.IndexOf(search, StringComparison.Ordinal) >= 0) return null;
-                return null;
-            }
-
-            int startVal = idx + search.Length;
-            var sb = new StringBuilder();
-            bool isEscaped = false;
-
-            for (int i = startVal; i < block.Length; i++)
-            {
-                char c = block[i];
-                if (isEscaped)
-                {
-                    switch (c)
-                    {
-                        case '\\': sb.Append('\\'); break;
-                        case '"': sb.Append('"'); break;
-                        case 'r': sb.Append('\r'); break;
-                        case 'n': sb.Append('\n'); break;
-                        case 't': sb.Append('\t'); break;
-                        case '/': sb.Append('/'); break;
-                        default: sb.Append(c); break;
-                    }
-                    isEscaped = false;
-                }
-                else if (c == '\\')
-                {
-                    isEscaped = true;
-                }
-                else if (c == '"')
-                {
-                    return sb.ToString();
-                }
-                else
-                {
-                    sb.Append(c);
-                }
-            }
-            return sb.ToString();
+            return null;
         }
 
         private static int ExtractJsonInt(string block, string key, int defVal)
