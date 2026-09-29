@@ -472,11 +472,14 @@ namespace ModernKey
             {
                 _currentMode = "FAVORITES";
                 if (BtnClearAllFooter != null) BtnClearAllFooter.Content = "XÓA TOÀN BỘ YÊU THÍCH";
+                HighlightActiveTab("FAV");
             }
             else
             {
                 _currentMode = "HISTORY";
                 if (BtnClearAllFooter != null) BtnClearAllFooter.Content = "XÓA TOÀN BỘ LỊCH SỬ";
+                if (_activeFilter == "FAV") _activeFilter = "ALL";
+                HighlightActiveTab(_activeFilter);
             }
 
             UpdateGroupFilterButtonLabel();
@@ -2222,6 +2225,13 @@ namespace ModernKey
         {
             if (sender is Button btn && btn.Tag is string tag)
             {
+                if (string.Equals(tag, "FAV", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (RbModeFavorites != null && RbModeFavorites.IsChecked != true)
+                    {
+                        RbModeFavorites.IsChecked = true;
+                    }
+                }
                 _activeFilter = tag;
                 if (_settings != null)
                 {

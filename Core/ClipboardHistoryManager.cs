@@ -41,8 +41,8 @@ namespace ModernKey.Core
             System.Threading.ThreadPool.QueueUserWorkItem(_ =>
             {
                 EnsureDirectoriesAndMigrate();
-                LoadHistory();
                 LoadFavorites();
+                LoadHistory();
             });
         }
 
@@ -338,6 +338,13 @@ namespace ModernKey.Core
                 };
 
                 item.DetectMetadata();
+                var matchFav = FindMatchingItem(FavoriteItems, item);
+                if (matchFav != null)
+                {
+                    item.IsFavorite = true;
+                    item.GroupName = matchFav.GroupName;
+                    if (!string.IsNullOrEmpty(matchFav.CustomTitle)) item.CustomTitle = matchFav.CustomTitle;
+                }
                 InsertItem(item);
             }
         }
@@ -418,7 +425,14 @@ namespace ModernKey.Core
                     BlurRadius = 0.0,
                     PixelateSize = 0.0
                 };
-
+                item.DetectMetadata();
+                var matchFav = FindMatchingItem(FavoriteItems, item);
+                if (matchFav != null)
+                {
+                    item.IsFavorite = true;
+                    item.GroupName = matchFav.GroupName;
+                    if (!string.IsNullOrEmpty(matchFav.CustomTitle)) item.CustomTitle = matchFav.CustomTitle;
+                }
                 InsertItem(item);
             }
         }
@@ -512,6 +526,14 @@ namespace ModernKey.Core
                     PixelateSize = 0.0
                 };
 
+                var matchFav = FindMatchingItem(FavoriteItems, item);
+                if (matchFav != null)
+                {
+                    item.IsFavorite = true;
+                    item.GroupName = matchFav.GroupName;
+                    if (!string.IsNullOrEmpty(matchFav.CustomTitle)) item.CustomTitle = matchFav.CustomTitle;
+                }
+
                 InsertItem(item);
                 return item;
             }
@@ -569,18 +591,22 @@ namespace ModernKey.Core
         private void TrimLimit()
         {
             int max = (_settings.ClipboardMaxItems >= 5 && _settings.ClipboardMaxItems <= 99999) ? _settings.ClipboardMaxItems : 200;
-            if (Items.Count <= max) return;
 
-            // Xóa các mục cũ nhất từ cuối danh sách History
-            for (int i = Items.Count - 1; i >= max; i--)
+            // Chỉ đếm và giới hạn các mục Lịch sử thông thường (History).
+            // Các mục Yêu thích (Favorites) luôn lưu trữ KHÔNG GIỚI HẠN và KHÔNG BAO GIỜ bị TrimLimit xóa!
+            int nonFavCount = Items.Count(x => !x.IsFavorite && FindMatchingItem(FavoriteItems, x) == null);
+            if (nonFavCount <= max) return;
+
+            // Xóa các mục thường cũ nhất từ cuối danh sách History
+            for (int i = Items.Count - 1; i >= 0 && nonFavCount > max; i--)
             {
                 var it = Items[i];
-                // Chỉ xóa cache nếu mục này không tồn tại trong danh sách Yêu thích
-                if (FindMatchingItem(FavoriteItems, it) == null)
+                if (!it.IsFavorite && FindMatchingItem(FavoriteItems, it) == null)
                 {
                     DeleteCacheFile(it);
+                    Items.RemoveAt(i);
+                    nonFavCount--;
                 }
-                Items.RemoveAt(i);
             }
         }
 
@@ -1277,6 +1303,10 @@ namespace ModernKey.Core
                             foreach (var item in list)
                             {
                                 item.DetectMetadata();
+                                if (FindMatchingItem(FavoriteItems, item) != null)
+                                {
+                                    item.IsFavorite = true;
+                                }
                                 if (item.IsImage)
                                 {
                                     EnsureHistoryImageInHistoryFolder(item);
@@ -1315,6 +1345,14 @@ namespace ModernKey.Core
                         if (!string.IsNullOrEmpty(item.ThumbPath)) existingImageFiles.Add(Path.GetFileName(item.ThumbPath));
                     }
                 }
+                foreach (var item in FavoriteItems)
+                {
+                    if (item.IsImage)
+                    {
+                        if (!string.IsNullOrEmpty(item.ImagePath)) existingImageFiles.Add(Path.GetFileName(item.ImagePath));
+                        if (!string.IsNullOrEmpty(item.ThumbPath)) existingImageFiles.Add(Path.GetFileName(item.ThumbPath));
+                    }
+                }
 
                 var pngFiles = Directory.GetFiles(histCacheDir, "*.png", SearchOption.TopDirectoryOnly);
                 bool recoveredAny = false;
@@ -1344,6 +1382,10 @@ namespace ModernKey.Core
                         };
 
                         item.DetectMetadata();
+                        if (FindMatchingItem(FavoriteItems, item) != null)
+                        {
+                            item.IsFavorite = true;
+                        }
                         Items.Add(item);
                         recoveredAny = true;
                     }
