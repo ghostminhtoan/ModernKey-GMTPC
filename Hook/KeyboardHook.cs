@@ -782,7 +782,7 @@ namespace ModernKey.Hook
                         return CallNextHookEx(_keyboardHookId, nCode, wParam, lParam);
                     }
 
-                    // 6.5. Phím tắt mở/toggle nhanh Clipboard History HUD: Win+Space (Quick-List), Win+Ins (Clipboard HUD) hoặc Ctrl+Alt+V
+                    // 6.5. Phím tắt mở/toggle nhanh Clipboard History HUD: Win+Space (Quick Clipboard / Macro), Win+Ins (chuẩn Comfort Keys) hoặc Ctrl+Alt+V
                     if (((isComfortWin || (_modifierFlag & MASK_WIN) != 0 || (GetAsyncKeyState(0x5B) & 0x8000) != 0 || (GetAsyncKeyState(0x5C) & 0x8000) != 0) && (vkCode == 0x20 || vkCode == 0x2D)) ||
                         (((_modifierFlag & (MASK_CTRL | MASK_ALT)) == (MASK_CTRL | MASK_ALT)) && vkCode == 0x56))
                     {
