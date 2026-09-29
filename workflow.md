@@ -29,7 +29,8 @@
 
 ## Quy trình sau khi code
 
-- Chạy build/test đến khi không còn error và warning.
+- Luôn luôn build cấu hình Release vào `\bin\Release\net472\` (`dotnet build ".\Modernkey WPF GMTPC\ModernKey.csproj" -c Release`).
+- Chạy build/test đến khi không còn error và warning (0 Error, 0 Warning).
 - Nếu build phát sinh lỗi/warning do thay đổi vừa làm, phải sửa tiếp đến sạch.
 - Chỉ stage file đúng scope.
 - Tự động chạy:
@@ -39,6 +40,7 @@
 - Báo lại kết quả:
   - Commit local: `<mã hash commit local>`
   - Commit github: `không` (hoặc mã hash nếu có lệnh push)
+  - path publish: `<đường dẫn file exe trong \bin\Release\net472\ModernKey.exe>`
 
 ## Git và an toàn file
 
