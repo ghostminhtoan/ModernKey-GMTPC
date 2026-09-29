@@ -597,16 +597,27 @@ namespace ModernKey.Core
             int nonFavCount = Items.Count(x => !x.IsFavorite && FindMatchingItem(FavoriteItems, x) == null);
             if (nonFavCount <= max) return;
 
+            var deletedItems = new List<ClipboardItem>();
+
             // Xóa các mục thường cũ nhất từ cuối danh sách History
             for (int i = Items.Count - 1; i >= 0 && nonFavCount > max; i--)
             {
                 var it = Items[i];
                 if (!it.IsFavorite && FindMatchingItem(FavoriteItems, it) == null)
                 {
-                    DeleteCacheFile(it);
+                    deletedItems.Add(it);
                     Items.RemoveAt(i);
                     nonFavCount--;
                 }
+            }
+
+            if (deletedItems.Count > 0)
+            {
+                foreach (var it in deletedItems)
+                {
+                    DeleteCacheFile(it);
+                }
+                PurgeOrphanedHistoryCacheFiles();
             }
         }
 
@@ -1137,21 +1148,125 @@ namespace ModernKey.Core
                         return;
                     }
 
-                    if (!string.IsNullOrEmpty(imgPath) && File.Exists(imgPath))
+                    DeleteImageFileAtAllLocations(imgName);
+                    DeleteImageFileAtAllLocations(thumbName);
+
+                    if (!string.IsNullOrEmpty(imgPath))
                     {
-                        File.Delete(imgPath);
+                        string res = ClipboardItem.ResolvePath(imgPath);
+                        if (File.Exists(res)) { try { File.Delete(res); } catch { } }
                     }
-                }
-                catch { }
-                try
-                {
-                    if (!string.IsNullOrEmpty(item.ThumbPath) && File.Exists(item.ThumbPath))
+                    if (!string.IsNullOrEmpty(thumbPath))
                     {
-                        File.Delete(item.ThumbPath);
+                        string resThumb = ClipboardItem.ResolvePath(thumbPath);
+                        if (File.Exists(resThumb)) { try { File.Delete(resThumb); } catch { } }
                     }
                 }
                 catch { }
             }
+        }
+
+        private void DeleteImageFileAtAllLocations(string fileName)
+        {
+            if (string.IsNullOrEmpty(fileName)) return;
+
+            var targetFolders = new List<string>
+            {
+                GetHistoryCacheDirectory(),
+                GetCacheDirectory()
+            };
+
+            try
+            {
+                string appDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? AppDomain.CurrentDomain.BaseDirectory;
+                if (appDir.IndexOf(@"\bin\", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    string projectRoot = Path.GetFullPath(Path.Combine(appDir, @"..\..\.."));
+                    targetFolders.Add(Path.Combine(projectRoot, ".portable", "clipboard", "clipboard_cache", "history"));
+                    targetFolders.Add(Path.Combine(projectRoot, ".portable", "clipboard_cache", "history"));
+                    targetFolders.Add(Path.Combine(projectRoot, ".portable", "clipboard", "clipboard_cache"));
+                }
+            }
+            catch { }
+
+            foreach (var dir in targetFolders)
+            {
+                try
+                {
+                    if (Directory.Exists(dir))
+                    {
+                        string f = Path.Combine(dir, fileName);
+                        if (File.Exists(f))
+                        {
+                            File.Delete(f);
+                        }
+                    }
+                }
+                catch { }
+            }
+        }
+
+        public void PurgeOrphanedHistoryCacheFiles()
+        {
+            try
+            {
+                var referencedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                lock (_lock)
+                {
+                    foreach (var item in Items)
+                    {
+                        if (item.IsImage)
+                        {
+                            if (!string.IsNullOrEmpty(item.ImagePath)) referencedFiles.Add(Path.GetFileName(item.ImagePath));
+                            if (!string.IsNullOrEmpty(item.ThumbPath)) referencedFiles.Add(Path.GetFileName(item.ThumbPath));
+                        }
+                    }
+                    foreach (var item in FavoriteItems)
+                    {
+                        if (item.IsImage)
+                        {
+                            if (!string.IsNullOrEmpty(item.ImagePath)) referencedFiles.Add(Path.GetFileName(item.ImagePath));
+                            if (!string.IsNullOrEmpty(item.ThumbPath)) referencedFiles.Add(Path.GetFileName(item.ThumbPath));
+                        }
+                    }
+                }
+
+                var historyDirs = new List<string>
+                {
+                    GetHistoryCacheDirectory()
+                };
+
+                try
+                {
+                    string appDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? AppDomain.CurrentDomain.BaseDirectory;
+                    if (appDir.IndexOf(@"\bin\", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        string projectRoot = Path.GetFullPath(Path.Combine(appDir, @"..\..\.."));
+                        historyDirs.Add(Path.Combine(projectRoot, ".portable", "clipboard", "clipboard_cache", "history"));
+                        historyDirs.Add(Path.Combine(projectRoot, ".portable", "clipboard_cache", "history"));
+                    }
+                }
+                catch { }
+
+                foreach (var dir in historyDirs)
+                {
+                    if (!Directory.Exists(dir)) continue;
+                    try
+                    {
+                        var files = Directory.GetFiles(dir, "*.png", SearchOption.TopDirectoryOnly);
+                        foreach (var file in files)
+                        {
+                            string fn = Path.GetFileName(file);
+                            if (!referencedFiles.Contains(fn))
+                            {
+                                try { File.Delete(file); } catch { }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
         }
 
         private bool _saveHistPending = false;
@@ -1391,84 +1506,10 @@ namespace ModernKey.Core
             {
                 DispatchSafe(() =>
                 {
-                    AutoRecoverOrphanedCacheImages();
                     TrimLimit();
+                    PurgeOrphanedHistoryCacheFiles();
                 });
             }
-        }
-
-        private void AutoRecoverOrphanedCacheImages()
-        {
-            try
-            {
-                string histCacheDir = GetHistoryCacheDirectory();
-                if (!Directory.Exists(histCacheDir)) return;
-
-                var existingImageFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (var item in Items)
-                {
-                    if (item.IsImage)
-                    {
-                        if (!string.IsNullOrEmpty(item.ImagePath)) existingImageFiles.Add(Path.GetFileName(item.ImagePath));
-                        if (!string.IsNullOrEmpty(item.ThumbPath)) existingImageFiles.Add(Path.GetFileName(item.ThumbPath));
-                    }
-                }
-                foreach (var item in FavoriteItems)
-                {
-                    if (item.IsImage)
-                    {
-                        if (!string.IsNullOrEmpty(item.ImagePath)) existingImageFiles.Add(Path.GetFileName(item.ImagePath));
-                        if (!string.IsNullOrEmpty(item.ThumbPath)) existingImageFiles.Add(Path.GetFileName(item.ThumbPath));
-                    }
-                }
-
-                var pngFiles = Directory.GetFiles(histCacheDir, "*.png", SearchOption.TopDirectoryOnly);
-                bool recoveredAny = false;
-
-                foreach (var png in pngFiles)
-                {
-                    string fileName = Path.GetFileName(png);
-                    if (fileName.EndsWith("_t.png", StringComparison.OrdinalIgnoreCase)) continue;
-                    if (existingImageFiles.Contains(fileName)) continue;
-
-                    try
-                    {
-                        var fi = new FileInfo(png);
-                        string thumbPath = Path.Combine(histCacheDir, Path.GetFileNameWithoutExtension(fileName) + "_t.png");
-                        if (!File.Exists(thumbPath)) thumbPath = png;
-
-                        var item = new ClipboardItem
-                        {
-                            Id = Guid.NewGuid().ToString("N"),
-                            ContentType = ClipboardContentType.Image,
-                            ImagePath = png,
-                            ThumbPath = thumbPath,
-                            PreviewText = $"[Hình ảnh] {fi.Name}",
-                            Timestamp = fi.LastWriteTime,
-                            ByteSize = fi.Length,
-                            IsFavorite = false
-                        };
-
-                        item.DetectMetadata();
-                        if (FindMatchingItem(FavoriteItems, item) != null)
-                        {
-                            item.IsFavorite = true;
-                        }
-                        Items.Add(item);
-                        recoveredAny = true;
-                    }
-                    catch { }
-                }
-
-                if (recoveredAny)
-                {
-                    var sorted = Items.OrderByDescending(x => x.Timestamp).ToList();
-                    Items.Clear();
-                    foreach (var it in sorted) Items.Add(it);
-                    SaveHistoryAsync();
-                }
-            }
-            catch { }
         }
 
         public void LoadFavorites()

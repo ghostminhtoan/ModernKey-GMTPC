@@ -111,20 +111,20 @@ namespace ModernKey.Config
                     var fiA = new FileInfo(pathA);
                     var fiB = new FileInfo(pathB);
 
-                    // Ưu tiên file có nội dung (> 5 byte) hơn file rỗng (<= 5 byte như "[]" hoặc "[]\r\n")
-                    if (fiA.Length > 5 && fiB.Length <= 5)
+                    // Ưu tiên file có nội dung (> 2 byte) hơn file rỗng (<= 2 byte như "[]")
+                    if (fiA.Length > 2 && fiB.Length <= 2)
                     {
                         try { File.Copy(pathA, pathB, true); } catch { }
                     }
-                    else if (fiB.Length > 5 && fiA.Length <= 5)
+                    else if (fiB.Length > 2 && fiA.Length <= 2)
                     {
                         try { File.Copy(pathB, pathA, true); } catch { }
                     }
-                    else if (fiA.LastWriteTime > fiB.LastWriteTime && fiA.Length > 5)
+                    else if (fiA.LastWriteTime > fiB.LastWriteTime && fiA.Length > 0)
                     {
                         try { File.Copy(pathA, pathB, true); } catch { }
                     }
-                    else if (fiB.LastWriteTime > fiA.LastWriteTime && fiB.Length > 5)
+                    else if (fiB.LastWriteTime > fiA.LastWriteTime && fiB.Length > 0)
                     {
                         try { File.Copy(pathB, pathA, true); } catch { }
                     }
@@ -144,17 +144,51 @@ namespace ModernKey.Config
                 if (!Directory.Exists(cacheA)) Directory.CreateDirectory(cacheA);
                 if (!Directory.Exists(cacheB)) Directory.CreateDirectory(cacheB);
 
+                // Đọc danh sách file ảnh history hợp lệ từ clipboard_history.json
+                HashSet<string> validHistoryFiles = null;
+                try
+                {
+                    string histJsonPathA = Path.Combine(Path.GetDirectoryName(cacheA) ?? "", "clipboard_history.json");
+                    string histJsonPathB = Path.Combine(Path.GetDirectoryName(cacheB) ?? "", "clipboard_history.json");
+                    string histContent = null;
+                    if (File.Exists(histJsonPathA)) histContent = File.ReadAllText(histJsonPathA, Encoding.UTF8);
+                    else if (File.Exists(histJsonPathB)) histContent = File.ReadAllText(histJsonPathB, Encoding.UTF8);
+
+                    if (!string.IsNullOrWhiteSpace(histContent))
+                    {
+                        validHistoryFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        var matches = System.Text.RegularExpressions.Regex.Matches(histContent, @"\""(?:ImagePath|ThumbPath)\""\s*:\s*\""(?<p>[^\""]+)\""");
+                        foreach (System.Text.RegularExpressions.Match m in matches)
+                        {
+                            string p = m.Groups["p"].Value;
+                            string fn = Path.GetFileName(p);
+                            if (!string.IsNullOrEmpty(fn)) validHistoryFiles.Add(fn);
+                        }
+                    }
+                }
+                catch { }
+
                 foreach (var sub in new[] { "history", "favorites", "icons" })
                 {
                     string subA = Path.Combine(cacheA, sub);
                     string subB = Path.Combine(cacheB, sub);
+
+                    bool isHistory = string.Equals(sub, "history", StringComparison.OrdinalIgnoreCase);
 
                     if (Directory.Exists(subA))
                     {
                         if (!Directory.Exists(subB)) Directory.CreateDirectory(subB);
                         foreach (var f in Directory.GetFiles(subA))
                         {
-                            string target = Path.Combine(subB, Path.GetFileName(f));
+                            string fn = Path.GetFileName(f);
+                            if (isHistory && validHistoryFiles != null && !validHistoryFiles.Contains(fn))
+                            {
+                                // File ảnh lịch sử mồ côi đã bị xóa trong history -> Xóa khỏi subA
+                                try { File.Delete(f); } catch { }
+                                continue;
+                            }
+
+                            string target = Path.Combine(subB, fn);
                             if (!File.Exists(target))
                             {
                                 try { File.Copy(f, target, true); } catch { }
@@ -167,7 +201,15 @@ namespace ModernKey.Config
                         if (!Directory.Exists(subA)) Directory.CreateDirectory(subA);
                         foreach (var f in Directory.GetFiles(subB))
                         {
-                            string target = Path.Combine(subA, Path.GetFileName(f));
+                            string fn = Path.GetFileName(f);
+                            if (isHistory && validHistoryFiles != null && !validHistoryFiles.Contains(fn))
+                            {
+                                // File ảnh lịch sử mồ côi đã bị xóa trong history -> Xóa khỏi subB
+                                try { File.Delete(f); } catch { }
+                                continue;
+                            }
+
+                            string target = Path.Combine(subA, fn);
                             if (!File.Exists(target))
                             {
                                 try { File.Copy(f, target, true); } catch { }
