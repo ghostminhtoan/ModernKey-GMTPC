@@ -111,20 +111,20 @@ namespace ModernKey.Config
                     var fiA = new FileInfo(pathA);
                     var fiB = new FileInfo(pathB);
 
-                    // Ưu tiên file có nội dung (> 2 byte) hơn file rỗng (<= 2 byte như "[]")
-                    if (fiA.Length > 2 && fiB.Length <= 2)
+                    // Ưu tiên file có nội dung (> 5 byte) hơn file rỗng (<= 5 byte như "[]" hoặc "[]\r\n")
+                    if (fiA.Length > 5 && fiB.Length <= 5)
                     {
                         try { File.Copy(pathA, pathB, true); } catch { }
                     }
-                    else if (fiB.Length > 2 && fiA.Length <= 2)
+                    else if (fiB.Length > 5 && fiA.Length <= 5)
                     {
                         try { File.Copy(pathB, pathA, true); } catch { }
                     }
-                    else if (fiA.LastWriteTime > fiB.LastWriteTime && fiA.Length > 0)
+                    else if (fiA.LastWriteTime > fiB.LastWriteTime && fiA.Length > 5)
                     {
                         try { File.Copy(pathA, pathB, true); } catch { }
                     }
-                    else if (fiB.LastWriteTime > fiA.LastWriteTime && fiB.Length > 0)
+                    else if (fiB.LastWriteTime > fiA.LastWriteTime && fiB.Length > 5)
                     {
                         try { File.Copy(pathB, pathA, true); } catch { }
                     }

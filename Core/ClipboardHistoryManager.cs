@@ -1105,9 +1105,41 @@ namespace ModernKey.Core
             {
                 try
                 {
-                    if (!string.IsNullOrEmpty(item.ImagePath) && File.Exists(item.ImagePath))
+                    string imgPath = item.ImagePath;
+                    string thumbPath = item.ThumbPath;
+                    string imgName = !string.IsNullOrEmpty(imgPath) ? Path.GetFileName(imgPath) : null;
+                    string thumbName = !string.IsNullOrEmpty(thumbPath) ? Path.GetFileName(thumbPath) : null;
+
+                    bool isUsedInFav = false;
+                    lock (_lock)
                     {
-                        File.Delete(item.ImagePath);
+                        foreach (var fav in FavoriteItems)
+                        {
+                            if (fav.IsImage)
+                            {
+                                if (!string.IsNullOrEmpty(imgName) && string.Equals(Path.GetFileName(fav.ImagePath), imgName, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    isUsedInFav = true;
+                                    break;
+                                }
+                                if (!string.IsNullOrEmpty(thumbName) && string.Equals(Path.GetFileName(fav.ThumbPath), thumbName, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    isUsedInFav = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (isUsedInFav)
+                    {
+                        // Tuyệt đối không xóa file ảnh vì mục Yêu thích vẫn đang sử dụng!
+                        return;
+                    }
+
+                    if (!string.IsNullOrEmpty(imgPath) && File.Exists(imgPath))
+                    {
+                        File.Delete(imgPath);
                     }
                 }
                 catch { }
@@ -1223,11 +1255,11 @@ namespace ModernKey.Core
             try
             {
                 string path = GetHistoryFilePath();
-                List<ClipboardItem> snapshot = null;
-                DispatchSafe(() =>
+                List<ClipboardItem> snapshot;
+                lock (_lock)
                 {
                     snapshot = new List<ClipboardItem>(Items);
-                });
+                }
                 string json = SerializeItemsToJson(snapshot);
                 File.WriteAllText(path, json, Encoding.UTF8);
 
@@ -1257,11 +1289,11 @@ namespace ModernKey.Core
             try
             {
                 string path = GetFavoritesFilePath();
-                List<ClipboardItem> snapshot = null;
-                DispatchSafe(() =>
+                List<ClipboardItem> snapshot;
+                lock (_lock)
                 {
                     snapshot = new List<ClipboardItem>(FavoriteItems);
-                });
+                }
                 string json = SerializeItemsToJson(snapshot);
                 File.WriteAllText(path, json, Encoding.UTF8);
 
@@ -1297,23 +1329,37 @@ namespace ModernKey.Core
                     if (!string.IsNullOrWhiteSpace(content))
                     {
                         var list = ParseJsonItems(content);
-                        DispatchSafe(() =>
+                        lock (_lock)
                         {
-                            Items.Clear();
-                            foreach (var item in list)
+                            DispatchSafe(() =>
                             {
-                                item.DetectMetadata();
-                                if (FindMatchingItem(FavoriteItems, item) != null)
+                                Items.Clear();
+                                foreach (var item in list)
                                 {
-                                    item.IsFavorite = true;
+                                    item.DetectMetadata();
+                                    if (FindMatchingItem(FavoriteItems, item) != null)
+                                    {
+                                        item.IsFavorite = true;
+                                    }
+                                    if (item.IsImage)
+                                    {
+                                        EnsureHistoryImageInHistoryFolder(item);
+                                    }
+                                    Items.Add(item);
                                 }
-                                if (item.IsImage)
+
+                                // Đảm bảo toàn bộ các mục trong FavoriteItems nếu chưa có trong Items thì đưa vào Items
+                                foreach (var fav in FavoriteItems)
                                 {
-                                    EnsureHistoryImageInHistoryFolder(item);
+                                    if (FindMatchingItem(Items, fav) == null)
+                                    {
+                                        var favClone = fav.Clone();
+                                        favClone.IsFavorite = true;
+                                        Items.Add(favClone);
+                                    }
                                 }
-                                Items.Add(item);
-                            }
-                        });
+                            });
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -1321,12 +1367,34 @@ namespace ModernKey.Core
                     Debug.WriteLine("Error loading clipboard history: " + ex.Message);
                 }
             }
-
-            DispatchSafe(() =>
+            else
             {
-                AutoRecoverOrphanedCacheImages();
-                TrimLimit();
-            });
+                // Nếu chưa có file lịch sử nhưng có FavoriteItems: nạp FavoriteItems vào Items
+                lock (_lock)
+                {
+                    DispatchSafe(() =>
+                    {
+                        foreach (var fav in FavoriteItems)
+                        {
+                            if (FindMatchingItem(Items, fav) == null)
+                            {
+                                var favClone = fav.Clone();
+                                favClone.IsFavorite = true;
+                                Items.Add(favClone);
+                            }
+                        }
+                    });
+                }
+            }
+
+            lock (_lock)
+            {
+                DispatchSafe(() =>
+                {
+                    AutoRecoverOrphanedCacheImages();
+                    TrimLimit();
+                });
+            }
         }
 
         private void AutoRecoverOrphanedCacheImages()
@@ -1457,13 +1525,32 @@ namespace ModernKey.Core
                 }
             }
 
-            if (string.IsNullOrWhiteSpace(content)) return;
+            var list = !string.IsNullOrWhiteSpace(content) ? ParseJsonItems(content) : new List<ClipboardItem>();
 
+            // Tự động phục hồi (Self-healing): quét từ clipboard_history.json nếu có mục nào IsFavorite == true mà chưa có trong list
             try
             {
-                var list = ParseJsonItems(content);
-                if (list == null || list.Count == 0) return;
+                string histPath = GetHistoryFilePath();
+                if (File.Exists(histPath))
+                {
+                    string histContent = File.ReadAllText(histPath, Encoding.UTF8);
+                    if (!string.IsNullOrWhiteSpace(histContent))
+                    {
+                        var histItems = ParseJsonItems(histContent);
+                        foreach (var hItem in histItems)
+                        {
+                            if (hItem.IsFavorite && FindMatchingItem(list, hItem) == null)
+                            {
+                                list.Add(hItem);
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
 
+            lock (_lock)
+            {
                 DispatchSafe(() =>
                 {
                     FavoriteItems.Clear();
@@ -1487,9 +1574,10 @@ namespace ModernKey.Core
                     }
                 });
             }
-            catch (Exception ex)
+
+            if (FavoriteItems.Count > 0)
             {
-                Debug.WriteLine("Error loading clipboard favorites: " + ex.Message);
+                SaveFavoritesInternal();
             }
         }
 
@@ -1760,41 +1848,101 @@ namespace ModernKey.Core
         public List<ClipboardItem> ParseJsonItems(string json)
         {
             var result = new List<ClipboardItem>();
-            // Tách từng object {...}
-            var matches = Regex.Matches(json, @"\{(?<obj>.*?)\}(?=\s*,\s*\{|\s*\])", RegexOptions.Singleline);
-            foreach (Match m in matches)
+            if (string.IsNullOrWhiteSpace(json)) return result;
+
+            var objectBlocks = SplitJsonObjects(json);
+            foreach (var block in objectBlocks)
             {
-                string block = m.Groups["obj"].Value;
-                var item = new ClipboardItem();
-
-                item.Id = ExtractJsonString(block, "Id") ?? Guid.NewGuid().ToString("N");
-                item.ContentType = (ClipboardContentType)ExtractJsonInt(block, "ContentType", 0);
-                item.DropEffect = ExtractJsonInt(block, "DropEffect", 1);
-                item.CharCount = ExtractJsonInt(block, "CharCount", 0);
-                item.ByteSize = ExtractJsonLong(block, "ByteSize", 0);
-                item.IsFavorite = ExtractJsonBool(block, "IsFavorite", false);
-                item.IsBlurred = ExtractJsonBool(block, "IsBlurred", false);
-                item.BlurMode = ExtractJsonString(block, "BlurMode") ?? "None";
-                item.BlurRadius = ExtractJsonDouble(block, "BlurRadius", 0.0);
-                item.PixelateSize = ExtractJsonDouble(block, "PixelateSize", 0.0);
-                item.GroupName = ExtractJsonString(block, "GroupName") ?? string.Empty;
-                item.ImagePath = ResolveCachePath(ExtractJsonString(block, "ImagePath"));
-                item.ThumbPath = ResolveCachePath(ExtractJsonString(block, "ThumbPath"));
-                item.SourceApp = ExtractJsonString(block, "SourceApp");
-                item.SourceIconPath = ResolveCachePath(ExtractJsonString(block, "SourceIconPath"));
-                item.PreviewText = ExtractJsonString(block, "PreviewText");
-                item.TextContent = ExtractJsonString(block, "TextContent");
-
-                string timeStr = ExtractJsonString(block, "Timestamp");
-                if (!string.IsNullOrEmpty(timeStr) && DateTime.TryParse(timeStr, out var dt))
+                try
                 {
-                    item.Timestamp = dt;
-                }
+                    var item = new ClipboardItem();
 
-                result.Add(item);
+                    item.Id = ExtractJsonString(block, "Id") ?? Guid.NewGuid().ToString("N");
+                    item.ContentType = (ClipboardContentType)ExtractJsonInt(block, "ContentType", 0);
+                    item.DropEffect = ExtractJsonInt(block, "DropEffect", 1);
+                    item.CharCount = ExtractJsonInt(block, "CharCount", 0);
+                    item.ByteSize = ExtractJsonLong(block, "ByteSize", 0);
+                    item.IsFavorite = ExtractJsonBool(block, "IsFavorite", false);
+                    item.IsBlurred = ExtractJsonBool(block, "IsBlurred", false);
+                    item.BlurMode = ExtractJsonString(block, "BlurMode") ?? "None";
+                    item.BlurRadius = ExtractJsonDouble(block, "BlurRadius", 0.0);
+                    item.PixelateSize = ExtractJsonDouble(block, "PixelateSize", 0.0);
+                    item.GroupName = ExtractJsonString(block, "GroupName") ?? string.Empty;
+                    item.ImagePath = ResolveCachePath(ExtractJsonString(block, "ImagePath"));
+                    item.ThumbPath = ResolveCachePath(ExtractJsonString(block, "ThumbPath"));
+                    item.SourceApp = ExtractJsonString(block, "SourceApp");
+                    item.SourceIconPath = ResolveCachePath(ExtractJsonString(block, "SourceIconPath"));
+                    item.PreviewText = ExtractJsonString(block, "PreviewText");
+                    item.TextContent = ExtractJsonString(block, "TextContent");
+
+                    string timeStr = ExtractJsonString(block, "Timestamp");
+                    if (!string.IsNullOrEmpty(timeStr) && DateTime.TryParse(timeStr, out var dt))
+                    {
+                        item.Timestamp = dt;
+                    }
+
+                    result.Add(item);
+                }
+                catch { }
             }
 
             return result;
+        }
+
+        public static List<string> SplitJsonObjects(string json)
+        {
+            var list = new List<string>();
+            if (string.IsNullOrWhiteSpace(json)) return list;
+
+            bool inString = false;
+            bool isEscaped = false;
+            int depth = 0;
+            int startIndex = -1;
+
+            for (int i = 0; i < json.Length; i++)
+            {
+                char c = json[i];
+
+                if (isEscaped)
+                {
+                    isEscaped = false;
+                    continue;
+                }
+
+                if (c == '\\' && inString)
+                {
+                    isEscaped = true;
+                    continue;
+                }
+
+                if (c == '"')
+                {
+                    inString = !inString;
+                    continue;
+                }
+
+                if (!inString)
+                {
+                    if (c == '{')
+                    {
+                        if (depth == 0)
+                        {
+                            startIndex = i;
+                        }
+                        depth++;
+                    }
+                    else if (c == '}')
+                    {
+                        depth--;
+                        if (depth == 0 && startIndex >= 0)
+                        {
+                            list.Add(json.Substring(startIndex, i - startIndex + 1));
+                            startIndex = -1;
+                        }
+                    }
+                }
+            }
+            return list;
         }
 
         private static double ExtractJsonDouble(string block, string key, double defVal)
@@ -1809,12 +1957,55 @@ namespace ModernKey.Core
 
         private static string ExtractJsonString(string block, string key)
         {
-            var match = Regex.Match(block, $"\"{Regex.Escape(key)}\"\\s*:\\s*\"(?<val>(?:\\\\\"|[^\"])*)\"");
-            if (match.Success)
+            string search = $"\"{key}\": \"";
+            int idx = block.IndexOf(search, StringComparison.Ordinal);
+            if (idx < 0)
             {
-                return Unescape(match.Groups["val"].Value);
+                search = $"\"{key}\":\"";
+                idx = block.IndexOf(search, StringComparison.Ordinal);
             }
-            return null;
+            if (idx < 0)
+            {
+                search = $"\"{key}\": null";
+                if (block.IndexOf(search, StringComparison.Ordinal) >= 0) return null;
+                return null;
+            }
+
+            int startVal = idx + search.Length;
+            var sb = new StringBuilder();
+            bool isEscaped = false;
+
+            for (int i = startVal; i < block.Length; i++)
+            {
+                char c = block[i];
+                if (isEscaped)
+                {
+                    switch (c)
+                    {
+                        case '\\': sb.Append('\\'); break;
+                        case '"': sb.Append('"'); break;
+                        case 'r': sb.Append('\r'); break;
+                        case 'n': sb.Append('\n'); break;
+                        case 't': sb.Append('\t'); break;
+                        case '/': sb.Append('/'); break;
+                        default: sb.Append(c); break;
+                    }
+                    isEscaped = false;
+                }
+                else if (c == '\\')
+                {
+                    isEscaped = true;
+                }
+                else if (c == '"')
+                {
+                    return sb.ToString();
+                }
+                else
+                {
+                    sb.Append(c);
+                }
+            }
+            return sb.ToString();
         }
 
         private static int ExtractJsonInt(string block, string key, int defVal)
