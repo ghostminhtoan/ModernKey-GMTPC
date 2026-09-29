@@ -326,6 +326,15 @@ namespace ModernKey
                 }));
             };
 
+            // Phím tắt mở nhanh Quick-List Macro / Bảng clipboard nhanh khi đang gõ (Windows + Space)
+            _keyboardHook.OpenMacroQuickListRequested += (pendingWord) =>
+            {
+                Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Normal, new Action(() =>
+                {
+                    ToggleMacroQuickList(pendingWord);
+                }));
+            };
+
             // Phím tắt mở nhanh Phím tắt Comfort (Windows + CapsLock)
             _keyboardHook.OpenComfortShortcutsRequested += () =>
             {
