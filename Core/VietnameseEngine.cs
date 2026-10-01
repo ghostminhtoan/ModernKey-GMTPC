@@ -1211,11 +1211,30 @@ namespace ModernKey.Core
             }
 
             // 5. NẾU KHÁC NHAU: THỰC SỰ CÓ BIẾN ĐỔI DẤU HOẶC MŨ TIẾNG VIỆT!
-            // Số lượng ký tự cần xóa đúng bằng độ dài của từ trước đó đang hiển thị trên màn hình
-            backspaceCount = Math.Min(prevDisplayWord.Length, 15); // Bảo vệ không xóa lấn sang từ trước
+            // Chuyển sang bảng mã đích trước khi tính toán tiền tố chung để tương thích 100% với cả bảng mã 1-byte lẫn 2-byte (VNI Windows, TCVN3...)
+            string prevConverted = CharsetConverter.FromUnicode(prevDisplayWord, _settings.CurrentCharset) ?? string.Empty;
+            string actualConverted = CharsetConverter.FromUnicode(actualDisplayWord, _settings.CurrentCharset) ?? string.Empty;
 
-            // Chuyển sang bảng mã đích
-            newString = CharsetConverter.FromUnicode(actualDisplayWord, _settings.CurrentCharset);
+            // Thuật toán Tối ưu Tiền tố chung (Longest Common Prefix):
+            // So sánh từng ký tự từ đầu để tìm đoạn giống nhau lớn nhất
+            int commonPrefix = 0;
+            int maxPrefix = Math.Min(prevConverted.Length, actualConverted.Length);
+            while (commonPrefix < maxPrefix && prevConverted[commonPrefix] == actualConverted[commonPrefix])
+            {
+                commonPrefix++;
+            }
+
+            // An toàn với Surrogate Pairs (Emoji / Ký tự ngoài BMP): Không cắt ngang cặp surrogate
+            if (commonPrefix > 0 && char.IsHighSurrogate(prevConverted[commonPrefix - 1]))
+            {
+                commonPrefix--;
+            }
+
+            // Số lượng backspace cần gửi chỉ là phần đuôi khác biệt của từ cũ
+            backspaceCount = Math.Max(0, Math.Min(prevConverted.Length - commonPrefix, 15));
+
+            // Chuỗi mới gửi đi chỉ là phần đuôi mới cần bổ sung hoặc thay thế
+            newString = commonPrefix < actualConverted.Length ? actualConverted.Substring(commonPrefix) : string.Empty;
 
             return true;
         }

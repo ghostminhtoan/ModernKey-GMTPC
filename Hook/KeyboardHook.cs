@@ -345,6 +345,8 @@ namespace ModernKey.Hook
         // Lưu vết trạng thái ngôn ngữ gõ [VI/EN] theo từng tiến trình (chuẩn OpenKey C++ Smart Switch Key)
         private static readonly Dictionary<string, bool> _appLanguageMap = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         private static string _currentAppExeName = string.Empty;
+        private static IntPtr _cachedForegroundHwnd = IntPtr.Zero;
+        private static IntPtr _cachedKeyboardLayout = IntPtr.Zero;
 
         private static bool _isFirstForegroundCheck = true;
         private static readonly HashSet<string> _defaultExcludedApps = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -482,6 +484,14 @@ namespace ModernKey.Hook
 
             ResetModifierState();
             if (hWnd == IntPtr.Zero) return;
+
+            _cachedForegroundHwnd = hWnd;
+            uint currentThreadId = GetWindowThreadProcessId(hWnd, out _);
+            if (currentThreadId != 0)
+            {
+                _cachedKeyboardLayout = GetKeyboardLayout(currentThreadId);
+            }
+
             string exe = GetExeNameFromWindow(hWnd);
             if (string.IsNullOrEmpty(exe) || exe.Equals("explorer.exe", StringComparison.OrdinalIgnoreCase))
                 return;
@@ -559,6 +569,18 @@ namespace ModernKey.Hook
                 _winEventProc = WinEventCallback;
                 _winEventHookId = SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, IntPtr.Zero, _winEventProc, 0, 0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
             }
+
+            try
+            {
+                IntPtr fg = GetForegroundWindow();
+                if (fg != IntPtr.Zero)
+                {
+                    _cachedForegroundHwnd = fg;
+                    uint tid = GetWindowThreadProcessId(fg, out _);
+                    if (tid != 0) _cachedKeyboardLayout = GetKeyboardLayout(tid);
+                }
+            }
+            catch { }
         }
 
         public void Stop()
@@ -1269,9 +1291,17 @@ namespace ModernKey.Hook
             _cachedKeyStates[0xA5] = (byte)(altActive ? 0x80 : 0);
             _cachedKeyStates[0x14] = (byte)((GetKeyState(0x14) & 0x0001) != 0 ? 0x01 : 0);
 
-            IntPtr hWnd = GetForegroundWindow();
-            uint threadId = GetWindowThreadProcessId(hWnd, out _);
-            IntPtr layout = GetKeyboardLayout(threadId);
+            IntPtr layout = _cachedKeyboardLayout;
+            if (layout == IntPtr.Zero)
+            {
+                IntPtr hWnd = _cachedForegroundHwnd != IntPtr.Zero ? _cachedForegroundHwnd : GetForegroundWindow();
+                uint threadId = GetWindowThreadProcessId(hWnd, out _);
+                if (threadId != 0)
+                {
+                    layout = GetKeyboardLayout(threadId);
+                    _cachedKeyboardLayout = layout;
+                }
+            }
 
             _cachedCharBuffer.Clear();
             int rc = ToUnicodeEx(vkCode, scanCode, _cachedKeyStates, _cachedCharBuffer, _cachedCharBuffer.Capacity, 0, layout);
