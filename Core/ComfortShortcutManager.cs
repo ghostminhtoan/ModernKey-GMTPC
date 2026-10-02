@@ -1257,6 +1257,24 @@ namespace ModernKey.Core
             ModernKey.VolumeOsdWindow.Instance?.ShowVolume(res.volume, res.isMuted);
         }
 
+        public void ToggleDefaultPlaybackDevice()
+        {
+            string newDev = VolumeController.ToggleDefaultAudioDevice(0 /*eRender*/);
+            if (!string.IsNullOrEmpty(newDev))
+            {
+                App.ShowNotification("Playback Device Changed", $"Default Playback Device:\n{newDev}");
+            }
+        }
+
+        public void ToggleDefaultRecordingDevice()
+        {
+            string newDev = VolumeController.ToggleDefaultAudioDevice(1 /*eCapture*/);
+            if (!string.IsNullOrEmpty(newDev))
+            {
+                App.ShowNotification("Recording Device Changed", $"Default Recording Device:\n{newDev}");
+            }
+        }
+
         private void ExecuteAudioControl(ComfortShortcutItem item)
         {
             int stepSize = item.AudioStepSize > 0 ? item.AudioStepSize : 5;
@@ -1276,6 +1294,14 @@ namespace ModernKey.Core
             else if (item.AudioAction == "Eject/Close CD door")
             {
                 ThreadPool.QueueUserWorkItem(_ => mciSendString("set cdaudio door open", null, 0, IntPtr.Zero));
+            }
+            else if (item.AudioAction == "Change the default playback device")
+            {
+                ThreadPool.QueueUserWorkItem(_ => ToggleDefaultPlaybackDevice());
+            }
+            else if (item.AudioAction == "Change the default recording device")
+            {
+                ThreadPool.QueueUserWorkItem(_ => ToggleDefaultRecordingDevice());
             }
         }
 

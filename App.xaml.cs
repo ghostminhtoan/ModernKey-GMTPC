@@ -35,6 +35,24 @@ namespace ModernKey
 
         public ClipboardHistoryManager ClipboardHistory => _clipboardHistory;
 
+        public static SystemTrayManager CurrentTrayManager => ((App)Current)?._trayManager;
+
+        public static void ShowNotification(string title, string message)
+        {
+            try
+            {
+                var app = Current;
+                if (app != null && !app.Dispatcher.HasShutdownStarted)
+                {
+                    app.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        CurrentTrayManager?.ShowNotification(title, message);
+                    }));
+                }
+            }
+            catch { }
+        }
+
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern bool SetDllDirectory(string lpPathName);
 
