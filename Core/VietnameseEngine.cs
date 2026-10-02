@@ -773,6 +773,15 @@ namespace ModernKey.Core
 
             if (isDigit)
             {
+                // Nếu đang trong chuỗi số thuần hoặc ký tự liền trước đã là chữ số (VD: số 0 nối tiếp số 1 trong nettruyenviet10):
+                // Lập tức duy trì số thuần để không bị phím dấu/xóa dấu hoặc kiểm tra chính tả can thiệp
+                if (_inNumberSequence || (_charBuffer.Count > 0 && char.IsDigit(_charBuffer[_charBuffer.Count - 1])))
+                {
+                    _inNumberSequence = true;
+                    _charBuffer.Clear();
+                    return false;
+                }
+
                 if (_settings.CurrentInputMethod == InputMethod.Telex || _settings.CurrentInputMethod == InputMethod.SimpleTelex)
                 {
                     // Khi đang gõ Telex/SimpleTelex mà xuất hiện chữ số (VD: 2 trong hentai2read),
@@ -1181,6 +1190,11 @@ namespace ModernKey.Core
                 if (wasRawBefore)
                 {
                     _isRawWordOnScreen = true;
+                }
+                if (char.IsDigit(ch))
+                {
+                    _inNumberSequence = true;
+                    _charBuffer.Clear();
                 }
                 return false; // KHÔNG GỬI BACKSPACE, KHÔNG NUỐT PHÍM! (ch đã nằm trong _charBuffer)
             }
