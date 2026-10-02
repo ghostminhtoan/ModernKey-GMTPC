@@ -821,12 +821,9 @@ namespace ModernKey.Core
                     }
                     else if (ch == '0')
                     {
-                        if (!hasVowelInCur)
-                        {
-                            _inNumberSequence = true;
-                            _charBuffer.Clear();
-                            return false;
-                        }
+                        _inNumberSequence = true;
+                        _charBuffer.Clear();
+                        return false;
                     }
                     else if (ch >= '6' && ch <= '9')
                     {
@@ -1602,19 +1599,10 @@ namespace ModernKey.Core
                 bool prevWasToneKey = i > 0 && (keys[i - 1] >= '1' && keys[i - 1] <= '5');
                 bool prevWasPureDigit = i > 0 && char.IsDigit(keys[i - 1]) && !prevWasToneKey;
 
-                if (c == '0')
+                // Phím z / Z: Phím xóa dấu thanh tiếng Việt chuẩn duy nhất cho mọi kiểu gõ
+                if (lower == 'z')
                 {
-                    if (i > 0 && keys[i - 1] >= '1' && keys[i - 1] <= '5')
-                    {
-                        tone = 0;
-                        sb.Append(keys[i - 1]);
-                        sb.Append(c);
-                        lastRawKey = c;
-                        wasStandaloneAtStart = false;
-                        modified = true;
-                        continue;
-                    }
-                    else if (tone > 0)
+                    if (tone > 0)
                     {
                         tone = 0;
                         lastRawKey = c;
@@ -3183,23 +3171,7 @@ namespace ModernKey.Core
                             modified = true;
                             continue;
                         }
-                        if (c == '0')
-                        {
-                            if (i > 0 && keys[i - 1] >= '1' && keys[i - 1] <= '5')
-                            {
-                                tone = 0;
-                                sb.Append(keys[i - 1]);
-                                sb.Append(c);
-                                modified = true;
-                                continue;
-                            }
-                            else
-                            {
-                                tone = 0;
-                                modified = true;
-                                continue;
-                            }
-                        }
+                        if (lower == 'z') { tone = 0; modified = true; continue; }
                     }
 
                     // 6: mũ a, e, o
