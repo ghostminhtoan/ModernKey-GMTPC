@@ -304,23 +304,29 @@ namespace ModernKey.Core
 
         private static void SetDefaultEndpoint(string deviceId, int role)
         {
-            try
+            var clsids = new[]
             {
-                var policyConfig = new CoreAudioApi.PolicyConfigClient();
-                if (policyConfig is CoreAudioApi.IPolicyConfig pConfig)
+                new Guid("870AF99C-171D-4F9E-AF0D-E63DF40C2BC9"), // Windows 10, Windows 11
+                new Guid("2a072da1-99ab-45c4-995f-6a75f0a0e980"), // Win10 alternative
+                new Guid("c2f03a33-21f5-47fa-b4db-156332a36d9c"), // Windows 7
+                new Guid("8706226F-26AA-4AC2-920A-C380456E3D31")  // Vista
+            };
+
+            foreach (var clsid in clsids)
+            {
+                try
                 {
-                    pConfig.SetDefaultEndpoint(deviceId, role);
+                    Type type = Type.GetTypeFromCLSID(clsid);
+                    if (type == null) continue;
+                    object instance = Activator.CreateInstance(type);
+                    if (instance is CoreAudioApi.IPolicyConfig pConfig)
+                    {
+                        int hr = pConfig.SetDefaultEndpoint(deviceId, role);
+                        if (hr == 0) return;
+                    }
                 }
-                else if (policyConfig is CoreAudioApi.IPolicyConfigWin10 pConfigWin10)
-                {
-                    pConfigWin10.SetDefaultEndpoint(deviceId, role);
-                }
-                else if (policyConfig is CoreAudioApi.IPolicyConfigVista pConfigVista)
-                {
-                    pConfigVista.SetDefaultEndpoint(deviceId, role);
-                }
+                catch { }
             }
-            catch { }
         }
     }
 
@@ -340,7 +346,7 @@ namespace ModernKey.Core
         public class MMDeviceEnumeratorComObject { }
 
         [ComImport]
-        [Guid("8706226F-26AA-4AC2-920A-C380456E3D31")]
+        [Guid("870AF99C-171D-4F9E-AF0D-E63DF40C2BC9")]
         public class PolicyConfigClient { }
 
         [Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -353,7 +359,7 @@ namespace ModernKey.Core
             int UnregisterEndpointNotificationCallback(IntPtr pClient);
         }
 
-        [Guid("0BD6A651-B4E6-4D6F-B648-5A0E2EE99657"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        [Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
         public interface IMMDeviceCollection
         {
             int GetCount(out uint pcDevices);
@@ -369,7 +375,7 @@ namespace ModernKey.Core
             int GetState(out int pdwState);
         }
 
-        [Guid("886d8e00-8cf2-4446-8d02-cdba1dbdcf99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        [Guid("886d8eeb-8cf2-4446-8d02-cdba1dbdcf99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
         public interface IPropertyStore
         {
             int GetCount(out uint cProps);
@@ -411,34 +417,23 @@ namespace ModernKey.Core
         [DllImport("ole32.dll")]
         public static extern int PropVariantClear(ref PROPVARIANT pvar);
 
-        [Guid("f8679f50-850a-41cf-9c72-430f73f2b06c"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-        public interface IPolicyConfigWin10
-        {
-            int GetGroupId();
-            int GetPropertyValue();
-            int SetPropertyValue();
-            int SetDefaultEndpoint([MarshalAs(UnmanagedType.LPWStr)] string wszDeviceId, int role);
-            int SetEndpointVisibility();
-        }
-
-        [Guid("5688034c-9d86-430f-b663-8f63027582b1"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-        public interface IPolicyConfigVista
-        {
-            int GetGroupId();
-            int GetPropertyValue();
-            int SetPropertyValue();
-            int SetDefaultEndpoint([MarshalAs(UnmanagedType.LPWStr)] string wszDeviceId, int role);
-            int SetEndpointVisibility();
-        }
-
-        [Guid("8706226F-26AA-4AC2-920A-C380456E3D31"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        [ComImport]
+        [Guid("F8679F50-850A-41CF-9C72-430F290290C8")]
+        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
         public interface IPolicyConfig
         {
-            int GetGroupId();
-            int GetPropertyValue();
-            int SetPropertyValue();
-            int SetDefaultEndpoint([MarshalAs(UnmanagedType.LPWStr)] string wszDeviceId, int role);
-            int SetEndpointVisibility();
+            [PreserveSig] int GetMixFormat();
+            [PreserveSig] int GetDeviceFormat();
+            [PreserveSig] int ResetDeviceFormat();
+            [PreserveSig] int SetDeviceFormat();
+            [PreserveSig] int GetProcessingPeriod();
+            [PreserveSig] int SetProcessingPeriod();
+            [PreserveSig] int GetShareMode();
+            [PreserveSig] int SetShareMode();
+            [PreserveSig] int GetPropertyValue();
+            [PreserveSig] int SetPropertyValue();
+            [PreserveSig] int SetDefaultEndpoint([In, MarshalAs(UnmanagedType.LPWStr)] string wszDeviceId, [In] int eRole);
+            [PreserveSig] int SetEndpointVisibility();
         }
 
         [Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]

@@ -838,6 +838,9 @@ namespace ModernKey
                     break;
                 }
             }
+            bool isVolStep = string.Equals(item.AudioAction, "Volume up", StringComparison.OrdinalIgnoreCase) ||
+                             string.Equals(item.AudioAction, "Volume down", StringComparison.OrdinalIgnoreCase);
+            PanelAudioStepSize.Visibility = isVolStep ? Visibility.Visible : Visibility.Collapsed;
             SldAudioStepSize.Value = item.AudioStepSize > 0 ? item.AudioStepSize : 5;
             TxtAudioStepVal.Text = (int)SldAudioStepSize.Value + "%";
 
@@ -1471,6 +1474,10 @@ namespace ModernKey
             {
                 _selectedItem.AudioAction = act;
                 _selectedItem.LastChanged = DateTime.Now;
+
+                bool isVolStep = string.Equals(act, "Volume up", StringComparison.OrdinalIgnoreCase) ||
+                                 string.Equals(act, "Volume down", StringComparison.OrdinalIgnoreCase);
+                PanelAudioStepSize.Visibility = isVolStep ? Visibility.Visible : Visibility.Collapsed;
             }
         }
 

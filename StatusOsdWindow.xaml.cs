@@ -168,5 +168,50 @@ namespace ModernKey
                 _fadeStoryboard.Begin();
             });
         }
+
+        public void ShowAudioDevice(string deviceName, bool isRecording)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                TxtOsdStatus.Text = (isRecording ? "🎙 " : "🎧 ") + deviceName;
+                var cyan = (Color)ColorConverter.ConvertFromString(isRecording ? "#FFAA00" : "#00F0FF");
+                TxtOsdStatus.Foreground = Brushes.White;
+                OsdBorder.BorderBrush = new SolidColorBrush(cyan);
+                OsdShadow.Color = cyan;
+
+                Show();
+                UpdateLayout();
+                OsdBorder.Opacity = 0.95;
+                Topmost = true;
+
+                double currentWidth = ActualWidth > 0 ? ActualWidth : (Width > 0 ? Width : 220);
+                double currentHeight = ActualHeight > 0 ? ActualHeight : (Height > 0 ? Height : 36);
+
+                // Luôn hiển thị tại góc dưới cùng bên phải màn hình (chuẩn Comfort Keys Pro như ảnh người dùng cung cấp)
+                var workArea = SystemParameters.WorkArea;
+                Left = workArea.Right - currentWidth - 24;
+                Top = workArea.Bottom - currentHeight - 24;
+
+                if (_fadeStoryboard != null)
+                {
+                    _fadeStoryboard.Stop();
+                }
+
+                var anim = new DoubleAnimation
+                {
+                    From = 0.95,
+                    To = 0.0,
+                    BeginTime = TimeSpan.FromSeconds(1.8),
+                    Duration = TimeSpan.FromSeconds(0.4)
+                };
+
+                _fadeStoryboard = new Storyboard();
+                _fadeStoryboard.Children.Add(anim);
+                Storyboard.SetTarget(anim, OsdBorder);
+                Storyboard.SetTargetProperty(anim, new PropertyPath(UIElement.OpacityProperty));
+                _fadeStoryboard.Completed += (s, ev) => Hide();
+                _fadeStoryboard.Begin();
+            });
+        }
     }
 }

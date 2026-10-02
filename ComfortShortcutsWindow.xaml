@@ -477,7 +477,7 @@
                                     <ListBoxItem Content="🎙 Change the default recording device" Tag="Change the default recording device" />
                                 </ListBox>
 
-                                <Grid Grid.Row="3">
+                                <Grid x:Name="PanelAudioStepSize" Grid.Row="3">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />

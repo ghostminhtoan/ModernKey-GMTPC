@@ -53,6 +53,22 @@ namespace ModernKey
             catch { }
         }
 
+        public static void ShowAudioDeviceOsd(string deviceName, bool isRecording = false)
+        {
+            try
+            {
+                var app = (App)Current;
+                if (app != null && !app.Dispatcher.HasShutdownStarted)
+                {
+                    app.Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        app._statusOsdWindow?.ShowAudioDevice(deviceName, isRecording);
+                    }));
+                }
+            }
+            catch { }
+        }
+
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern bool SetDllDirectory(string lpPathName);
 
