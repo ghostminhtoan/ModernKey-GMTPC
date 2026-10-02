@@ -773,15 +773,6 @@ namespace ModernKey.Core
 
             if (isDigit)
             {
-                // Nếu đang trong chuỗi số thuần hoặc ký tự liền trước đã là chữ số (VD: số 0 nối tiếp số 1 trong nettruyenviet10):
-                // Lập tức duy trì số thuần để không bị phím dấu/xóa dấu hoặc kiểm tra chính tả can thiệp
-                if (_inNumberSequence || (_charBuffer.Count > 0 && char.IsDigit(_charBuffer[_charBuffer.Count - 1])))
-                {
-                    _inNumberSequence = true;
-                    _charBuffer.Clear();
-                    return false;
-                }
-
                 if (_settings.CurrentInputMethod == InputMethod.Telex || _settings.CurrentInputMethod == InputMethod.SimpleTelex)
                 {
                     // Khi đang gõ Telex/SimpleTelex mà xuất hiện chữ số (VD: 2 trong hentai2read),
@@ -1190,11 +1181,6 @@ namespace ModernKey.Core
                 if (wasRawBefore)
                 {
                     _isRawWordOnScreen = true;
-                }
-                if (char.IsDigit(ch))
-                {
-                    _inNumberSequence = true;
-                    _charBuffer.Clear();
                 }
                 return false; // KHÔNG GỬI BACKSPACE, KHÔNG NUỐT PHÍM! (ch đã nằm trong _charBuffer)
             }
@@ -1618,7 +1604,17 @@ namespace ModernKey.Core
 
                 if (c == '0')
                 {
-                    if (tone > 0)
+                    if (i > 0 && keys[i - 1] >= '1' && keys[i - 1] <= '5')
+                    {
+                        tone = 0;
+                        sb.Append(keys[i - 1]);
+                        sb.Append(c);
+                        lastRawKey = c;
+                        wasStandaloneAtStart = false;
+                        modified = true;
+                        continue;
+                    }
+                    else if (tone > 0)
                     {
                         tone = 0;
                         lastRawKey = c;
@@ -3187,7 +3183,23 @@ namespace ModernKey.Core
                             modified = true;
                             continue;
                         }
-                        if (c == '0') { tone = 0; modified = true; continue; }
+                        if (c == '0')
+                        {
+                            if (i > 0 && keys[i - 1] >= '1' && keys[i - 1] <= '5')
+                            {
+                                tone = 0;
+                                sb.Append(keys[i - 1]);
+                                sb.Append(c);
+                                modified = true;
+                                continue;
+                            }
+                            else
+                            {
+                                tone = 0;
+                                modified = true;
+                                continue;
+                            }
+                        }
                     }
 
                     // 6: mũ a, e, o
