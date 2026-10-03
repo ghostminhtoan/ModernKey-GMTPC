@@ -49,18 +49,6 @@ namespace ModernKey.Tray
         {
         }
 
-        public void ShowNotification(string title, string message, ToolTipIcon icon = ToolTipIcon.Info, int timeoutMs = 2500)
-        {
-            try
-            {
-                if (_notifyIcon != null && _notifyIcon.Visible)
-                {
-                    _notifyIcon.ShowBalloonTip(timeoutMs, title, message, icon);
-                }
-            }
-            catch { }
-        }
-
         [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Auto)]
         private static extern bool DestroyIcon(IntPtr handle);
 

@@ -26,6 +26,7 @@ namespace ModernKey
         private MainWindow _mainWindow;
         private StatusOsdWindow _statusOsdWindow;
         private VolumeOsdWindow _volumeOsdWindow;
+        private AudioDeviceOsdWindow _audioDeviceOsdWindow;
         private ClipboardHistoryManager _clipboardHistory;
         private ClipboardListener _clipboardListener;
         private ClipboardWindow _clipboardWindow;
@@ -37,23 +38,8 @@ namespace ModernKey
 
         public static SystemTrayManager CurrentTrayManager => ((App)Current)?._trayManager;
 
-        public static void ShowNotification(string title, string message)
-        {
-            try
-            {
-                var app = Current;
-                if (app != null && !app.Dispatcher.HasShutdownStarted)
-                {
-                    app.Dispatcher.BeginInvoke(new Action(() =>
-                    {
-                        CurrentTrayManager?.ShowNotification(title, message);
-                    }));
-                }
-            }
-            catch { }
-        }
 
-        public static void ShowAudioDeviceOsd(string deviceName, bool isRecording = false)
+        public static void ShowAudioDeviceOsd(string deviceName)
         {
             try
             {
@@ -62,7 +48,7 @@ namespace ModernKey
                 {
                     app.Dispatcher.BeginInvoke(new Action(() =>
                     {
-                        app._statusOsdWindow?.ShowAudioDevice(deviceName, isRecording);
+                        app._audioDeviceOsdWindow?.ShowDevice(deviceName);
                     }));
                 }
             }
@@ -227,6 +213,7 @@ namespace ModernKey
             _trayManager = new SystemTrayManager(_settings, (tab) => ShowMainWindow(tab), ExitApplication, ShowClipboardWindow, QuickConvertClipboard, ShowComfortShortcutsWindow);
             _statusOsdWindow = new StatusOsdWindow();
             _volumeOsdWindow = new VolumeOsdWindow();
+            _audioDeviceOsdWindow = new AudioDeviceOsdWindow();
             _clipboardListener = new ClipboardListener(_clipboardHistory, _settings);
 
             // 4. Kiểm tra xung đột với bộ gõ tiếng Việt khác đang chạy ngầm (OpenKey, UniKey, EVKey)
@@ -854,6 +841,7 @@ namespace ModernKey
                 try { _trayManager?.Dispose(); } catch { }
                 try { _statusOsdWindow?.Close(); } catch { }
                 try { _volumeOsdWindow?.Close(); } catch { }
+                try { _audioDeviceOsdWindow?.Close(); } catch { }
                 try { _clipboardWindow?.Close(); } catch { }
                 try { _macroQuickListWindow?.Close(); } catch { }
                 try { _comfortShortcutsWindow?.Close(); } catch { }

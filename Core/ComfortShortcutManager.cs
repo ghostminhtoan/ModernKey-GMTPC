@@ -1262,8 +1262,7 @@ namespace ModernKey.Core
             string newDev = VolumeController.ToggleDefaultAudioDevice(0 /*eRender*/);
             if (!string.IsNullOrEmpty(newDev))
             {
-                App.ShowAudioDeviceOsd(newDev, false);
-                App.ShowNotification("Playback Device Changed", $"Default Playback Device:\n{newDev}");
+                App.ShowAudioDeviceOsd(newDev);
             }
         }
 
@@ -1272,8 +1271,7 @@ namespace ModernKey.Core
             string newDev = VolumeController.ToggleDefaultAudioDevice(1 /*eCapture*/);
             if (!string.IsNullOrEmpty(newDev))
             {
-                App.ShowAudioDeviceOsd(newDev, true);
-                App.ShowNotification("Recording Device Changed", $"Default Recording Device:\n{newDev}");
+                App.ShowAudioDeviceOsd(newDev);
             }
         }
 
