@@ -2636,6 +2636,134 @@ namespace ModernKey.Core
             return false;
         }
 
+        private static bool TryApplyHatFreeMarkTelex(StringBuilder sb, char vowelKey, char c, ref int tone)
+        {
+            if (sb == null || sb.Length < 2) return false;
+            if (CountVowelClusters(sb) > 1) return false;
+
+            char lowerKey = char.ToLowerInvariant(vowelKey);
+            int vIdx = -1;
+            bool alreadyHat = false;
+
+            // 1. Quét tìm vị trí nguyên âm tương ứng trong sb (từ cuối lên đầu để tìm nguyên âm gần coda nhất)
+            for (int i = sb.Length - 1; i >= 0; i--)
+            {
+                char ch = sb[i];
+                char clean = char.ToLowerInvariant(RemoveToneFromChar(ch, out _));
+                if (lowerKey == 'o')
+                {
+                    if (clean == 'o') { vIdx = i; break; }
+                    if (clean == 'ô') { vIdx = i; alreadyHat = true; break; }
+                }
+                else if (lowerKey == 'e')
+                {
+                    if (clean == 'e') { vIdx = i; break; }
+                    if (clean == 'ê') { vIdx = i; alreadyHat = true; break; }
+                }
+                else if (lowerKey == 'a')
+                {
+                    if (clean == 'a') { vIdx = i; break; }
+                    if (clean == 'â') { vIdx = i; alreadyHat = true; break; }
+                }
+            }
+
+            if (vIdx < 0) return false;
+
+            // Nếu nguyên âm ở cuối từ (không có coda), logic aa/ee/oo liền kề đã xử lý, không làm gì ở đây
+            if (vIdx == sb.Length - 1) return false;
+
+            // 2. Kiểm tra coda (phụ âm / bán nguyên âm sau nguyên âm)
+            string coda = sb.ToString().Substring(vIdx + 1).ToLowerInvariant();
+            bool validCoda = false;
+
+            if (lowerKey == 'o')
+            {
+                // o -> ô: các vần hợp lệ trong tiếng Việt: ong, on, om, oc, ot, op, oi
+                validCoda = (coda == "ng" || coda == "n" || coda == "m" ||
+                             coda == "c" || coda == "t" || coda == "p" || coda == "i");
+            }
+            else if (lowerKey == 'e')
+            {
+                // e -> ê: các vần hợp lệ trong tiếng Việt: enh, eng, ech, ec, et, ep, en, em, eu, ey
+                validCoda = (coda == "nh" || coda == "ng" || coda == "ch" || coda == "c" ||
+                             coda == "t" || coda == "p" || coda == "n" || coda == "m" ||
+                             coda == "u" || coda == "y");
+            }
+            else if (lowerKey == 'a')
+            {
+                // a -> â: các vần hợp lệ trong tiếng Việt: ang, an, am, au, ay, at, ap, ac
+                validCoda = (coda == "ng" || coda == "n" || coda == "m" ||
+                             coda == "u" || coda == "y" || coda == "t" || coda == "p" || coda == "c");
+            }
+
+            if (!validCoda) return false;
+
+            // 3. Kiểm tra ký tự liền trước nguyên âm (nếu có)
+            if (vIdx > 0)
+            {
+                char prevOfVowel = char.ToLowerInvariant(RemoveToneFromChar(sb[vIdx - 1], out _));
+                if (lowerKey == 'o')
+                {
+                    // o không được đi sau a, e, o, i, y (như bao, meo...)
+                    if (prevOfVowel == 'a' || prevOfVowel == 'e' || prevOfVowel == 'o' ||
+                        prevOfVowel == 'i' || prevOfVowel == 'y')
+                        return false;
+                }
+                else if (lowerKey == 'e')
+                {
+                    // e không được đi sau a, e, o
+                    if (prevOfVowel == 'a' || prevOfVowel == 'e' || prevOfVowel == 'o')
+                        return false;
+                }
+                else if (lowerKey == 'a')
+                {
+                    // a không được đi sau a, e, o, i, y (như toan không thành toân, loan...)
+                    if (prevOfVowel == 'a' || prevOfVowel == 'e' || prevOfVowel == 'o' ||
+                        prevOfVowel == 'i' || prevOfVowel == 'y')
+                        return false;
+                }
+            }
+
+            // 4. Nếu đã có mũ (đã là ô/ê/â) -> gõ lặp lại sẽ hoàn tác (toggle) về nguyên âm thường và chèn ký tự mới vào cuối
+            if (alreadyHat)
+            {
+                bool isHatUpper = char.IsUpper(sb[vIdx]);
+                if (lowerKey == 'o') sb[vIdx] = isHatUpper ? 'O' : 'o';
+                else if (lowerKey == 'e') sb[vIdx] = isHatUpper ? 'E' : 'e';
+                else if (lowerKey == 'a') sb[vIdx] = isHatUpper ? 'A' : 'a';
+
+                bool isCurrUpper = char.IsUpper(c) || IsCapsLockActive();
+                sb.Append(isCurrUpper ? char.ToUpperInvariant(c) : char.ToLowerInvariant(c));
+                return true;
+            }
+
+            // 5. Đội mũ cho nguyên âm
+            char curChar = sb[vIdx];
+            RemoveToneFromChar(curChar, out int charTone);
+            if (charTone > 0 && tone == 0)
+            {
+                tone = charTone;
+            }
+
+            bool isUpper = char.IsUpper(curChar) || (vIdx == 0 && (char.IsUpper(c) || IsCapsLockActive())) ||
+                           (sb.Length > 1 && IsAllLettersUpper(sb));
+
+            if (lowerKey == 'o')
+            {
+                sb[vIdx] = isUpper ? 'Ô' : 'ô';
+            }
+            else if (lowerKey == 'e')
+            {
+                sb[vIdx] = isUpper ? 'Ê' : 'ê';
+            }
+            else if (lowerKey == 'a')
+            {
+                sb[vIdx] = isUpper ? 'Â' : 'â';
+            }
+
+            return true;
+        }
+
         private static bool TryApplyBreveFreeMark(StringBuilder sb)
         {
             if (sb == null || sb.Length == 0) return false;
@@ -2948,6 +3076,11 @@ namespace ModernKey.Core
                             modified = true;
                             continue;
                         }
+                        else if (freeMark && TryApplyHatFreeMarkTelex(sb, 'a', c, ref tone))
+                        {
+                            modified = true;
+                            continue;
+                        }
                     }
                     // ee -> ê
                     if (!isMultiSyllabic && lower == 'e' && sb.Length > 0)
@@ -2971,6 +3104,11 @@ namespace ModernKey.Core
                             modified = true;
                             continue;
                         }
+                        else if (freeMark && TryApplyHatFreeMarkTelex(sb, 'e', c, ref tone))
+                        {
+                            modified = true;
+                            continue;
+                        }
                     }
                     // oo -> ô
                     if (!isMultiSyllabic && lower == 'o' && sb.Length > 0)
@@ -2991,6 +3129,11 @@ namespace ModernKey.Core
                             sb.Remove(sb.Length - 1, 1);
                             sb.Append(isUpperPrev ? 'O' : 'o');
                             sb.Append(isUpperCurr ? 'O' : 'o');
+                            modified = true;
+                            continue;
+                        }
+                        else if (freeMark && TryApplyHatFreeMarkTelex(sb, 'o', c, ref tone))
+                        {
                             modified = true;
                             continue;
                         }
