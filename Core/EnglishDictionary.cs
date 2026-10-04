@@ -34,7 +34,7 @@ namespace ModernKey.Core
             "complex", "duplex", "multiplex", "simplex", "index", "vertex", "matrix", "cortex",
             "latex", "regex", "apex", "ajax", "inbox", "dropbox", "firefox", "netflix", "linux", "unix",
             "pixel", "pixels", "proxy", "fax", "relax", "remix", "prefix", "suffix",
-            "fix", "fox",
+            "fix", "fox", "qwen", "qwerty", "sweet", "swift", "switch", "tweet", "twenty", "twin", "two", "dwarf",
 
             // Từ vựng tiếng Anh thông dụng hay bị dính dấu oan
             "about", "after", "again", "almost", "along", "also", "always", "among", "animal",

@@ -109,7 +109,17 @@ namespace ModernKey.Core
                 ("six", "sĩ"),
                 ("sixx", "six"),
                 ("box", "bõ"),
-                ("boxx", "box")
+                ("boxx", "box"),
+                ("qwen", "qwen"),
+                ("qwwen", "qwen"),
+                ("qww", "qw"),
+                ("sww", "sw"),
+                ("tww", "tw"),
+                ("dww", "dw"),
+                ("kww", "kw"),
+                ("hww", "hw"),
+                ("uoww", "uow"),
+                ("tuww", "tuw")
             };
 
             sb.AppendLine("[TEST TELEX - TUNG TU]");

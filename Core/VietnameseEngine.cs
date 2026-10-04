@@ -3158,15 +3158,18 @@ namespace ModernKey.Core
                             bool isUpper = char.IsUpper(prev) || char.IsUpper(c) || isCaps;
 
                             // 1. Toggle hoàn tác khi gõ lặp 'w' sau khi vừa tạo dấu móc (ă, ơ, ư)
-                            // Chỉ toggle 'ư' -> 'w' khi nguyên âm 'u' đứng trước (uw -> ư, gõ tiếp w -> uw) hoặc khi w đứng đơn lẻ đầu từ (w -> ư, gõ tiếp w -> w).
-                            // TUYỆT ĐỐI không can thiệp khi có phụ âm đầu (như đư, sư) để phục vụ gõ tự do (như ddwwowjcc -> được, ddwwfwng -> đừng).
+                            // Hỗ trợ hoàn phím cho mọi trường hợp: sau phụ âm (qww->qw, sww->sw, tww->tw, dww->dw...) hoặc đầu từ (ww->w), hoặc uw->uww->uw.
+                            // Riêng trường hợp từ bắt đầu bằng chữ 'đ'/'Đ' (như ddwwowjcc->được, ddwwfwng->đừng) thì không hoàn tác thành 'đw' vì không có từ nào là 'đw'.
                             if (prevLower == 'ư')
                             {
-                                bool hadUBefore = sb.Length >= 2 && char.ToLower(RemoveToneFromChar(sb[sb.Length - 2], out _)) == 'u';
-                                if (hadUBefore || sb.Length == 1)
+                                bool isDStroke = sb.Length > 0 && (sb[0] == 'đ' || sb[0] == 'Đ');
+                                if (!isDStroke)
                                 {
+                                    bool hadWKeyBefore = i > 0 && char.ToLowerInvariant(keys[i - 1]) == 'w';
+                                    bool hadUKeyBefore = hadWKeyBefore && i > 1 && char.ToLowerInvariant(keys[i - 2]) == 'u';
+
                                     sb.Remove(sb.Length - 1, 1);
-                                    if (hadUBefore)
+                                    if (hadUKeyBefore)
                                     {
                                         sb.Append(char.IsUpper(prev) ? 'U' : 'u');
                                         sb.Append(isUpper ? 'W' : 'w');
@@ -3189,7 +3192,8 @@ namespace ModernKey.Core
                             }
                             if (prevLower == 'ơ')
                             {
-                                bool hadUBefore = sb.Length >= 2 && char.ToLower(RemoveToneFromChar(sb[sb.Length - 2], out _)) == 'u';
+                                char prev2Clean = sb.Length >= 2 ? char.ToLower(RemoveToneFromChar(sb[sb.Length - 2], out _)) : '\0';
+                                bool hadUBefore = sb.Length >= 2 && (prev2Clean == 'u' || prev2Clean == 'ư');
                                 sb.Remove(sb.Length - 1, 1);
                                 if (hadUBefore)
                                 {
@@ -3475,6 +3479,10 @@ namespace ModernKey.Core
                 case "dduocwj":
                 case "ddwwowjcc":
                 case "đưựơcc":
+                case "đwợcc":
+                case "dwợcc":
+                case "đwowjcc":
+                case "dwowjcc":
                     return (isUpper ? "Được" : "được") + punct;
 
                 case "ddowjqi":
@@ -3492,6 +3500,7 @@ namespace ModernKey.Core
                     return (isUpper ? "Đóng" : "đóng") + punct;
 
                 case "ddaafu":
+                case "đầu":
                     return (isUpper ? "Đầu" : "đầu") + punct;
 
                 case "ddaaqu":
@@ -3512,6 +3521,10 @@ namespace ModernKey.Core
 
                 case "ddwwfwng":
                 case "đưừưng":
+                case "đwừng":
+                case "dwừng":
+                case "đwwfng":
+                case "dwwfng":
                     return (isUpper ? "Đừng" : "đừng") + punct;
 
                 case "dduwawjng":
