@@ -88,7 +88,28 @@ namespace ModernKey.Core
                 ("inbox", "inbox"),
                 ("firefox", "firefox"),
                 ("ww", "w"),
-                ("www", "ww")
+                ("www", "ww"),
+                ("netflix", "netflix"),
+                ("netf", "netf"),
+                ("netff", "netff"),
+                ("max", "mã"),
+                ("maxx", "max"),
+                ("matrix", "matrix"),
+                ("platform", "platform"),
+                ("nets", "nét"),
+                ("netj", "nẹt"),
+                ("bacs", "bác"),
+                ("bacj", "bạc"),
+                ("sachs", "sách"),
+                ("sachj", "sạch"),
+                ("deps", "dép"),
+                ("depj", "dẹp"),
+                ("tax", "tã"),
+                ("taxx", "tax"),
+                ("six", "sĩ"),
+                ("sixx", "six"),
+                ("box", "bõ"),
+                ("boxx", "box")
             };
 
             sb.AppendLine("[TEST TELEX - TUNG TU]");
@@ -445,7 +466,21 @@ namespace ModernKey.Core
                 ("da85m", "dặm"),
                 ("Tie6t1", "Tiết"),
                 ("D9ao5", "Đạo"),
-                ("Bui2", "Bùi")
+                ("Bui2", "Bùi"),
+                ("net1", "nét"),
+                ("net5", "nẹt"),
+                ("net2", "net2"),
+                ("net3", "net3"),
+                ("net4", "net4"),
+                ("bac1", "bác"),
+                ("bac5", "bạc"),
+                ("bac2", "bac2"),
+                ("sach1", "sách"),
+                ("sach5", "sạch"),
+                ("sach3", "sach3"),
+                ("dep1", "dép"),
+                ("dep5", "dẹp"),
+                ("dep4", "dep4")
             };
 
             foreach (var tc in testCasesVni)

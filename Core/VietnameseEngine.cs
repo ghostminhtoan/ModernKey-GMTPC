@@ -2882,6 +2882,8 @@ namespace ModernKey.Core
 
                     if (hasVowelSoFar && canTakeTone)
                     {
+                        bool isStopConsonant = EndsWithStopConsonant(sb);
+
                         if (lower == 's')
                         {
                             if (tone == 1) { tone = 0; sb.Append(c); }
@@ -2889,21 +2891,21 @@ namespace ModernKey.Core
                             modified = true;
                             continue;
                         }
-                        if (lower == 'f')
+                        if (lower == 'f' && !isStopConsonant)
                         {
                             if (tone == 2) { tone = 0; sb.Append(c); }
                             else tone = 2;
                             modified = true;
                             continue;
                         }
-                        if (lower == 'r')
+                        if (lower == 'r' && !isStopConsonant)
                         {
                             if (tone == 3) { tone = 0; sb.Append(c); }
                             else tone = 3;
                             modified = true;
                             continue;
                         }
-                        if (lower == 'x')
+                        if (lower == 'x' && !isStopConsonant)
                         {
                             if (tone == 4) { tone = 0; sb.Append(c); }
                             else tone = 4;
@@ -3299,20 +3301,24 @@ namespace ModernKey.Core
                     // VNI: 1..5 dấu thanh (chỉ khi đã có nguyên âm)
                     if (hasVowelSoFar)
                     {
+                        bool isStopConsonant = EndsWithStopConsonant(sb);
                         if (c >= '1' && c <= '5')
                         {
                             int targetTone = c - '0';
-                            if (tone == targetTone)
+                            if (!isStopConsonant || targetTone == 1 || targetTone == 5)
                             {
-                                tone = 0;
-                                sb.Append(c);
+                                if (tone == targetTone)
+                                {
+                                    tone = 0;
+                                    sb.Append(c);
+                                }
+                                else
+                                {
+                                    tone = targetTone;
+                                }
+                                modified = true;
+                                continue;
                             }
-                            else
-                            {
-                                tone = targetTone;
-                            }
-                            modified = true;
-                            continue;
                         }
                         if (lower == 'z') { tone = 0; modified = true; continue; }
                     }
@@ -3572,6 +3578,20 @@ namespace ModernKey.Core
                 if (IsVowel(sb[i])) return sb[i];
             }
             return '\0';
+        }
+
+        /// <summary>
+        /// Kiểm tra âm tiết có kết thúc bằng phụ âm tắc vô thanh (c, ch, p, t, k) hay không.
+        /// Trong tiếng Việt, các âm tiết khép này chỉ mang 2 thanh điệu: Sắc hoặc Nặng.
+        /// Tuyệt đối không mang thanh Huyền, Hỏi, Ngã.
+        /// </summary>
+        private static bool EndsWithStopConsonant(StringBuilder sb)
+        {
+            if (sb == null || sb.Length == 0) return false;
+            char last = char.ToLowerInvariant(sb[sb.Length - 1]);
+            if (last == 'c' || last == 'p' || last == 't' || last == 'k') return true;
+            if (last == 'h' && sb.Length >= 2 && char.ToLowerInvariant(sb[sb.Length - 2]) == 'c') return true;
+            return false;
         }
 
         private static bool HasAnyVowel(string str)
