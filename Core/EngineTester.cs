@@ -1530,9 +1530,38 @@ namespace ModernKey.Core
                     {
                         IsVietnamese = true,
                         CurrentInputMethod = InputMethod.Telex,
-                        ModernToneRules = true
+                        ModernToneRules = true,
+                        SmartEnglishBypass = true
                     }, new MacroManager());
 
+                    // Kiểm thử parser từ điển hợp nhất: cú pháp //, :, inline comment và English bypass
+                    string testUnifiedDict = @"# Tiêu đề từ điển test
+# Section 1: English bypass
+customwordbypass
+qwen
+
+# Section 2: Spelling
+pát//past
+cáe:case
+clóe // close # có khoảng trắng và comment inline
+";
+                    SpellingCorrectionManager.Instance.LoadFromString(testUnifiedDict);
+
+                    bool p1 = SpellingCorrectionManager.Instance.TryCorrect("pát", out string corr1) && corr1 == "past";
+                    bool p2 = SpellingCorrectionManager.Instance.TryCorrect("cáe", out string corr2) && corr2 == "case";
+                    bool p3 = SpellingCorrectionManager.Instance.TryCorrect("clóe", out string corr3) && corr3 == "close";
+                    bool p4 = EnglishDictionary.IsCommonEnglishWord("customwordbypass");
+                    if (p1 && p2 && p3 && p4)
+                    {
+                        sb.AppendLine("  PASS Kiểm thử parser hợp nhất (//, :, comment, English bypass)");
+                    }
+                    else
+                    {
+                        allPassed = false;
+                        sb.AppendLine($"  FAIL Kiểm thử parser hợp nhất: p1={p1}, p2={p2}, p3={p3}, p4={p4}");
+                    }
+
+                    // Tải lại từ điển chính
                     SpellingCorrectionManager.Instance.InitializeDictionary();
 
                     var spellingTests = new (string input, string expected)[]
@@ -1548,6 +1577,10 @@ namespace ModernKey.Core
                         ("shơ ", "show "),
                         ("tơn ", "town "),
                         ("cáe\n", "case\n"),
+                        ("qwen ", "qwen "),
+                        ("qwerty ", "qwerty "),
+                        ("netflix ", "netflix "),
+                        ("sweet ", "sweet "),
                         ("telex ", "telex "),
                         ("simpletelex ", "simpletelex "),
                         ("new ", "new "),

@@ -239,6 +239,12 @@ namespace ModernKey.Tray
             });
             menu.Items.Add(itemQuickConvert);
 
+            var itemOpenSpellingDict = new ToolStripMenuItem("Mở từ điển chính tả & tiếng Anh (TXT)...", null, (s, e) =>
+            {
+                SpellingCorrectionManager.Instance.OpenDictionaryFile();
+            });
+            menu.Items.Add(itemOpenSpellingDict);
+
             menu.Items.Add(new ToolStripSeparator());
 
             // 3. Nhóm Kiểu gõ hiển thị 1 chạm (Chuẩn OpenKey C++ - Ảnh 2)

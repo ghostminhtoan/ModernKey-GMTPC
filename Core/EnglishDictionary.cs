@@ -61,10 +61,64 @@ namespace ModernKey.Core
             "write", "year", "young"
         };
 
+        private static readonly HashSet<string> CustomWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private static readonly object _customWordsLock = new object();
+
+        public static int CustomWordCount
+        {
+            get
+            {
+                lock (_customWordsLock)
+                {
+                    return CustomWords.Count;
+                }
+            }
+        }
+
+        public static void ClearCustomWords()
+        {
+            lock (_customWordsLock)
+            {
+                CustomWords.Clear();
+            }
+        }
+
+        public static void AddCustomWord(string word)
+        {
+            if (string.IsNullOrWhiteSpace(word)) return;
+            lock (_customWordsLock)
+            {
+                CustomWords.Add(word.Trim());
+            }
+        }
+
+        public static void SetCustomWords(IEnumerable<string> words)
+        {
+            lock (_customWordsLock)
+            {
+                CustomWords.Clear();
+                if (words != null)
+                {
+                    foreach (var w in words)
+                    {
+                        if (!string.IsNullOrWhiteSpace(w))
+                        {
+                            CustomWords.Add(w.Trim());
+                        }
+                    }
+                }
+            }
+        }
+
         public static bool IsCommonEnglishWord(string word)
         {
             if (string.IsNullOrEmpty(word)) return false;
-            return CommonWords.Contains(word);
+            if (CommonWords.Contains(word)) return true;
+            lock (_customWordsLock)
+            {
+                return CustomWords.Contains(word);
+            }
         }
     }
 }
+

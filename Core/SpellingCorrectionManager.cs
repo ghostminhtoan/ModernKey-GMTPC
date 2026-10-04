@@ -24,33 +24,69 @@ namespace ModernKey.Core
         private FileSystemWatcher _fileWatcher;
         private string _dictionaryFilePath;
 
+        public int CorrectionCount
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _corrections.Count;
+                }
+            }
+        }
+
         public const string DefaultContent =
-@"pót:post
-cáe:case
-pát:past
-clóe:close
-clúe:cluse
-ríe:rise
-róe:rose
-wíe:wise
-fêt:feet
-mêt:meet
-nêd:need
-sêd:seed
-kêp:keep
-dêp:deep
-wêk:week
-fêd:feed
-bôk:book
-lôk:look
-côk:cook
-gôd:good
-tôl:tool
-tôt:toot
-rôt:root
-shơ:show
-dơn:down
-tơn:town";
+@"# ==============================================================================
+# MODERNKEY - TỪ ĐIỂN TỔNG HỢP: SỬA LỖI CHÍNH TẢ & TỪ ĐIỂN TIẾNG ANH (BYPASS)
+# ==============================================================================
+# File được tự động nạp lại (Hot-reload) ngay khi bấm Ctrl + S trong Notepad.
+# Hướng dẫn cú pháp:
+# 1. Dòng chứa ""//"" (hoặc "":""): Cặp từ sửa lỗi chính tả dính dấu (từ_dính_dấu//từ_đúng).
+#    Ví dụ: pát//past, cáe//case, shơ//show...
+# 2. Dòng 1 từ duy nhất: Từ vựng tiếng Anh bypass không bao giờ bị ép dấu tiếng Việt.
+#    Ví dụ: qwen, netflix, sweet, qwerty...
+# 3. Dòng bắt đầu bằng ""#"" hoặc ""//"": Dòng chú thích / tiêu đề phân chia section.
+# ==============================================================================
+
+# --- [PHẦN 1] TỪ ĐIỂN TIẾNG ANH BẢO VỆ (ENGLISH BYPASS) ---
+# Thêm các từ tiếng Anh bạn hay gõ vào đây để không bị biến dạng tiếng Việt
+qwen
+qwerty
+netflix
+sweet
+swift
+switch
+twenty
+dwarf
+
+# --- [PHẦN 2] BẢNG TỰ ĐỘNG SỬA LỖI CHÍNH TẢ (SPELLING CORRECTION) ---
+# Tự động thay thế từ dính dấu thành từ tiếng Anh chuẩn khi gõ xong
+pót//post
+cáe//case
+pát//past
+clóe//close
+clúe//cluse
+ríe//rise
+róe//rose
+wíe//wise
+fêt//feet
+mêt//meet
+nêd//need
+sêd//seed
+kêp//keep
+dêp//deep
+wêk//week
+fêd//feed
+bôk//book
+lôk//look
+côk//cook
+gôd//good
+tôl//tool
+tôt//toot
+rôt//root
+shơ//show
+dơn//down
+tơn//town";
 
         public SpellingCorrectionManager()
         {
@@ -142,26 +178,15 @@ tơn:town";
             try
             {
                 var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                var customWords = new List<string>();
+
                 using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                 using (var reader = new StreamReader(stream, Encoding.UTF8))
                 {
                     string line;
                     while ((line = reader.ReadLine()) != null)
                     {
-                        line = line.Trim();
-                        if (string.IsNullOrEmpty(line) || line.StartsWith("#") || line.StartsWith("//"))
-                            continue;
-
-                        int colonIdx = line.IndexOf(':');
-                        if (colonIdx > 0 && colonIdx < line.Length - 1)
-                        {
-                            string wrong = line.Substring(0, colonIdx).Trim();
-                            string correct = line.Substring(colonIdx + 1).Trim();
-                            if (!string.IsNullOrEmpty(wrong) && !string.IsNullOrEmpty(correct))
-                            {
-                                dict[wrong] = correct;
-                            }
-                        }
+                        ParseLine(line, dict, customWords);
                     }
                 }
 
@@ -173,6 +198,7 @@ tơn:town";
                         _corrections[kvp.Key] = kvp.Value;
                     }
                 }
+                EnglishDictionary.SetCustomWords(customWords);
             }
             catch (Exception ex)
             {
@@ -185,25 +211,14 @@ tơn:town";
             if (string.IsNullOrEmpty(content)) return;
 
             var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var customWords = new List<string>();
+
             using (var reader = new StringReader(content))
             {
                 string line;
                 while ((line = reader.ReadLine()) != null)
                 {
-                    line = line.Trim();
-                    if (string.IsNullOrEmpty(line) || line.StartsWith("#") || line.StartsWith("//"))
-                        continue;
-
-                    int colonIdx = line.IndexOf(':');
-                    if (colonIdx > 0 && colonIdx < line.Length - 1)
-                    {
-                        string wrong = line.Substring(0, colonIdx).Trim();
-                        string correct = line.Substring(colonIdx + 1).Trim();
-                        if (!string.IsNullOrEmpty(wrong) && !string.IsNullOrEmpty(correct))
-                        {
-                            dict[wrong] = correct;
-                        }
-                    }
+                    ParseLine(line, dict, customWords);
                 }
             }
 
@@ -213,6 +228,57 @@ tơn:town";
                 foreach (var kvp in dict)
                 {
                     _corrections[kvp.Key] = kvp.Value;
+                }
+            }
+            EnglishDictionary.SetCustomWords(customWords);
+        }
+
+        private static void ParseLine(string line, Dictionary<string, string> dict, List<string> customWords)
+        {
+            if (string.IsNullOrWhiteSpace(line)) return;
+            line = line.Trim();
+
+            // 1. Bỏ qua dòng comment bắt đầu bằng '#'
+            if (line.StartsWith("#")) return;
+
+            // Cắt bỏ phần inline comment với '#' ở cuối dòng nếu có (ví dụ: "qwen # AI" hoặc "pát//past # sửa")
+            int hashIdx = line.IndexOf('#');
+            if (hashIdx >= 0)
+            {
+                line = line.Substring(0, hashIdx).Trim();
+                if (string.IsNullOrEmpty(line)) return;
+            }
+
+            // 2. Kiểm tra phân tách sửa lỗi chính tả: ưu tiên "//" rồi đến ":"
+            int sepIdx = line.IndexOf("//", StringComparison.Ordinal);
+            int sepLen = 2;
+            if (sepIdx < 0)
+            {
+                sepIdx = line.IndexOf(':');
+                sepLen = 1;
+            }
+
+            if (sepIdx == 0)
+            {
+                // Dòng bắt đầu bằng "//" hoặc ":" (ví dụ dòng chú thích //): bỏ qua
+                return;
+            }
+
+            if (sepIdx > 0 && sepIdx + sepLen <= line.Length)
+            {
+                string wrong = line.Substring(0, sepIdx).Trim();
+                string correct = line.Substring(sepIdx + sepLen).Trim();
+                if (!string.IsNullOrEmpty(wrong) && !string.IsNullOrEmpty(correct))
+                {
+                    dict[wrong] = correct;
+                }
+            }
+            else
+            {
+                // 3. Không có dấu phân tách: kiểm tra từ tiếng Anh bypass đơn lẻ (không chứa khoảng trắng)
+                if (!line.Contains(" ") && !line.Contains("\t"))
+                {
+                    customWords.Add(line);
                 }
             }
         }

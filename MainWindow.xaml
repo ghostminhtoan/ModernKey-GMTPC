@@ -191,7 +191,7 @@
 
                         <Separator Background="{StaticResource CyberBorderDim}" Margin="0,4,0,12" />
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                            <Button x:Name="BtnOpenSpellingDict" Content="MỞ TỪ ĐIỂN SỬA LỖI CHÍNH TẢ (TXT)..." Click="BtnOpenSpellingDict_Click" Padding="14,6" Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" FontFamily="Consolas" FontWeight="Bold" ToolTip="Mở file spelling_correction.txt (UTF-8 without BOM) để chỉnh sửa các từ sửa lỗi chính tả" />
+                            <Button x:Name="BtnOpenSpellingDict" Content="MỞ TỪ ĐIỂN CHÍNH TẢ &amp; TIẾNG ANH (TXT)..." Click="BtnOpenSpellingDict_Click" Padding="14,6" Background="#1D2A1F" BorderBrush="#00FF66" Foreground="#00FF66" FontFamily="Consolas" FontWeight="Bold" ToolTip="Mở file spelling_correction.txt (UTF-8 without BOM) để chỉnh sửa các từ sửa lỗi chính tả (pát//past) và từ điển tiếng Anh bypass (qwen, sweet...)" />
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>

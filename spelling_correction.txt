@@ -1,0 +1,51 @@
+# ==============================================================================
+# MODERNKEY - TỪ ĐIỂN TỔNG HỢP: SỬA LỖI CHÍNH TẢ & TỪ ĐIỂN TIẾNG ANH (BYPASS)
+# ==============================================================================
+# File được tự động nạp lại (Hot-reload) ngay khi bấm Ctrl + S trong Notepad.
+# Hướng dẫn cú pháp:
+# 1. Dòng chứa "//" (hoặc ":"): Cặp từ sửa lỗi chính tả dính dấu (từ_dính_dấu//từ_đúng).
+#    Ví dụ: pát//past, cáe//case, shơ//show...
+# 2. Dòng 1 từ duy nhất: Từ vựng tiếng Anh bypass không bao giờ bị ép dấu tiếng Việt.
+#    Ví dụ: qwen, netflix, sweet, qwerty...
+# 3. Dòng bắt đầu bằng "#" hoặc "//": Dòng chú thích / tiêu đề phân chia section.
+# ==============================================================================
+
+# --- [PHẦN 1] TỪ ĐIỂN TIẾNG ANH BẢO VỆ (ENGLISH BYPASS) ---
+# Thêm các từ tiếng Anh bạn hay gõ vào đây để không bị biến dạng tiếng Việt
+qwen
+qwerty
+netflix
+sweet
+swift
+switch
+twenty
+dwarf
+
+# --- [PHẦN 2] BẢNG TỰ ĐỘNG SỬA LỖI CHÍNH TẢ (SPELLING CORRECTION) ---
+# Tự động thay thế từ dính dấu thành từ tiếng Anh chuẩn khi gõ xong
+pót//post
+cáe//case
+pát//past
+clóe//close
+clúe//cluse
+ríe//rise
+róe//rose
+wíe//wise
+fêt//feet
+mêt//meet
+nêd//need
+sêd//seed
+kêp//keep
+dêp//deep
+wêk//week
+fêd//feed
+bôk//book
+lôk//look
+côk//cook
+gôd//good
+tôl//tool
+tôt//toot
+rôt//root
+shơ//show
+dơn//down
+tơn//town
