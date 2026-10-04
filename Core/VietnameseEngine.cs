@@ -1153,23 +1153,6 @@ namespace ModernKey.Core
                 return true;
             }
 
-            // 3.5. Smart English Bypass: Nếu toàn bộ từ thô tạo thành từ tiếng Anh thông dụng (vd: "post", "cost", "case", "test")
-            // CẦN KIỂM TRA TRƯỚC DELTA-CHANGE để không bị lọt các từ có phụ âm cuối như post, cost, test!
-            if (_settings.SmartEnglishBypass && _charBuffer.Count > 0)
-            {
-                string rawWord = new string(_charBuffer.ToArray());
-                if (EnglishDictionary.IsCommonEnglishWord(rawWord))
-                {
-                    if (actualDisplayWord != rawWord || (!string.IsNullOrEmpty(prevDisplayWord) && prevDisplayWord != rawWord.Substring(0, rawWord.Length - 1)))
-                    {
-                        backspaceCount = Math.Min(prevDisplayWord.Length, 15);
-                        newString = CharsetConverter.FromUnicode(EnforceCasingConsistency(rawWord, _charBuffer), _settings.CurrentCharset);
-                        _isRawWordOnScreen = true;
-                        return true;
-                    }
-                }
-            }
-
             // 4. SO SÁNH DELTA-CHANGE:
             // Nếu actualDisplayWord GIỐNG HỆT expectedNormal:
             // Phím ch KHÔNG làm biến đổi dấu hay mũ nào! Để Windows in ký tự tự nhiên!

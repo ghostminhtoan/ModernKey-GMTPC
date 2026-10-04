@@ -59,6 +59,10 @@ switch
 twenty
 dwarf
 
+# --- Đây là phần người dùng thêm vào ---
+# (Gõ các từ tiếng Anh bạn muốn bảo vệ xuống dưới này, mỗi từ một dòng)
+
+
 # --- [PHẦN 2] BẢNG TỰ ĐỘNG SỬA LỖI CHÍNH TẢ (SPELLING CORRECTION) ---
 # Tự động thay thế từ dính dấu thành từ tiếng Anh chuẩn khi gõ xong
 pót//post
@@ -86,7 +90,10 @@ tôt//toot
 rôt//root
 shơ//show
 dơn//down
-tơn//town";
+tơn//town
+
+# --- Đây là phần người dùng thêm vào ---
+# (Gõ cặp từ sửa lỗi chính tả theo cú pháp: từ_dính_dấu//từ_đúng xuống dưới này)";
 
         public SpellingCorrectionManager()
         {

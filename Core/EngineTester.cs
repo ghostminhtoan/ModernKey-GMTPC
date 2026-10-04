@@ -119,7 +119,19 @@ namespace ModernKey.Core
                 ("kww", "kw"),
                 ("hww", "hw"),
                 ("uoww", "uow"),
-                ("tuww", "tuw")
+                ("tuww", "tuw"),
+                ("thisch", "thích"),
+                ("thist", "thít"),
+                ("thichs", "thích"),
+                ("thits", "thít"),
+                ("this", "thí"),
+                ("thism", "thím"),
+                ("thisn", "thín"),
+                ("thasc", "thác"),
+                ("thast", "thát"),
+                ("thasch", "thách"),
+                ("thasng", "tháng"),
+                ("thasnh", "thánh")
             };
 
             sb.AppendLine("[TEST TELEX - TUNG TU]");
